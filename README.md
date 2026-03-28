@@ -2,7 +2,49 @@
 ### Omnichannel Commerce Engines and AI-Driven Retail Ecosystem
 
 ---
+```mermaid
+graph LR
+    %% Advanced CSS Styling for Smoothness and Color
+    classDef userGateway fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#fff,rx:20,ry:20;
+    classDef coreApp fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#fff,rx:20,ry:20;
+    classDef aiEngine fill:#4c0519,stroke:#f43f5e,stroke-width:2px,color:#fff,rx:20,ry:20;
+    classDef cloudInfra fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff,rx:20,ry:20;
+    classDef dataLayer fill:#422006,stroke:#fb923c,stroke-width:2px,color:#fff,rx:20,ry:20;
+    
+    %% Link Styling (Sleek grey paths)
+    linkStyle default stroke:#64748b,stroke-width:2px,fill:none;
 
+    %% Free-floating Nodes with Retail Icons
+    Shopper(["fa:fa-bag-shopping Shopper App / Web"]):::userGateway
+    Admin(["fa:fa-store Store Admin Portal"]):::userGateway
+    API(["fa:fa-network-wired Omnichannel API Gateway"]):::userGateway
+    
+    Checkout(["fa:fa-cart-check High-Velocity Checkout"]):::coreApp
+    Inventory(["fa:fa-boxes-stacked Real-time Inventory"]):::coreApp
+    
+    Personalize(["fa:fa-wand-magic-sparkles AI Personalization"]):::aiEngine
+    Demand(["fa:fa-chart-line Demand Forecasting"]):::aiEngine
+    
+    CDN(["fa:fa-globe Global CDN Edge"]):::cloudInfra
+    Cloud(["fa:fa-server Elastic Commerce Cloud"]):::cloudInfra
+    
+    CRM(["fa:fa-users Salesforce Commerce"]):::dataLayer
+    Data(["fa:fa-database Unified Customer Profile"]):::dataLayer
+
+    %% Flow Path Connections
+    Shopper == "Browse/Buy" ==> API
+    Admin == "Manage Stock" ==> API
+    API -. "Auth/Token" .-> Checkout
+    API ==> Inventory
+    Checkout ==> Personalize
+    Personalize -. "User Behavior" .-> Demand
+    Inventory ==> Cloud
+    Checkout ==> Cloud
+    Cloud ==> CDN
+    Cloud ==> CRM
+    Demand ==> Data
+    CRM ==> Data
+```
 ![Status](https://img.shields.io/badge/Status-BD5A00?style=flat) ![Proprietary](https://img.shields.io/badge/Proprietary-FF8C00?style=flat) &nbsp; ![Industry](https://img.shields.io/badge/Industry-004B8D?style=flat) ![Retail](https://img.shields.io/badge/Retail-007FFF?style=flat) &nbsp; ![Architecture](https://img.shields.io/badge/Architecture-00695C?style=flat) ![Omnichannel](https://img.shields.io/badge/Omnichannel-26A69A?style=flat)
 
 This repository serves as a mission-critical engineering showcase by **Altynx**. It demonstrates a unified approach to modern Retail technology, focusing on high-concurrency transaction processing, hyper-personalized customer journeys, and scalable commerce infrastructure.
