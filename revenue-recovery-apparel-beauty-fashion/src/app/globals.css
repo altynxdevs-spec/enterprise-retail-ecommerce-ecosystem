@@ -8204,3 +8204,82 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem * {
     justify-content: flex-start;
   }
 }
+
+/* =========================================================
+   Product Demand action flow
+========================================================= */
+
+.demand-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.demand-owner-panel {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #e8e8e5;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.demand-owner-panel h4 {
+  margin: 0;
+  color: #111111;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.demand-owner-panel p {
+  margin: 6px 0 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.demand-owner-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.demand-owner-row select {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #d8d8d4;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #111111;
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.demand-owner-row select:focus {
+  border-color: #ff4500;
+  outline: 3px solid rgba(255, 69, 0, 0.12);
+}
+
+.demand-owner-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .demand-owner-row {
+    grid-template-columns: 1fr;
+  }
+
+  .demand-owner-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}

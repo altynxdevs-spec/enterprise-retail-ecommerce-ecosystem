@@ -8480,7 +8480,7 @@ function buildAiResponseDraft(task: RecoveryTask) {
   );
 }
 
-function TodaysRecoveryQueue() {
+function TodaysRecoveryQueue({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [activeTab, setActiveTab] = useState<QueueTab>("All");
   const [selectedTaskId, setSelectedTaskId] = useState(recoveryTasks[0].id);
   const [queueMode, setQueueMode] = useState<"list" | "detail">("list");
@@ -8544,13 +8544,18 @@ function TodaysRecoveryQueue() {
   }
 
   function createFollowUpForSelectedTask() {
-    setFollowUpTaskIds((current) => ({
-      ...current,
-      [selectedTask.id]: true,
-    }));
+  setFollowUpTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: true,
+  }));
 
-    setDetailNotice(`Follow-up created for ${selectedTask.customer}.`);
-  }
+  setDetailNotice(`Follow-up created for ${selectedTask.customer}.`);
+}
+
+function viewCreatedFollowUp() {
+  setDetailNotice(`Opening Follow-up Recovery for ${selectedTask.customer}.`);
+  onNavigate("Follow-up Recovery");
+}
 
   function markSelectedTaskReviewed() {
     setReviewedTaskIds((current) => ({
@@ -8809,9 +8814,15 @@ function TodaysRecoveryQueue() {
                 Copy Message
               </button>
 
-              <button type="button" className="secondary-btn" onClick={createFollowUpForSelectedTask}>
-                Create Follow-up
-              </button>
+              {followUpTaskIds[selectedTask.id] ? (
+  <button type="button" className="secondary-btn" onClick={viewCreatedFollowUp}>
+    View Follow-up
+  </button>
+) : (
+  <button type="button" className="secondary-btn" onClick={createFollowUpForSelectedTask}>
+    Create Follow-up
+  </button>
+)}
 
               <button type="button" className="secondary-btn" onClick={markSelectedTaskReviewed}>
                 {reviewedTaskIds[selectedTask.id] ? "Reviewed ✓" : "Mark Reviewed"}
@@ -9586,14 +9597,35 @@ function InquiryInbox({
   );
 }
 
-function ProductDemand({ onActivity }: { onActivity: (activity: NewRecoveryActivity) => void }) {
+function ProductDemand({
+  onActivity,
+  onNavigate,
+}: {
+  onActivity: (activity: NewRecoveryActivity) => void;
+  onNavigate: (page: string) => void;
+}) {
   const [demandSignals, setDemandSignals] = useState<ProductDemandSignal[]>(productDemandSignals);
   const [activeDemandFilter, setActiveDemandFilter] = useState<ProductDemandFilter>("All");
   const [notice, setNotice] = useState("Demand signals are ready for recovery review.");
+  const [activeAssignSignalId, setActiveAssignSignalId] = useState<string | null>(null);
+const [selectedDemandOwner, setSelectedDemandOwner] = useState("");
 
   const filteredDemand = demandSignals.filter((signal) =>
     matchesProductDemandFilter(signal, activeDemandFilter),
   );
+
+  const demandOwnerOptions = [
+  ...teamUsers.map((member) => ({
+    id: member.id,
+    name: member.name,
+    role: member.role,
+  })),
+  {
+    id: "operations",
+    name: "Operations",
+    role: "Admin",
+  },
+];
 
   const demandKpis = useMemo<KPI[]>(() => {
     const demandValue = demandSignals.reduce(
@@ -9655,76 +9687,128 @@ function ProductDemand({ onActivity }: { onActivity: (activity: NewRecoveryActiv
     });
   }
 
-  function handleDemandAction(signal: ProductDemandSignal, action: "tasks" | "assign" | "reviewed" | "queue") {
-    if (action === "tasks") {
-      setDemandSignals((signals) =>
-        signals.map((item) =>
-          item.id === signal.id
-            ? {
-                ...item,
-                recoveryTasksCreated: true,
-                openRecoveryActions: item.openRecoveryActions + Math.max(1, Math.min(3, item.highIntentCount)),
-                lastAction: "Recovery tasks created",
-              }
-            : item,
-        ),
-      );
-      setNotice(`Recovery tasks created for ${signal.demandName}.`);
-      recordDemandActivity(signal, "Demand recovery tasks created", "Created");
-      return;
-    }
+  function getDemandQueuePage(signal: ProductDemandSignal) {
+  if (signal.demandType === "Refill") {
+    return "Refill Opportunities";
+  }
 
-    if (action === "assign") {
-      const owner = getDefaultOwnerForDemand(signal);
+  if (signal.demandType === "Restock") {
+    return "Restock Waitlist";
+  }
 
-      setDemandSignals((signals) =>
-        signals.map((item) =>
-          item.id === signal.id
-            ? {
-                ...item,
-                owner,
-                lastAction: `Assigned to ${owner}`,
-              }
-            : item,
-        ),
-      );
-      setNotice(`${signal.demandName} assigned to ${owner}.`);
-      recordDemandActivity({ ...signal, owner }, "Demand owner assigned", "Owner assigned");
-      return;
-    }
+  return "Today's Recovery Queue";
+}
 
-    if (action === "reviewed") {
-      setDemandSignals((signals) =>
-        signals.map((item) =>
-          item.id === signal.id
-            ? {
-                ...item,
-                reviewed: true,
-                lastAction: "Marked reviewed",
-              }
-            : item,
-        ),
-      );
-      setNotice(`${signal.demandName} marked reviewed.`);
-      recordDemandActivity(signal, "Demand signal reviewed", "Reviewed");
-      return;
-    }
+function getDemandQueueButtonLabel(signal: ProductDemandSignal) {
+  if (signal.demandType === "Refill") {
+    return "View Refill Queue";
+  }
 
+  if (signal.demandType === "Restock") {
+    return "View Restock Queue";
+  }
+
+  return "View Recovery Queue";
+}
+
+function openDemandOwnerPanel(signal: ProductDemandSignal) {
+  setActiveAssignSignalId(signal.id);
+  setSelectedDemandOwner(signal.owner === "Unassigned" ? getDefaultOwnerForDemand(signal) : signal.owner);
+  setNotice(`Select a demand owner for ${signal.demandName}.`);
+}
+
+function cancelDemandOwnerPanel() {
+  setActiveAssignSignalId(null);
+  setSelectedDemandOwner("");
+  setNotice("Demand signals are ready for recovery review.");
+}
+
+function confirmDemandOwner(signal: ProductDemandSignal) {
+  const owner = selectedDemandOwner || getDefaultOwnerForDemand(signal);
+
+  setDemandSignals((signals) =>
+    signals.map((item) =>
+      item.id === signal.id
+        ? {
+            ...item,
+            owner,
+            lastAction: `Assigned to ${owner}`,
+          }
+        : item,
+    ),
+  );
+
+  setActiveAssignSignalId(null);
+  setSelectedDemandOwner("");
+  setNotice(`${signal.demandName} assigned to ${owner}.`);
+  recordDemandActivity({ ...signal, owner }, "Demand owner assigned", "Owner assigned");
+}
+
+function viewDemandRecoveryTasks(signal: ProductDemandSignal) {
+  setNotice(`Opening recovery queue for ${signal.demandName}.`);
+  onNavigate("Today's Recovery Queue");
+}
+
+function viewRestockRefillQueue(signal: ProductDemandSignal) {
+  const targetPage = getDemandQueuePage(signal);
+
+  setNotice(`Opening ${targetPage} for ${signal.demandName}.`);
+  onNavigate(targetPage);
+}
+
+function handleDemandAction(signal: ProductDemandSignal, action: "tasks" | "reviewed" | "queue") {
+  if (action === "tasks") {
     setDemandSignals((signals) =>
       signals.map((item) =>
         item.id === signal.id
           ? {
               ...item,
-              restockQueue: true,
-              lastAction: "Added to restock/refill queue",
+              recoveryTasksCreated: true,
+              openRecoveryActions: item.openRecoveryActions + Math.max(1, Math.min(3, item.highIntentCount)),
+              lastAction: "Recovery tasks created",
             }
           : item,
       ),
     );
-    setNotice(`${signal.demandName} added to the restock/refill queue.`);
-    recordDemandActivity(signal, "Demand added to restock/refill queue", "Queued");
+
+    setNotice(`Recovery tasks created for ${signal.demandName}.`);
+    recordDemandActivity(signal, "Demand recovery tasks created", "Created");
+    return;
   }
 
+  if (action === "reviewed") {
+    setDemandSignals((signals) =>
+      signals.map((item) =>
+        item.id === signal.id
+          ? {
+              ...item,
+              reviewed: true,
+              lastAction: "Marked reviewed",
+            }
+          : item,
+      ),
+    );
+
+    setNotice(`${signal.demandName} marked reviewed.`);
+    recordDemandActivity(signal, "Demand signal reviewed", "Reviewed");
+    return;
+  }
+
+  setDemandSignals((signals) =>
+    signals.map((item) =>
+      item.id === signal.id
+        ? {
+            ...item,
+            restockQueue: true,
+            lastAction: "Added to restock/refill queue",
+          }
+        : item,
+    ),
+  );
+
+  setNotice(`${signal.demandName} added to the restock/refill queue.`);
+  recordDemandActivity(signal, "Demand added to restock/refill queue", "Queued");
+}
   return (
     <div className="recovery-page">
       <section className="recovery-kpi-grid capture-kpi-grid">
@@ -9764,9 +9848,21 @@ function ProductDemand({ onActivity }: { onActivity: (activity: NewRecoveryActiv
               <div className="capture-card-main">
                 <div>
                   <div className="recovery-row-title">
-                    <h3>{signal.demandName}</h3>
-                    <Badge tone={signal.tone}>{signal.demandType}</Badge>
-                  </div>
+  <h3>{signal.demandName}</h3>
+  <Badge tone={signal.tone}>{signal.demandType}</Badge>
+
+  {signal.recoveryTasksCreated ? (
+    <span className="queue-status-pill">Tasks created</span>
+  ) : null}
+
+  {signal.restockQueue ? (
+    <span className="queue-status-pill">Queued</span>
+  ) : null}
+
+  {signal.reviewed ? (
+    <span className="queue-status-pill reviewed">Reviewed</span>
+  ) : null}
+</div>
                   <p>{signal.recommendedNextAction}</p>
                   <div className="recovery-meta">
                     <span>{signal.industryType}</span>
@@ -9802,20 +9898,67 @@ function ProductDemand({ onActivity }: { onActivity: (activity: NewRecoveryActiv
                 </div>
               </div>
 
-              <div className="capture-actions">
-                <button type="button" className="primary-btn" onClick={() => handleDemandAction(signal, "tasks")}>
-                  Create recovery tasks
-                </button>
-                <button type="button" className="secondary-btn" onClick={() => handleDemandAction(signal, "assign")}>
-                  Assign demand owner
-                </button>
-                <button type="button" className="secondary-btn" onClick={() => handleDemandAction(signal, "reviewed")}>
-                  Mark reviewed
-                </button>
-                <button type="button" className="secondary-btn" onClick={() => handleDemandAction(signal, "queue")}>
-                  Add to restock/refill queue
-                </button>
-              </div>
+              <div className="capture-actions demand-actions-row">
+  {signal.recoveryTasksCreated ? (
+    <button type="button" className="primary-btn" onClick={() => viewDemandRecoveryTasks(signal)}>
+      View recovery tasks
+    </button>
+  ) : (
+    <button type="button" className="primary-btn" onClick={() => handleDemandAction(signal, "tasks")}>
+      Create recovery tasks
+    </button>
+  )}
+
+  <button type="button" className="secondary-btn" onClick={() => openDemandOwnerPanel(signal)}>
+    {activeAssignSignalId === signal.id ? "Assigning owner" : "Assign demand owner"}
+  </button>
+
+  <button type="button" className="secondary-btn" onClick={() => handleDemandAction(signal, "reviewed")}>
+    {signal.reviewed ? "Reviewed ✓" : "Mark reviewed"}
+  </button>
+
+  {signal.restockQueue ? (
+    <button type="button" className="secondary-btn" onClick={() => viewRestockRefillQueue(signal)}>
+      {getDemandQueueButtonLabel(signal)}
+    </button>
+  ) : (
+    <button type="button" className="secondary-btn" onClick={() => handleDemandAction(signal, "queue")}>
+      Add to restock/refill queue
+    </button>
+  )}
+</div>
+
+{activeAssignSignalId === signal.id ? (
+  <div className="demand-owner-panel">
+    <div>
+      <h4>Assign demand owner</h4>
+      <p>Select the team member who should own this demand group.</p>
+    </div>
+
+    <div className="demand-owner-row">
+      <select
+        value={selectedDemandOwner}
+        onChange={(event) => setSelectedDemandOwner(event.target.value)}
+      >
+        {demandOwnerOptions.map((owner) => (
+          <option key={owner.id} value={owner.name}>
+            {owner.name} - {owner.role}
+          </option>
+        ))}
+      </select>
+
+      <div className="demand-owner-actions">
+        <button type="button" className="primary-btn" onClick={() => confirmDemandOwner(signal)}>
+          Confirm Assignment
+        </button>
+
+        <button type="button" className="secondary-btn" onClick={cancelDemandOwnerPanel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+) : null}
             </article>
           ))}
         </div>
@@ -15704,11 +15847,11 @@ function closeExportReport() {
             onNavigate={navigateToPage}
           />
         ) : activePage === "Today's Recovery Queue" ? (
-          <TodaysRecoveryQueue />
+          <TodaysRecoveryQueue onNavigate={navigateToPage} />
         ) : activePage === "Inquiry Inbox" ? (
           <InquiryInbox onActivity={addRecoveryActivity} onNavigate={navigateToPage} />
         ) : activePage === "Product Demand" ? (
-          <ProductDemand onActivity={addRecoveryActivity} />
+          <ProductDemand onActivity={addRecoveryActivity} onNavigate={navigateToPage} />
         ) : activePage === "Source Leak Tracking" ? (
           <SourceLeakTracking onActivity={addRecoveryActivity} />
         ) : activePage === "Product Catalog" ? (
