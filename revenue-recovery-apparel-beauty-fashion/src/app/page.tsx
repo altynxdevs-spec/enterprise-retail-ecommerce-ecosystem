@@ -13005,7 +13005,13 @@ export default function Home() {
   return (
     <main className="app-shell">
       <aside className="sidebar">
-        <div className="brand">ALTYNX</div>
+        <div className="brand">
+          <img
+            className="brand-logo"
+            src="https://res.cloudinary.com/dojm1aiw2/image/upload/v1777510190/LOGO_Altynx_for_Developers_Black_cwc31f.png"
+            alt="Altynx"
+          />
+        </div>
 
         <nav className="sidebar-menu" aria-label="Altynx navigation">
           {sidebarGroups.map((group) => {
