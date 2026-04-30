@@ -8022,3 +8022,185 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem * {
     justify-content: flex-start;
   }
 }
+
+/* =========================================================
+   Inquiry Inbox list + detail flow
+========================================================= */
+
+.inquiry-list-page {
+  width: 100%;
+}
+
+.inquiry-full-list {
+  display: grid;
+  gap: 14px;
+}
+
+.inquiry-detail-page {
+  display: grid;
+  gap: 16px;
+}
+
+.inline-action-panel {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #e8e8e5;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.inline-action-panel span {
+  display: block;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inline-action-panel p {
+  margin: 5px 0 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.inline-action-panel select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #d8d8d4;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #111111;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.internal-note-textarea {
+  width: 100%;
+  min-height: 130px;
+  resize: vertical;
+  border: 1px solid #d8d8d4;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #111111;
+  padding: 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.internal-note-textarea:focus,
+.inline-action-panel select:focus {
+  border-color: #ff4500;
+  outline: 3px solid rgba(255, 69, 0, 0.12);
+}
+
+.message-recommendation-box {
+  display: grid;
+  gap: 14px;
+}
+
+.inbox-inline-form {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.inbox-inline-form-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: #111111;
+}
+
+.inbox-inline-form-copy {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #5f6b7a;
+}
+
+.inbox-inline-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+.inbox-inline-row .field-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox-inline-row select,
+.inbox-inline-row input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid #d9d9d6;
+  border-radius: 16px;
+  background: #ffffff;
+  font-size: 16px;
+  color: #111111;
+  outline: none;
+}
+
+.inbox-inline-row select:focus,
+.inbox-inline-row input:focus,
+.inbox-note-box textarea:focus {
+  border-color: #ff5a0a;
+  box-shadow: 0 0 0 4px rgba(255, 90, 10, 0.12);
+}
+
+.inbox-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.inbox-note-box {
+  width: 100%;
+}
+
+.inbox-note-box textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  padding: 16px 18px;
+  border: 1px solid #d9d9d6;
+  border-radius: 16px;
+  background: #ffffff;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #111111;
+  outline: none;
+}
+
+.inbox-note-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .inbox-inline-row {
+    flex-wrap: wrap;
+  }
+
+  .inbox-inline-row .field-wrap {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .inbox-inline-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+}
