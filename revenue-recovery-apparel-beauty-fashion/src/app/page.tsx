@@ -1013,7 +1013,7 @@ type NewRecoveryActivity = Omit<RecoveryActivity, "id" | "timestamp">;
 const sidebarGroups: SidebarGroup[] = [
   {
     title: "Command Center",
-    items: ["Recovery Overview", "Today’s Recovery Queue", "Recovery Activity"],
+    items: ["Recovery Overview", "TodayÃ¢â‚¬â„¢s Recovery Queue", "Recovery Activity"],
   },
   {
     title: "Capture",
@@ -1153,8 +1153,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1041",
     customer: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     brandContext: "Atelier Luma bridal capsule",
     productInterest: "Bridal collection inquiry",
     leakType: "Follow-up leak",
@@ -1193,8 +1191,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1042",
     customer: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     brandContext: "Neroli Lab replenishment window",
     productInterest: "Skincare serum refill",
     leakType: "Repeat purchase leak",
@@ -1233,8 +1229,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1043",
     customer: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     brandContext: "Vela Denim spring capsule",
     productInterest: "Size/fit question",
     leakType: "Inquiry leak",
@@ -1273,8 +1267,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1044",
     customer: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     brandContext: "Rue Muse limited knitwear drop",
     productInterest: "New drop waitlist",
     leakType: "Repeat purchase leak",
@@ -1313,8 +1305,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1045",
     customer: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     brandContext: "Coco Bloom lip oil restock",
     productInterest: "Restock request",
     leakType: "Repeat purchase leak",
@@ -1353,8 +1343,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1046",
     customer: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     brandContext: "Saffron Skin evening routine bundle",
     productInterest: "Pending payment",
     leakType: "Payment pending leak",
@@ -1393,8 +1381,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1047",
     customer: "Grace Miller",
-    image:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=120&h=120&fit=crop&crop=face",
     brandContext: "Harper Row delivered denim order",
     productInterest: "Delivered order review request",
     leakType: "Post-purchase leak",
@@ -1433,8 +1419,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1048",
     customer: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     brandContext: "Glow Haus creator seed list",
     productInterest: "UGC/referral follow-up",
     leakType: "Post-purchase leak",
@@ -1473,8 +1457,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1049",
     customer: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     brandContext: "Bare Kind calming skincare line",
     productInterest: "Sensitive skin product question",
     leakType: "Inquiry leak",
@@ -1513,8 +1495,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1050",
     customer: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     brandContext: "Soho pop-up styling inquiry",
     productInterest: "Event/pop-up inquiry",
     leakType: "Inquiry leak",
@@ -1553,8 +1533,6 @@ const recoveryTasks: RecoveryTask[] = [
   {
     id: "RR-1051",
     customer: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=120&h=120&fit=crop&crop=face",
     brandContext: "Velvet Lane order dispatch",
     productInterest: "Address verification before shipment",
     leakType: "Post-purchase leak",
@@ -1596,8 +1574,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2201",
     customer: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Website chat",
     timeSinceInquiry: "4h",
     firstReplyStatus: "Not replied",
@@ -1616,8 +1592,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2202",
     customer: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Website form",
     timeSinceInquiry: "46h",
     firstReplyStatus: "Reply drafted",
@@ -1636,8 +1610,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2203",
     customer: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Instagram DM",
     timeSinceInquiry: "18h",
     firstReplyStatus: "Not replied",
@@ -1656,8 +1628,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2204",
     customer: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Event / pop-up",
     timeSinceInquiry: "1d",
     firstReplyStatus: "Needs human review",
@@ -1676,8 +1646,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2205",
     customer: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Campaign waitlist",
     timeSinceInquiry: "8h",
     firstReplyStatus: "Replied",
@@ -1696,8 +1664,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2206",
     customer: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Back-in-stock form",
     timeSinceInquiry: "5h",
     firstReplyStatus: "Reply drafted",
@@ -1716,8 +1682,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2207",
     customer: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Shopify / Ecommerce",
     timeSinceInquiry: "2h",
     firstReplyStatus: "Not replied",
@@ -1736,8 +1700,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2208",
     customer: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     inquirySource: "WhatsApp",
     timeSinceInquiry: "22h",
     firstReplyStatus: "Needs human review",
@@ -1756,8 +1718,6 @@ const inquiries: Inquiry[] = [
   {
     id: "INQ-2209",
     customer: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     inquirySource: "Referral",
     timeSinceInquiry: "9h",
     firstReplyStatus: "Not replied",
@@ -2109,8 +2069,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-501",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     email: "sophia.bennett@example.com",
     phone: "+1 (212) 555-0184",
     source: "Website Form",
@@ -2138,8 +2096,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-502",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     email: "maya.chen@example.com",
     phone: "+1 (415) 555-0139",
     source: "Instagram DM",
@@ -2167,8 +2123,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-503",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     email: "nadia.brooks@example.com",
     phone: "+1 (646) 555-0178",
     source: "Campaign",
@@ -2196,8 +2150,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-504",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     email: "imani.wallace@example.com",
     phone: "+1 (305) 555-0161",
     source: "Back-in-stock form",
@@ -2225,8 +2177,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-505",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     email: "elena.rodriguez@example.com",
     phone: "+1 (312) 555-0142",
     source: "Shopify / Ecommerce",
@@ -2254,8 +2204,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-506",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     email: "arielle.stone@example.com",
     phone: "+1 (718) 555-0192",
     source: "Website chat",
@@ -2283,8 +2231,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-507",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     email: "priya.nair@example.com",
     phone: "+1 (917) 555-0127",
     source: "WhatsApp",
@@ -2312,8 +2258,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-508",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     email: "talia.monroe@example.com",
     phone: "+1 (404) 555-0154",
     source: "Referral",
@@ -2341,8 +2285,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-509",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     email: "camila.torres@example.com",
     phone: "+1 (212) 555-0118",
     source: "Event / Pop-up",
@@ -2370,8 +2312,6 @@ const buyerProfiles: BuyerProfileRecord[] = [
   {
     id: "BUY-510",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1512316609839-ce289d3eba0a?w=120&h=120&fit=crop&crop=face",
     email: "jasmine.reed@example.com",
     phone: "+1 (602) 555-0186",
     source: "Order Risk Monitor",
@@ -2615,8 +2555,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-701",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "High-ticket bridal buyer",
     lifetimeValue: "$2,450",
     yearToDateSpend: "$0",
@@ -2636,8 +2574,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-702",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "Skincare refill buyer",
     lifetimeValue: "$1,180",
     yearToDateSpend: "$354",
@@ -2657,8 +2593,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-703",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "VIP early access buyer",
     lifetimeValue: "$4,820",
     yearToDateSpend: "$1,620",
@@ -2678,8 +2612,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-704",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "Payment pending bundle buyer",
     lifetimeValue: "$1,340",
     yearToDateSpend: "$670",
@@ -2699,8 +2631,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-705",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "UGC/referral candidate",
     lifetimeValue: "$920",
     yearToDateSpend: "$420",
@@ -2720,8 +2650,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-706",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "Restock waiting beauty buyer",
     lifetimeValue: "$690",
     yearToDateSpend: "$260",
@@ -2741,8 +2669,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-707",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "Size/fit question buyer",
     lifetimeValue: "$520",
     yearToDateSpend: "$240",
@@ -2762,8 +2688,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-708",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "Event/pop-up buyer",
     lifetimeValue: "$0",
     yearToDateSpend: "$0",
@@ -2783,8 +2707,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-709",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1512316609839-ce289d3eba0a?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "Order risk buyer",
     lifetimeValue: "$780",
     yearToDateSpend: "$310",
@@ -2804,8 +2726,6 @@ const buyerValueRecords: BuyerValueRecord[] = [
   {
     id: "VAL-710",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     buyerCategory: "Sensitive-skin product buyer",
     lifetimeValue: "$155",
     yearToDateSpend: "$0",
@@ -2828,8 +2748,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-801",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     productContext: "Atelier Luma bridal capsule appointment",
     industryType: "Fashion / Apparel",
     source: "Website Form",
@@ -2848,8 +2766,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-802",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     productContext: "Vela Denim cropped jacket size/fit question",
     industryType: "Fashion / Apparel",
     source: "Instagram DM",
@@ -2868,8 +2784,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-803",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     productContext: "Neroli Lab Vitamin C serum refill",
     industryType: "Beauty / Skincare",
     source: "Shopify / Ecommerce",
@@ -2888,8 +2802,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-804",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     productContext: "Rue Muse limited knitwear new drop waitlist",
     industryType: "Fashion / Apparel",
     source: "Campaign",
@@ -2908,8 +2820,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-805",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     productContext: "Saffron Skin evening routine bundle",
     industryType: "Beauty / Skincare",
     source: "WhatsApp",
@@ -2928,8 +2838,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-806",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     productContext: "Coco Bloom lip oil shade restock",
     industryType: "Beauty / Skincare",
     source: "Back-in-stock form",
@@ -2948,8 +2856,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-807",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     productContext: "Soho pop-up styling picks",
     industryType: "Fashion / Apparel",
     source: "Event / Pop-up",
@@ -2968,8 +2874,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-808",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     productContext: "Glow Haus review and referral opportunity",
     industryType: "Beauty / Skincare",
     source: "Referral",
@@ -2988,8 +2892,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-809",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1512316609839-ce289d3eba0a?w=120&h=120&fit=crop&crop=face",
     productContext: "Order hold before dispatch",
     industryType: "Fashion / Apparel",
     source: "Order Risk Monitor",
@@ -3008,8 +2910,6 @@ const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-810",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     productContext: "Bare Kind sensitive-skin product question",
     industryType: "Beauty / Skincare",
     source: "Website chat",
@@ -3031,8 +2931,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-901",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     productContext: "Atelier Luma bridal appointment",
     followUpType: "Second nudge",
     source: "Website Form",
@@ -3051,8 +2949,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-902",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     productContext: "Vela Denim cropped jacket",
     followUpType: "First reply",
     source: "Instagram DM",
@@ -3071,8 +2967,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-903",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     productContext: "Vitamin C serum reorder window",
     followUpType: "Refill reminder",
     source: "Shopify / Ecommerce",
@@ -3091,8 +2985,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-904",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     productContext: "Rue Muse early-access knitwear drop",
     followUpType: "Second nudge",
     source: "Campaign",
@@ -3111,8 +3003,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-905",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     productContext: "Saffron Skin routine bundle",
     followUpType: "Payment reminder",
     source: "WhatsApp",
@@ -3131,8 +3021,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-906",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     productContext: "Soho pop-up styling recap",
     followUpType: "First reply",
     source: "Event / Pop-up",
@@ -3151,8 +3039,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-907",
     buyerName: "Grace Miller",
-    image:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=120&h=120&fit=crop&crop=face",
     productContext: "Harper Row delivered denim order",
     followUpType: "Review request",
     source: "Order delivery event",
@@ -3171,8 +3057,6 @@ const followUpRecoveryItems: FollowUpRecoveryItem[] = [
   {
     id: "FUP-908",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     productContext: "Glow Haus referral and UGC opportunity",
     followUpType: "UGC/referral request",
     source: "Referral",
@@ -3194,8 +3078,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1001",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     productContext: "Saffron Skin evening routine bundle",
     paymentAmount: "$670",
     recoveredAmount: "$0",
@@ -3215,8 +3097,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1002",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     productContext: "Bridal appointment deposit",
     paymentAmount: "$500",
     recoveredAmount: "$0",
@@ -3236,8 +3116,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1003",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     productContext: "New drop knitwear checkout",
     paymentAmount: "$960",
     recoveredAmount: "$0",
@@ -3257,8 +3135,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1004",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1512316609839-ce289d3eba0a?w=120&h=120&fit=crop&crop=face",
     productContext: "Address-held COD order",
     paymentAmount: "$310",
     recoveredAmount: "$0",
@@ -3278,8 +3154,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1005",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     productContext: "Vitamin C serum refill payment link",
     paymentAmount: "$118",
     recoveredAmount: "$0",
@@ -3299,8 +3173,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1006",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     productContext: "Sensitive-skin starter bundle",
     paymentAmount: "$155",
     recoveredAmount: "$0",
@@ -3320,8 +3192,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1007",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     productContext: "Pop-up saved pieces order",
     paymentAmount: "$540",
     recoveredAmount: "$0",
@@ -3341,8 +3211,6 @@ const paymentRecoveryItems: PaymentRecoveryItem[] = [
   {
     id: "PAY-1008",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     productContext: "Boutique denim pre-order invoice",
     paymentAmount: "$2,400",
     recoveredAmount: "$0",
@@ -3365,8 +3233,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1101",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Refill reorder recovered",
     recoveredAmount: "$118",
     originalRevenueAtRisk: "$118",
@@ -3383,8 +3249,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1102",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Payment recovered",
     recoveredAmount: "$670",
     originalRevenueAtRisk: "$670",
@@ -3401,8 +3265,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1103",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Follow-up converted",
     recoveredAmount: "$1,850",
     originalRevenueAtRisk: "$1,850",
@@ -3419,8 +3281,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1104",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Repeat purchase recovered",
     recoveredAmount: "$960",
     originalRevenueAtRisk: "$960",
@@ -3437,8 +3297,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1105",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Restock purchase recovered",
     recoveredAmount: "$420",
     originalRevenueAtRisk: "$420",
@@ -3455,8 +3313,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1106",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Referral/UGC influenced sale",
     recoveredAmount: "$300",
     originalRevenueAtRisk: "$300",
@@ -3473,8 +3329,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1107",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Reactivated buyer",
     recoveredAmount: "$155",
     originalRevenueAtRisk: "$155",
@@ -3491,8 +3345,6 @@ const recoveredRevenueItems: RecoveredRevenueItem[] = [
   {
     id: "REV-1108",
     buyerName: "Grace Miller",
-    image:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=120&h=120&fit=crop&crop=face",
     recoveryType: "Post-purchase upsell",
     recoveredAmount: "$180",
     originalRevenueAtRisk: "$180",
@@ -3512,8 +3364,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1201",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     orderContext: "Atelier Luma bridal capsule deposit",
     industryType: "Fashion / Apparel",
     orderValue: "$1,850",
@@ -3534,8 +3384,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1202",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     orderContext: "Vela Denim jacket shipment",
     industryType: "Fashion / Apparel",
     orderValue: "$240",
@@ -3556,8 +3404,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1203",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     orderContext: "Saffron Skin routine bundle",
     industryType: "Beauty / Skincare",
     orderValue: "$670",
@@ -3578,8 +3424,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1204",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     orderContext: "Neroli Lab Vitamin C serum refill",
     industryType: "Beauty / Skincare",
     orderValue: "$118",
@@ -3600,8 +3444,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1205",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     orderContext: "Coco Bloom lip oil restock shade",
     industryType: "Beauty / Skincare",
     orderValue: "$420",
@@ -3622,8 +3464,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1206",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     orderContext: "Soho pop-up saved pieces order",
     industryType: "Fashion / Apparel",
     orderValue: "$540",
@@ -3644,8 +3484,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1207",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     orderContext: "Bare Kind sensitive-skin starter kit",
     industryType: "Beauty / Skincare",
     orderValue: "$155",
@@ -3666,8 +3504,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1208",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1512316609839-ce289d3eba0a?w=120&h=120&fit=crop&crop=face",
     orderContext: "Harper Row routine bundle exchange risk",
     industryType: "Fashion / Apparel",
     orderValue: "$310",
@@ -3688,8 +3524,6 @@ const orderRiskItems: OrderRiskItem[] = [
   {
     id: "ORD-1209",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     orderContext: "Boutique denim pre-order invoice",
     industryType: "Fashion / Apparel",
     orderValue: "$2,400",
@@ -3713,8 +3547,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1301",
     buyerName: "Grace Miller",
-    image:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=120&h=120&fit=crop&crop=face",
     orderContext: "Harper Row denim order",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered yesterday",
@@ -3732,8 +3564,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1302",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     orderContext: "Bridal capsule consultation package",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered today",
@@ -3751,8 +3581,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1303",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     orderContext: "Vitamin C serum refill",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered 2 days ago",
@@ -3770,8 +3598,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1304",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     orderContext: "Saffron Skin routine bundle",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered today",
@@ -3789,8 +3615,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1305",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     orderContext: "Sensitive-skin starter kit",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered 1 day ago",
@@ -3808,8 +3632,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1306",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     orderContext: "Coco Bloom lip oil restock",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered 3 days ago",
@@ -3827,8 +3649,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1307",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     orderContext: "Rue Muse new drop knitwear",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered today",
@@ -3846,8 +3666,6 @@ const deliveryFollowUpItems: DeliveryFollowUpItem[] = [
   {
     id: "DLV-1308",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     orderContext: "Soho pop-up saved pieces order",
     deliveryStatus: "Delivered",
     deliveryTiming: "Delivered 2 days ago",
@@ -3868,8 +3686,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1401",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     orderContext: "Vela Denim cropped jacket",
     opportunityType: "Review request",
     orderValue: "$240",
@@ -3888,8 +3704,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1402",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     orderContext: "Atelier Luma bridal capsule styling",
     opportunityType: "Styling testimonial",
     orderValue: "$1,850",
@@ -3908,8 +3722,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1403",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     orderContext: "Vitamin C serum refill",
     opportunityType: "Before/after skincare feedback",
     orderValue: "$118",
@@ -3928,8 +3740,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1404",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     orderContext: "Saffron Skin evening routine bundle",
     opportunityType: "Review request",
     orderValue: "$670",
@@ -3948,8 +3758,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1405",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     orderContext: "Coco Bloom lip oil restock",
     opportunityType: "UGC request",
     orderValue: "$420",
@@ -3968,8 +3776,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1406",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     orderContext: "Rue Muse new drop knitwear",
     opportunityType: "Try-on/photo request",
     orderValue: "$960",
@@ -3988,8 +3794,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1407",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     orderContext: "Glow Haus routine purchase",
     opportunityType: "Referral request",
     orderValue: "$300",
@@ -4008,8 +3812,6 @@ const postPurchaseOpportunities: PostPurchaseOpportunity[] = [
   {
     id: "PP-1408",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     orderContext: "Sensitive-skin starter kit",
     opportunityType: "Review request",
     orderValue: "$155",
@@ -4671,8 +4473,6 @@ const refillOpportunities: RefillOpportunity[] = [
   {
     id: "REF-1701",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     productName: "Vitamin C serum",
     productCategory: "Serum / Skincare",
     lastPurchaseDate: "60 days ago",
@@ -4693,8 +4493,6 @@ const refillOpportunities: RefillOpportunity[] = [
   {
     id: "REF-1702",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     productName: "Saffron Skin cleanser routine bundle",
     productCategory: "Routine Bundle",
     lastPurchaseDate: "47 days ago",
@@ -4715,8 +4513,6 @@ const refillOpportunities: RefillOpportunity[] = [
   {
     id: "REF-1703",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     productName: "Sensitive-skin starter kit",
     productCategory: "Sensitive Skin",
     lastPurchaseDate: "38 days ago",
@@ -4737,8 +4533,6 @@ const refillOpportunities: RefillOpportunity[] = [
   {
     id: "REF-1704",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     productName: "Glow Haus moisturizer",
     productCategory: "Moisturizer",
     lastPurchaseDate: "58 days ago",
@@ -4759,8 +4553,6 @@ const refillOpportunities: RefillOpportunity[] = [
   {
     id: "REF-1705",
     buyerName: "Grace Miller",
-    image:
-      "https://images.unsplash.com/photo-1512316609839-ce289d3eba0a?w=120&h=120&fit=crop&crop=face",
     productName: "Coco Bloom lip oil",
     productCategory: "Cosmetics",
     lastPurchaseDate: "75 days ago",
@@ -4781,8 +4573,6 @@ const refillOpportunities: RefillOpportunity[] = [
   {
     id: "REF-1706",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=120&h=120&fit=crop&crop=face",
     productName: "Night repair cream",
     productCategory: "Skincare",
     lastPurchaseDate: "92 days ago",
@@ -4803,8 +4593,6 @@ const refillOpportunities: RefillOpportunity[] = [
   {
     id: "REF-1707",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     productName: "Coco Bloom lip oil shade",
     productCategory: "Beauty / Cosmetics",
     lastPurchaseDate: "80 days ago",
@@ -5002,8 +4790,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1901",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Atelier Luma bridal capsule appointment",
     lastPurchaseDate: "No purchase yet",
     lastContact: "12 days ago",
@@ -5023,8 +4809,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1902",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Soho pop-up saved pieces",
     lastPurchaseDate: "Event order pending",
     lastContact: "9 days ago",
@@ -5044,8 +4828,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1903",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Vitamin C serum refill",
     lastPurchaseDate: "74 days ago",
     lastContact: "21 days ago",
@@ -5065,8 +4847,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1904",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Coco Bloom lip oil shade restock",
     lastPurchaseDate: "No purchase yet",
     lastContact: "16 days ago",
@@ -5086,8 +4866,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1905",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Saffron Skin evening routine bundle",
     lastPurchaseDate: "No completed order",
     lastContact: "6 days ago",
@@ -5107,8 +4885,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1906",
     buyerName: "Nadia Brooks",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Rue Muse VIP knitwear new drop",
     lastPurchaseDate: "Last launch",
     lastContact: "46 days ago",
@@ -5128,8 +4904,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1907",
     buyerName: "Arielle Stone",
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Sensitive-skin starter kit ingredient question",
     lastPurchaseDate: "38 days ago",
     lastContact: "18 days ago",
@@ -5149,8 +4923,6 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
   {
     id: "INA-1908",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=120&h=120&fit=crop&crop=face",
     originalProductInterest: "Night repair cream and delivery hold",
     lastPurchaseDate: "92 days ago",
     lastContact: "30 days ago",
@@ -5174,8 +4946,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2001",
     actionTitle: "Confirm bridal appointment follow-up",
     buyerName: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     productContext: "Atelier Luma bridal capsule appointment",
     recoveryType: "Follow-up nudge",
     revenueAtRisk: "$1,850",
@@ -5198,8 +4968,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2002",
     actionTitle: "Recover routine bundle payment",
     buyerName: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     productContext: "Saffron Skin evening routine bundle checkout",
     recoveryType: "Payment reminder",
     revenueAtRisk: "$670",
@@ -5222,8 +4990,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2003",
     actionTitle: "Send serum refill reminder",
     buyerName: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     productContext: "Vitamin C serum 60-day reorder window",
     recoveryType: "Refill reminder",
     revenueAtRisk: "$118",
@@ -5246,8 +5012,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2004",
     actionTitle: "Send UGC/referral prompt",
     buyerName: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     productContext: "Glow Haus positive review and referral opportunity",
     recoveryType: "UGC request",
     revenueAtRisk: "$300",
@@ -5270,8 +5034,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2005",
     actionTitle: "Resolve address/order risk issue",
     buyerName: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=120&h=120&fit=crop&crop=face",
     productContext: "Night repair cream delivery hold",
     recoveryType: "Order issue resolution",
     revenueAtRisk: "$132",
@@ -5294,8 +5056,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2006",
     actionTitle: "Assign pop-up event lead owner",
     buyerName: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     productContext: "Soho pop-up saved pieces",
     recoveryType: "Assign missing owner",
     revenueAtRisk: "$540",
@@ -5318,8 +5078,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2007",
     actionTitle: "Send lip oil restock notice",
     buyerName: "Imani Wallace",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face",
     productContext: "Coco Bloom lip oil rose shade restock",
     recoveryType: "Restock notice",
     revenueAtRisk: "$420",
@@ -5342,8 +5100,6 @@ const assignedRecoveryActions: AssignedRecoveryAction[] = [
     id: "ACTN-2008",
     actionTitle: "Reply to denim size/fit question",
     buyerName: "Maya Chen",
-    image:
-      "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face",
     productContext: "Vela Denim cropped jacket size/fit question",
     recoveryType: "First reply",
     revenueAtRisk: "$240",
@@ -5391,8 +5147,6 @@ const recoveryThreads: RecoveryThread[] = [
     id: "THR-2101",
     threadTitle: "Sophia bridal inquiry handoff",
     linkedBuyer: "Sophia Bennett",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
     linkedRecoveryCase: "RR-1041",
     recoveryType: "Inquiry thread",
     revenueAtRisk: "$1,850",
@@ -5427,8 +5181,6 @@ const recoveryThreads: RecoveryThread[] = [
     id: "THR-2102",
     threadTitle: "Priya routine bundle payment recovery",
     linkedBuyer: "Priya Nair",
-    image:
-      "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=120&h=120&fit=crop&crop=face",
     linkedRecoveryCase: "PAY-1201",
     recoveryType: "Payment recovery thread",
     revenueAtRisk: "$670",
@@ -5463,8 +5215,6 @@ const recoveryThreads: RecoveryThread[] = [
     id: "THR-2103",
     threadTitle: "Elena serum refill timing",
     linkedBuyer: "Elena Rodriguez",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
     linkedRecoveryCase: "REF-1701",
     recoveryType: "Refill/restock thread",
     revenueAtRisk: "$118",
@@ -5499,8 +5249,6 @@ const recoveryThreads: RecoveryThread[] = [
     id: "THR-2104",
     threadTitle: "Jasmine delivery hold recovery",
     linkedBuyer: "Jasmine Reed",
-    image:
-      "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=120&h=120&fit=crop&crop=face",
     linkedRecoveryCase: "INA-1908",
     recoveryType: "Order risk thread",
     revenueAtRisk: "$132",
@@ -5535,8 +5283,6 @@ const recoveryThreads: RecoveryThread[] = [
     id: "THR-2105",
     threadTitle: "Talia review to UGC handoff",
     linkedBuyer: "Talia Monroe",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
     linkedRecoveryCase: "PP-1407",
     recoveryType: "Post-purchase thread",
     revenueAtRisk: "$300",
@@ -5605,8 +5351,6 @@ const recoveryThreads: RecoveryThread[] = [
     id: "THR-2107",
     threadTitle: "Camila pop-up event owner missing",
     linkedBuyer: "Camila Torres",
-    image:
-      "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=120&h=120&fit=crop&crop=face",
     linkedRecoveryCase: "INA-1902",
     recoveryType: "Handoff thread",
     revenueAtRisk: "$540",
@@ -6170,7 +5914,7 @@ const activities: RecoveryActivity[] = [
     title: "Bridal collection inquiry captured",
     description: "Website form created a recovery action for Sophia Bennett's Atelier Luma bridal capsule inquiry.",
     impactBadge: "$1,850 at risk",
-    relatedRecord: "Website form · RR-1041",
+    relatedRecord: "Website form Ã‚Â· RR-1041",
     owner: "Amara Shah",
     status: "Action required",
     nextAction: "Send bridal appointment windows.",
@@ -6183,7 +5927,7 @@ const activities: RecoveryActivity[] = [
     title: "Size/fit inquiry flagged",
     description: "Instagram DM about the Vela Denim cropped jacket was classified as a high-intent fit question.",
     impactBadge: "$240 at risk",
-    relatedRecord: "Instagram DM · RR-1043",
+    relatedRecord: "Instagram DM Ã‚Â· RR-1043",
     owner: "Amara Shah",
     status: "Needs first reply",
     nextAction: "Reply with fit guidance and exchange reassurance.",
@@ -6196,7 +5940,7 @@ const activities: RecoveryActivity[] = [
     title: "Skincare refill window opened",
     description: "Elena Rodriguez entered the 60-day Vitamin C serum refill window from order history.",
     impactBadge: "$118 opportunity",
-    relatedRecord: "Shopify order history · RR-1042",
+    relatedRecord: "Shopify order history Ã‚Â· RR-1042",
     owner: "Mina Cole",
     status: "Triggered",
     nextAction: "Send serum refill reorder link.",
@@ -6209,7 +5953,7 @@ const activities: RecoveryActivity[] = [
     title: "Restock waitlist sync failed",
     description: "Coco Bloom lip oil restock request was captured, but the external buyer tag did not update.",
     impactBadge: "$420 at risk",
-    relatedRecord: "Back-in-stock form · RR-1045",
+    relatedRecord: "Back-in-stock form Ã‚Â· RR-1045",
     owner: "Mina Cole",
     status: "Sync issue",
     nextAction: "Fix sync and send restock link manually.",
@@ -6222,7 +5966,7 @@ const activities: RecoveryActivity[] = [
     title: "Delivered order review request created",
     description: "Harper Row denim delivery confirmation created a review and second-purchase recovery action.",
     impactBadge: "$180 lifecycle value",
-    relatedRecord: "Delivery event · RR-1047",
+    relatedRecord: "Delivery event Ã‚Â· RR-1047",
     owner: "Luis Park",
     status: "Created",
     nextAction: "Send delivery satisfaction and review request.",
@@ -6235,7 +5979,7 @@ const activities: RecoveryActivity[] = [
     title: "Referral / UGC request scheduled",
     description: "Glow Haus positive review qualified Talia Monroe for creator-style UGC and referral follow-up.",
     impactBadge: "$300 referral value",
-    relatedRecord: "Review survey · RR-1048",
+    relatedRecord: "Review survey Ã‚Â· RR-1048",
     owner: "Luis Park",
     status: "Scheduled",
     nextAction: "Send UGC prompt and referral code.",
@@ -6248,7 +5992,7 @@ const activities: RecoveryActivity[] = [
     title: "Payment reminder sent",
     description: "WhatsApp checkout reminder was sent for Priya Nair's Saffron Skin evening routine bundle.",
     impactBadge: "$670 pending",
-    relatedRecord: "WhatsApp checkout · RR-1046",
+    relatedRecord: "WhatsApp checkout Ã‚Â· RR-1046",
     owner: "Tessa Nguyen",
     status: "Sent",
     nextAction: "Watch payment completion and resend link if needed.",
@@ -6261,7 +6005,7 @@ const activities: RecoveryActivity[] = [
     title: "Pop-up CSV import missing owners",
     description: "Soho pop-up styling inquiries imported from CSV without assigned recovery owners.",
     impactBadge: "$4,200 unassigned",
-    relatedRecord: "Event CSV import · RR-1050",
+    relatedRecord: "Event CSV import Ã‚Â· RR-1050",
     status: "Owner missing",
     nextAction: "Assign imported pop-up inquiries.",
     timestamp: "6h ago",
@@ -6273,7 +6017,7 @@ const activities: RecoveryActivity[] = [
     title: "Weekly recovery report generated",
     description: "Owner summary reported recovered revenue, source quality, team load, and automation health.",
     impactBadge: "$42.7K recovered",
-    relatedRecord: "Weekly summary · April recovery",
+    relatedRecord: "Weekly summary Ã‚Â· April recovery",
     owner: "Operations",
     status: "Generated",
     nextAction: "Review source quality and team load risks.",
@@ -6735,7 +6479,7 @@ const revenueStages: RevenueStage[] = [
 const pageSubtitles: Record<string, string> = {
   "Recovery Overview":
     "Owner-level visibility into missed revenue, recovery actions, source quality, team workload, and automation-captured events.",
-  "Today’s Recovery Queue":
+  "TodayÃ¢â‚¬â„¢s Recovery Queue":
     "The team execution screen for overdue leaks, payment nudges, refill prompts, post-purchase asks, and order risks.",
   "Recovery Activity":
     "A live trail of captured recovery events, failed syncs, workflow outcomes, and manual updates.",
@@ -6801,7 +6545,7 @@ const pageSubtitles: Record<string, string> = {
     "Approved message templates for first replies, payment reminders, refills, restocks, reviews, UGC, and winback actions.",
 };
 
-function Avatar({ name, image }: { name: string; image?: string }) {
+function Avatar({ name }: { name: string }) {
   const initials = name
     .split(" ")
     .map((part) => part[0])
@@ -6810,11 +6554,7 @@ function Avatar({ name, image }: { name: string; image?: string }) {
 
   return (
     <span className="avatar" aria-label={name}>
-      {image ? (
-        <span className="avatar-image" style={{ backgroundImage: `url(${image})` }} />
-      ) : (
-        <span>{initials}</span>
-      )}
+      <span>{initials}</span>
     </span>
   );
 }
@@ -7261,13 +7001,13 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
             {overviewLeaks.map((task) => (
               <div className="recovery-row leak-action-row" key={task.id}>
                 <div className="recovery-row-main">
-                  <Avatar name={task.customer} image={task.image} />
+                  <Avatar name={task.customer} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{task.customer}</h3>
                       <Badge tone={task.tone}>{task.priority}</Badge>
                     </div>
-                    <p>{task.brandContext} · {task.productInterest}</p>
+                    <p>{task.brandContext} Ã‚Â· {task.productInterest}</p>
                     <div className="recovery-meta">
                       <span>{task.leakType}</span>
                       <span>{task.source}</span>
@@ -7439,13 +7179,13 @@ function TodaysRecoveryQueue() {
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={task.customer} image={task.image} />
+                  <Avatar name={task.customer} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{task.customer}</h3>
                       <Badge tone={task.tone}>{task.priority}</Badge>
                     </div>
-                    <p>{task.brandContext} · {task.productInterest}</p>
+                    <p>{task.brandContext} Ã‚Â· {task.productInterest}</p>
                     <div className="recovery-meta">
                       <span>{task.leakType}</span>
                       <span>{task.source}</span>
@@ -7469,10 +7209,10 @@ function TodaysRecoveryQueue() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedTask.customer} image={selectedTask.image} />
+              <Avatar name={selectedTask.customer} />
               <div>
                 <h2>{selectedTask.customer}</h2>
-                <p>{selectedTask.brandContext} · {selectedTask.productInterest}</p>
+                <p>{selectedTask.brandContext} Ã‚Â· {selectedTask.productInterest}</p>
               </div>
             </div>
             <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
@@ -7605,7 +7345,7 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
       title,
       description: `${inquiry.customer}'s ${inquiry.productInterest.toLowerCase()} was updated from ${inquiry.inquirySource}.`,
       impactBadge: `${inquiry.estimatedValue} at risk`,
-      relatedRecord: `${inquiry.inquirySource} · ${inquiry.id}`,
+      relatedRecord: `${inquiry.inquirySource} Ã‚Â· ${inquiry.id}`,
       owner: owner === "Unassigned" ? undefined : owner,
       status,
       nextAction,
@@ -7744,7 +7484,7 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
                 type="button"
               >
               <div className="inquiry-main">
-                <Avatar name={inquiry.customer} image={inquiry.image} />
+                <Avatar name={inquiry.customer} />
                 <div>
                   <div className="recovery-row-title">
                     <h3>{inquiry.customer}</h3>
@@ -7784,7 +7524,7 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedInquiry.customer} image={selectedInquiry.image} />
+              <Avatar name={selectedInquiry.customer} />
               <div>
                 <h2>{selectedInquiry.customer}</h2>
                 <p>{selectedInquiry.productInterest}</p>
@@ -7937,7 +7677,7 @@ function ProductDemand({ onActivity }: { onActivity: (activity: NewRecoveryActiv
       title,
       description: `${signal.demandName} demand was updated with ${signal.totalSignals} captured signals.`,
       impactBadge: `${signal.estimatedDemandValue} demand value`,
-      relatedRecord: `${signal.industryType} · ${signal.id}`,
+      relatedRecord: `${signal.industryType} Ã‚Â· ${signal.id}`,
       owner: signal.owner === "Unassigned" ? undefined : signal.owner,
       status,
       nextAction,
@@ -8151,7 +7891,7 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
       title,
       description: `${source.sourceName} source leakage was updated for ${source.totalCaptured} captured inquiries.`,
       impactBadge: `${source.paymentPendingValue} pending`,
-      relatedRecord: `${source.sourceName} · ${source.id}`,
+      relatedRecord: `${source.sourceName} Ã‚Â· ${source.id}`,
       status,
       nextAction,
       tone: source.tone,
@@ -8442,7 +8182,7 @@ function ProductCatalog() {
                       <h3>{product.productName}</h3>
                       <Badge tone={product.tone}>{product.industryType}</Badge>
                     </div>
-                    <p>{product.productType} · {product.category} · {product.productFolder}</p>
+                    <p>{product.productType} Ã‚Â· {product.category} Ã‚Â· {product.productFolder}</p>
                     <div className="recovery-meta">
                       <span>{product.skuCount} SKUs</span>
                       <span>{product.priceRange}</span>
@@ -8997,10 +8737,10 @@ function ProductImportExport() {
               <article className={`import-preview-row ${row.tone}`} key={row.id}>
                 <div>
                   <div className="recovery-row-title">
-                    <h3>{row.rowLabel} · {row.productName}</h3>
+                    <h3>{row.rowLabel} Ã‚Â· {row.productName}</h3>
                     <Badge tone={row.tone}>{row.detectedIssue}</Badge>
                   </div>
-                  <p>{row.sku || "Missing SKU"} · {row.category || "Missing category"} · {row.price || "Missing price"}</p>
+                  <p>{row.sku || "Missing SKU"} Ã‚Â· {row.category || "Missing category"} Ã‚Â· {row.price || "Missing price"}</p>
                   <div className="recovery-meta">
                     <span>{row.tags || "Missing tags"}</span>
                     <span>{row.importAction}</span>
@@ -9154,7 +8894,7 @@ function BuyerProfiles() {
               >
                 <div className="capture-card-main buyer-card-main">
                   <div className="buyer-identity">
-                    <Avatar name={buyer.buyerName} image={buyer.image} />
+                    <Avatar name={buyer.buyerName} />
                     <div>
                       <div className="recovery-row-title">
                         <h3>{buyer.buyerName}</h3>
@@ -9202,7 +8942,7 @@ function BuyerProfiles() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedBuyer.buyerName} image={selectedBuyer.image} />
+              <Avatar name={selectedBuyer.buyerName} />
               <div>
                 <h2>{selectedBuyer.buyerName}</h2>
                 <p>{selectedBuyer.favoriteCategory}</p>
@@ -9479,7 +9219,7 @@ function BuyerValue() {
             <article className={`value-card ${record.tone}`} key={record.id}>
               <div className="capture-card-main buyer-card-main">
                 <div className="buyer-identity">
-                  <Avatar name={record.buyerName} image={record.image} />
+                  <Avatar name={record.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{record.buyerName}</h3>
@@ -9584,7 +9324,7 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
       title,
       description: `${opportunity.buyerName}'s ${opportunity.productContext.toLowerCase()} moved inside revenue recovery.`,
       impactBadge: `${opportunity.revenueAtRisk} at risk`,
-      relatedRecord: `${opportunity.source} · ${opportunity.id}`,
+      relatedRecord: `${opportunity.source} Ã‚Â· ${opportunity.id}`,
       owner: opportunity.owner === "Unassigned" ? undefined : opportunity.owner,
       status,
       nextAction,
@@ -9660,7 +9400,7 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
                       >
                         <div className="capture-card-main buyer-card-main">
                           <div className="buyer-identity">
-                            <Avatar name={opportunity.buyerName} image={opportunity.image} />
+                            <Avatar name={opportunity.buyerName} />
                             <div>
                               <div className="recovery-row-title">
                                 <h3>{opportunity.buyerName}</h3>
@@ -9693,7 +9433,7 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedOpportunity.buyerName} image={selectedOpportunity.image} />
+              <Avatar name={selectedOpportunity.buyerName} />
               <div>
                 <h2>{selectedOpportunity.buyerName}</h2>
                 <p>{selectedOpportunity.productContext}</p>
@@ -9879,7 +9619,7 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
       title,
       description: `${item.buyerName}'s ${item.followUpType.toLowerCase()} was updated for ${item.productContext}.`,
       impactBadge: `${item.revenueAtRisk} at risk`,
-      relatedRecord: `${item.source} · ${item.id}`,
+      relatedRecord: `${item.source} Ã‚Â· ${item.id}`,
       owner: item.owner === "Unassigned" ? undefined : item.owner,
       status,
       nextAction: item.recommendedNextAction,
@@ -9940,7 +9680,7 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
@@ -9970,7 +9710,7 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedFollowUp.buyerName} image={selectedFollowUp.image} />
+              <Avatar name={selectedFollowUp.buyerName} />
               <div>
                 <h2>{selectedFollowUp.buyerName}</h2>
                 <p>{selectedFollowUp.productContext}</p>
@@ -10127,7 +9867,7 @@ function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAct
       title,
       description: `${item.buyerName}'s ${item.productContext.toLowerCase()} payment recovery was updated.`,
       impactBadge: `${item.paymentAmount} payment value`,
-      relatedRecord: `${item.source} · ${item.id}`,
+      relatedRecord: `${item.source} Ã‚Â· ${item.id}`,
       owner: item.owner === "Unassigned" ? undefined : item.owner,
       status,
       nextAction: item.recommendedNextAction,
@@ -10188,7 +9928,7 @@ function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAct
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
@@ -10218,7 +9958,7 @@ function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAct
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedPayment.buyerName} image={selectedPayment.image} />
+              <Avatar name={selectedPayment.buyerName} />
               <div>
                 <h2>{selectedPayment.buyerName}</h2>
                 <p>{selectedPayment.productContext}</p>
@@ -10462,7 +10202,7 @@ function RecoveredRevenue() {
             <article className={`recovered-card ${item.tone}`} key={item.id}>
               <div className="capture-card-main buyer-card-main">
                 <div className="buyer-identity">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
@@ -10582,7 +10322,7 @@ function OrderRiskMonitor() {
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
@@ -10612,7 +10352,7 @@ function OrderRiskMonitor() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedOrderRisk.buyerName} image={selectedOrderRisk.image} />
+              <Avatar name={selectedOrderRisk.buyerName} />
               <div>
                 <h2>{selectedOrderRisk.buyerName}</h2>
                 <p>{selectedOrderRisk.orderContext}</p>
@@ -10771,7 +10511,7 @@ function DeliveryFollowUp() {
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
@@ -10800,7 +10540,7 @@ function DeliveryFollowUp() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedDelivery.buyerName} image={selectedDelivery.image} />
+              <Avatar name={selectedDelivery.buyerName} />
               <div>
                 <h2>{selectedDelivery.buyerName}</h2>
                 <p>{selectedDelivery.orderContext}</p>
@@ -10963,7 +10703,7 @@ function ReviewsReferralsUGC() {
             <article className={`post-purchase-card ${item.tone}`} key={item.id}>
               <div className="capture-card-main buyer-card-main">
                 <div className="buyer-identity">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
@@ -11097,13 +10837,13 @@ function RefillOpportunities() {
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
                       <Badge tone={item.tone}>{item.reminderStatus}</Badge>
                     </div>
-                    <p>{item.productName} · {item.productCategory}</p>
+                    <p>{item.productName} Ã‚Â· {item.productCategory}</p>
                     <div className="recovery-meta">
                       <span>{item.lastPurchaseDate}</span>
                       <span>{item.refillWindow}</span>
@@ -11126,7 +10866,7 @@ function RefillOpportunities() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedRefill.buyerName} image={selectedRefill.image} />
+              <Avatar name={selectedRefill.buyerName} />
               <div>
                 <h2>{selectedRefill.buyerName}</h2>
                 <p>{selectedRefill.productName}</p>
@@ -11297,7 +11037,7 @@ function RestockWaitlist() {
                     <h3>{item.productName}</h3>
                     <Badge tone={item.tone}>{item.notificationStatus}</Badge>
                   </div>
-                  <p>{item.skuVariant} · {item.sizeShadeColor} · {item.productCategory}</p>
+                  <p>{item.skuVariant} Ã‚Â· {item.sizeShadeColor} Ã‚Â· {item.productCategory}</p>
                   <div className="recovery-meta">
                     <span>{item.industryType}</span>
                     <span>{item.buyerCount} buyers</span>
@@ -11449,7 +11189,7 @@ function InactiveBuyerRecovery() {
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
@@ -11479,7 +11219,7 @@ function InactiveBuyerRecovery() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedInactive.buyerName} image={selectedInactive.image} />
+              <Avatar name={selectedInactive.buyerName} />
               <div>
                 <h2>{selectedInactive.buyerName}</h2>
                 <p>{selectedInactive.originalProductInterest}</p>
@@ -11659,13 +11399,13 @@ function AssignedRecoveryActions() {
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} image={item.image} />
+                  <Avatar name={item.buyerName} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.actionTitle}</h3>
                       <Badge tone={item.tone}>{item.recoveryType}</Badge>
                     </div>
-                    <p>{item.buyerName} · {item.productContext}</p>
+                    <p>{item.buyerName} Ã‚Â· {item.productContext}</p>
                     <div className="recovery-meta">
                       <span>{item.owner}</span>
                       <span>{item.roleTeam}</span>
@@ -11689,7 +11429,7 @@ function AssignedRecoveryActions() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedAction.buyerName} image={selectedAction.image} />
+              <Avatar name={selectedAction.buyerName} />
               <div>
                 <h2>{selectedAction.buyerName}</h2>
                 <p>{selectedAction.productContext}</p>
@@ -11877,7 +11617,7 @@ function RecoveryThreads() {
                 type="button"
               >
                 <div className="recovery-task-main">
-                  <Avatar name={thread.linkedBuyer} image={thread.image} />
+                  <Avatar name={thread.linkedBuyer} />
                   <div>
                     <div className="recovery-row-title">
                       <h3>{thread.threadTitle}</h3>
@@ -11906,10 +11646,10 @@ function RecoveryThreads() {
         <aside className="glass-card panel-card recovery-detail-panel">
           <div className="detail-heading">
             <div className="detail-person">
-              <Avatar name={selectedThread.linkedBuyer} image={selectedThread.image} />
+              <Avatar name={selectedThread.linkedBuyer} />
               <div>
                 <h2>{selectedThread.threadTitle}</h2>
-                <p>{selectedThread.linkedBuyer} · {selectedThread.linkedRecoveryCase}</p>
+                <p>{selectedThread.linkedBuyer} Ã‚Â· {selectedThread.linkedRecoveryCase}</p>
               </div>
             </div>
             <strong>{selectedThread.revenueAtRisk}</strong>
@@ -12215,7 +11955,7 @@ function AutomationHealth() {
                     <h3>{record.automationName}</h3>
                     <Badge tone={record.tone}>{record.syncStatus}</Badge>
                   </div>
-                  <p>{record.thirdPartySource} · {record.eventType} · Last run {record.lastRunTime}</p>
+                  <p>{record.thirdPartySource} Ã‚Â· {record.eventType} Ã‚Â· Last run {record.lastRunTime}</p>
                   <div className="recovery-meta">
                     <span>{record.sourceCategory}</span>
                     <span>{record.recordsProcessed} processed</span>
@@ -12353,7 +12093,7 @@ function RevenueLeakReports() {
           <h3>Source Leakage Report</h3>
           {sourceLeakReportItems.slice(0, 6).map((source) => (
             <div key={source.id}>
-              <span>{source.sourceName} · {source.sourceQualityNote}</span>
+              <span>{source.sourceName} Ã‚Â· {source.sourceQualityNote}</span>
               <strong>{source.paymentPendingValue}</strong>
             </div>
           ))}
@@ -12362,7 +12102,7 @@ function RevenueLeakReports() {
           <h3>Product / Category Leak Report</h3>
           {productLeakReportItems.slice(0, 6).map((product) => (
             <div key={product.id}>
-              <span>{product.productCategory} · {product.openRecoveryCases} cases</span>
+              <span>{product.productCategory} Ã‚Â· {product.openRecoveryCases} cases</span>
               <strong>{product.demandValue}</strong>
             </div>
           ))}
@@ -12371,7 +12111,7 @@ function RevenueLeakReports() {
           <h3>Team Ownership Report</h3>
           {teamOwnershipReportItems.slice(0, 6).map((owner) => (
             <div key={owner.id}>
-              <span>{owner.owner} · {owner.overdueActions} overdue</span>
+              <span>{owner.owner} Ã‚Â· {owner.overdueActions} overdue</span>
               <strong>{owner.revenueAtRiskOwned}</strong>
             </div>
           ))}
@@ -12472,7 +12212,7 @@ function MonthlySummary() {
           <h3>Revenue Recovered Breakdown</h3>
           {monthlyRecoveredBreakdown.map((item) => (
             <div key={item.id}>
-              <span>{item.label} · {item.note}</span>
+              <span>{item.label} Ã‚Â· {item.note}</span>
               <strong>{item.value}</strong>
             </div>
           ))}
@@ -12481,7 +12221,7 @@ function MonthlySummary() {
           <h3>Open Revenue At Risk</h3>
           {monthlyOpenRiskItems.map((item) => (
             <div key={item.id}>
-              <span>{item.label} · {item.note}</span>
+              <span>{item.label} Ã‚Â· {item.note}</span>
               <strong>{item.value}</strong>
             </div>
           ))}
@@ -12490,7 +12230,7 @@ function MonthlySummary() {
           <h3>Automation Monitoring Summary</h3>
           {monthlyAutomationSummary.map((item) => (
             <div key={item.id}>
-              <span>{item.label} · {item.note}</span>
+              <span>{item.label} Ã‚Â· {item.note}</span>
               <strong>{item.value}</strong>
             </div>
           ))}
@@ -12502,7 +12242,7 @@ function MonthlySummary() {
           <h3>Team Performance Summary</h3>
           {teamOwnershipReportItems.slice(0, 5).map((item) => (
             <div key={item.id}>
-              <span>{item.owner} · {item.openActions} open · {item.overdueActions} overdue</span>
+              <span>{item.owner} Ã‚Â· {item.openActions} open Ã‚Â· {item.overdueActions} overdue</span>
               <strong>{item.recoveredValue}</strong>
             </div>
           ))}
@@ -12511,7 +12251,7 @@ function MonthlySummary() {
           <h3>Product / Buyer Insights</h3>
           {productLeakReportItems.slice(0, 5).map((item) => (
             <div key={item.id}>
-              <span>{item.productCategory} · {item.recommendedAction}</span>
+              <span>{item.productCategory} Ã‚Â· {item.recommendedAction}</span>
               <strong>{item.demandValue}</strong>
             </div>
           ))}
@@ -12615,7 +12355,7 @@ function BrandSettingsPage() {
           <h3>Recovery Module Settings</h3>
           {recoveryModuleSettings.slice(0, 6).map((module) => (
             <div key={module.id}>
-              <span>{module.moduleName} · {module.defaultOwner}</span>
+              <span>{module.moduleName} Ã‚Â· {module.defaultOwner}</span>
               <strong>{module.status}</strong>
             </div>
           ))}
@@ -12633,7 +12373,7 @@ function BrandSettingsPage() {
           <h3>Source Configuration Preview</h3>
           {sourceSetupRecords.slice(0, 6).map((source) => (
             <div key={source.id}>
-              <span>{source.sourceName} · {source.defaultOwner}</span>
+              <span>{source.sourceName} Ã‚Â· {source.defaultOwner}</span>
               <strong>{source.sourceStatus}</strong>
             </div>
           ))}
@@ -12717,7 +12457,7 @@ function TeamUsersSetup() {
                   <h3>{user.name}</h3>
                   <Badge tone={user.tone}>{user.role}</Badge>
                 </div>
-                <p>{user.email} · {user.permissionLevel}</p>
+                <p>{user.email} Ã‚Â· {user.permissionLevel}</p>
               </div>
               <div className="capture-value-stack">
                 <strong>{user.revenueAtRiskOwned}</strong>
@@ -13219,7 +12959,7 @@ function PlaceholderPage({ title }: { title: string }) {
         {relatedTasks.map((task) => (
           <div className="recovery-row" key={`${title}-${task.id}`}>
             <div className="recovery-row-main">
-              <Avatar name={task.customer} image={task.image} />
+              <Avatar name={task.customer} />
               <div>
                 <h3>{task.productInterest}</h3>
                 <p>{task.recommendedNextAction}</p>
@@ -13336,7 +13076,7 @@ export default function Home() {
             </button>
             <button
               className="secondary-btn"
-              onClick={() => setActivePage("Today’s Recovery Queue")}
+              onClick={() => setActivePage("TodayÃ¢â‚¬â„¢s Recovery Queue")}
               type="button"
             >
               Open Recovery Queue
@@ -13349,7 +13089,7 @@ export default function Home() {
 
         {activePage === "Recovery Overview" ? (
           <RecoveryOverview activities={activityFeed} />
-        ) : activePage === "Today’s Recovery Queue" ? (
+        ) : activePage === "TodayÃ¢â‚¬â„¢s Recovery Queue" ? (
           <TodaysRecoveryQueue />
         ) : activePage === "Inquiry Inbox" ? (
           <InquiryInbox onActivity={addRecoveryActivity} />
