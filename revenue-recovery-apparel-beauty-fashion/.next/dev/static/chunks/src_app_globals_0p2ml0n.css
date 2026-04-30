@@ -4482,6 +4482,11 @@ html, body {
   font-weight: 700;
 }
 
+.side-group-trigger:hover {
+  color: var(--text);
+  background: #f4f4f2;
+}
+
 .side-title {
   font-size: 13px;
   font-weight: 750;
@@ -4492,15 +4497,6 @@ html, body {
   border-radius: 999px;
   width: 7px;
   height: 7px;
-}
-
-.side-arrow {
-  color: #8a8f98;
-}
-
-.side-group-trigger:hover .side-arrow {
-  color: var(--accent);
-  background: var(--accent-soft);
 }
 
 .side-group.is-open .side-arrow {
@@ -4720,7 +4716,12 @@ body {
 }
 
 .side-group-trigger {
-  color: var(--muted);
+  color: #8b8f97;
+  background: none;
+  border: 1px solid #0000;
+  border-radius: 16px;
+  min-height: 46px;
+  padding: 0 18px;
   font-weight: 550;
 }
 
@@ -4730,13 +4731,14 @@ body {
 
 .side-group-trigger:hover {
   color: var(--text);
-  background: #f5f5f3;
+  background: #f7f7f5;
+  border-color: #0000;
 }
 
 .side-group.is-open .side-group-trigger {
   color: #fff;
-  background: var(--accent);
-  border-color: var(--accent);
+  background: #ff4500;
+  border-color: #ff4500;
   box-shadow: 0 6px 14px #f45a1e1f;
 }
 
@@ -4748,31 +4750,54 @@ body {
   background: #fff;
 }
 
+.side-arrow {
+  color: #94a3b8;
+}
+
+.side-group-trigger:hover .side-arrow {
+  color: var(--text);
+  background: none;
+}
+
+.side-group-trigger:hover .side-dot {
+  background: #ff4500;
+}
+
+.side-group.is-open .side-arrow, .side-group.is-open .side-group-trigger:hover .side-arrow {
+  color: #fff;
+  background: #ffffff29;
+}
+
+.side-group.is-open .side-group-trigger:hover .side-dot {
+  background: #fff;
+}
+
 .side-submenu-inner {
   border-left-color: #eeeeec;
 }
 
 .side-subitem {
-  color: #747982;
+  color: #8b8f97;
   background: none;
-  border-radius: 6px;
+  border-radius: 12px;
+  padding: 10px 14px;
   font-weight: 450;
 }
 
 .side-subitem:hover {
   color: var(--text);
-  background: #f5f5f3;
+  background: #f7f7f5;
 }
 
 .side-subitem.is-active {
   color: var(--text);
-  background: #f3f3f1;
+  background: #f3f3f3;
   font-weight: 550;
 }
 
 .side-subitem.is-active:before {
-  background: var(--accent);
   box-shadow: none;
+  background: #ff4500;
 }
 
 h1 {
