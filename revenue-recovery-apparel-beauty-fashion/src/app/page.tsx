@@ -7082,9 +7082,96 @@ type RecoveryOverviewProps = {
   onNavigate: (pageName: string) => void;
 };
 
+function getAssignedTasksForTeamMember(member: TeamUser) {
+  const directTasks = recoveryTasks.filter((task) => task.assignedOwner === member.name);
+
+  if (directTasks.length > 0) {
+    return directTasks;
+  }
+
+  const focus = member.sourceFocus.toLowerCase();
+
+  return recoveryTasks
+    .filter((task) => {
+      const source = task.source.toLowerCase();
+      const category = task.category.toLowerCase();
+      const leakType = task.leakType.toLowerCase();
+      const interest = task.productInterest.toLowerCase();
+
+      return (
+        focus.includes(source) ||
+        focus.includes(category) ||
+        focus.includes(leakType) ||
+        focus.includes(interest)
+      );
+    })
+    .slice(0, 4);
+}
+
+function getTeamCapacityStatus(member: TeamUser) {
+  if (member.overdueTasks >= 4 || member.activeTasks >= 16) {
+    return "Heavy load";
+  }
+
+  if (member.overdueTasks >= 2 || member.activeTasks >= 10) {
+    return "Watch closely";
+  }
+
+  return "Balanced";
+}
+
+function getTeamWorkloadDiagnosis(member: TeamUser, assignedTasks: RecoveryTask[]) {
+  const capacity = getTeamCapacityStatus(member);
+  const overdueTasks = assignedTasks.filter((task) => task.dueStatus === "Overdue");
+  const criticalTasks = assignedTasks.filter((task) => task.priority === "Critical");
+
+  if (capacity === "Heavy load") {
+    return `${member.name} has ${member.activeTasks} active recovery actions and ${member.overdueTasks} overdue items. Prioritize first-reply leaks, high-value payment reminders, and reassign lower-priority work if it is not cleared today.`;
+  }
+
+  if (criticalTasks.length > 0) {
+    return `${member.name} owns ${criticalTasks.length} critical recovery case${criticalTasks.length > 1 ? "s" : ""}. Keep the highest-value buyer moments with this owner and review overdue work before close of day.`;
+  }
+
+  if (overdueTasks.length > 0) {
+    return `${member.name} has overdue recovery work that may create lost revenue if follow-up is delayed. Review the overdue queue and confirm next actions.`;
+  }
+
+  return `${member.name} has a manageable recovery load. Keep source coverage active and review upcoming follow-ups before they become overdue.`;
+}
+
+function getTeamOverdueBreakdown(assignedTasks: RecoveryTask[]) {
+  const overdueTasks = assignedTasks.filter((task) => task.dueStatus === "Overdue");
+
+  const breakdown = overdueTasks.reduce<Record<string, number>>((acc, task) => {
+    acc[task.category] = (acc[task.category] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(breakdown).map(([label, count]) => ({
+    label,
+    count,
+  }));
+}
+
+function getTeamSourceCoverage(assignedTasks: RecoveryTask[]) {
+  const coverage = assignedTasks.reduce<Record<string, number>>((acc, task) => {
+    acc[task.source] = (acc[task.source] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(coverage).map(([label, count]) => ({
+    label,
+    count,
+  }));
+}
+
 function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOverviewProps) {
   const [selectedTask, setSelectedTask] = useState<RecoveryTask | null>(null);
   const [selectedTeamMember, setSelectedTeamMember] = useState<TeamUser | null>(null);
+  const [teamModalNotice, setTeamModalNotice] = useState("Review owner workload before rebalancing recovery actions.");
+  const [teamNoteText, setTeamNoteText] = useState("");
+  const [teamLocalNotes, setTeamLocalNotes] = useState<Record<string, string[]>>({});
   const [selectedSourceEvent, setSelectedSourceEvent] = useState<OverviewSourceEvent | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<RecoveryActivity | null>(null);
   const [activeModal, setActiveModal] = useState<OverviewModalType>(null);
@@ -7210,6 +7297,89 @@ function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOvervi
     "Post-Purchase": "Reviews / Referrals / UGC",
     Reports: "Revenue Leak Reports",
   };
+
+  function handleOpenTeamArea(pageName: string) {
+  if (typeof onNavigate === "function") {
+    onNavigate?.(pageName);
+    return;
+  }
+
+  setTeamModalNotice(`Open ${pageName} from the sidebar to continue.`);
+}
+
+function handleReassignOverdueWork(member: TeamUser) {
+  const assignedTasks = getAssignedTasksForTeamMember(member);
+  const overdueTasks = assignedTasks.filter((task) => task.dueStatus === "Overdue");
+
+  setTeamModalNotice(
+    overdueTasks.length > 0
+      ? `${overdueTasks.length} overdue action${overdueTasks.length > 1 ? "s" : ""} flagged for reassignment review.`
+      : "No overdue assigned actions found for reassignment.",
+  );
+
+  if (typeof onActivity === "function") {
+    onActivity?.({
+      category: "Team Actions",
+      title: "Overdue workload reviewed for reassignment",
+      description: `${member.name}'s overdue recovery work was reviewed for possible reassignment.`,
+      impactBadge: member.revenueAtRisk,
+      relatedRecord: member.name,
+      owner: "Operations",
+      status: "Reviewed",
+      nextAction: member.nextAction,
+      tone: member.tone,
+    });
+  }
+}
+
+function handleMarkTeamWorkloadReviewed(member: TeamUser) {
+  setTeamModalNotice(`${member.name}'s workload was marked reviewed.`);
+
+  if (typeof onActivity === "function") {
+    onActivity?.({
+      category: "Team Actions",
+      title: "Team workload reviewed",
+      description: `${member.name}'s recovery workload was reviewed by operations.`,
+      impactBadge: `${member.activeTasks} active`,
+      relatedRecord: member.name,
+      owner: "Operations",
+      status: "Reviewed",
+      nextAction: member.nextAction,
+      tone: "emerald",
+    });
+  }
+}
+
+function handleAddTeamWorkloadNote(member: TeamUser) {
+  const cleanNote = teamNoteText.trim();
+
+  if (!cleanNote) {
+    setTeamModalNotice("Write a workload note before adding it.");
+    return;
+  }
+
+  setTeamLocalNotes((current) => ({
+    ...current,
+    [member.id]: [cleanNote, ...(current[member.id] ?? [])],
+  }));
+
+  setTeamNoteText("");
+  setTeamModalNotice("Workload note added locally.");
+
+  if (typeof onActivity === "function") {
+    onActivity?.({
+      category: "Team Actions",
+      title: "Workload note added",
+      description: `Internal workload note added for ${member.name}: ${cleanNote}`,
+      impactBadge: member.revenueAtRisk,
+      relatedRecord: member.name,
+      owner: "Operations",
+      status: "Note added",
+      nextAction: member.nextAction,
+      tone: "indigo",
+    });
+  }
+}
 
   return (
     <div className="recovery-page">
@@ -7446,7 +7616,7 @@ function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOvervi
                 className="primary-btn"
                 onClick={() => {
                   void copyText(selectedTask.messageTemplate, "Template copied");
-                  onActivity({
+                  onActivity?.({
                     category: "Team Actions",
                     title: "Recovery template copied",
                     description: `Copied recovery message template for ${selectedTask.customer}.`,
@@ -7534,52 +7704,314 @@ function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOvervi
       {activeModal === "team" && selectedTeamMember ? (
         <ModalShell
           footer={
-            <>
-              <button className="primary-btn" onClick={() => onNavigate("Team Load")} type="button">
-                Open Team Load
-              </button>
-              <button className="secondary-btn" onClick={() => onNavigate("Assigned Recovery Actions")} type="button">
-                Open Assigned Actions
-              </button>
-              <button
-                className="secondary-btn"
-                onClick={() =>
-                  addOverviewActivity(
-                    {
-                      category: "Team Actions",
-                      title: "Team workload reviewed",
-                      description: `Reviewed ${selectedTeamMember.name}'s recovery workload.`,
-                      impactBadge: selectedTeamMember.revenueAtRisk,
-                      relatedRecord: selectedTeamMember.id,
-                      owner: selectedTeamMember.name,
-                      status: "Reviewed",
-                      nextAction: selectedTeamMember.nextAction,
-                      tone: selectedTeamMember.tone,
-                    },
-                    "Team workload reviewed",
-                  )
-                }
-                type="button"
-              >
-                Mark Workload Reviewed
-              </button>
-            </>
-          }
+  <>
+    <button
+      className="primary-btn"
+      onClick={() => onNavigate("Team Load")}
+      type="button"
+    >
+      Open Team Load
+    </button>
+
+    <button
+      className="secondary-btn"
+      onClick={() => onNavigate("Assigned Recovery Actions")}
+      type="button"
+    >
+      Open Assigned Actions
+    </button>
+
+    <button
+      className="secondary-btn"
+      onClick={() => onNavigate("Today's Recovery Queue")}
+      type="button"
+    >
+      Open Overdue Queue
+    </button>
+
+    <button
+      className="secondary-btn"
+      onClick={() => {
+        const assignedTasks = getAssignedTasksForTeamMember(selectedTeamMember);
+        const overdueTasks = assignedTasks.filter((task) => task.dueStatus === "Overdue");
+
+        setTeamModalNotice(
+          overdueTasks.length > 0
+            ? `${overdueTasks.length} overdue action${
+                overdueTasks.length > 1 ? "s" : ""
+              } flagged for reassignment review.`
+            : "No overdue assigned actions found for reassignment.",
+        );
+
+        addOverviewActivity(
+          {
+            category: "Team Actions",
+            title: "Overdue workload reviewed for reassignment",
+            description: `${selectedTeamMember.name}'s overdue recovery work was reviewed for possible reassignment.`,
+            impactBadge: selectedTeamMember.revenueAtRisk,
+            relatedRecord: selectedTeamMember.id,
+            owner: "Operations",
+            status: "Reviewed",
+            nextAction: selectedTeamMember.nextAction,
+            tone: selectedTeamMember.tone,
+          },
+          "Overdue workload reviewed",
+        );
+      }}
+      type="button"
+    >
+      Reassign Overdue
+    </button>
+
+    <button
+      className="secondary-btn"
+      onClick={() => {
+        setTeamModalNotice(`${selectedTeamMember.name}'s workload was marked reviewed.`);
+
+        addOverviewActivity(
+          {
+            category: "Team Actions",
+            title: "Team workload reviewed",
+            description: `Reviewed ${selectedTeamMember.name}'s recovery workload.`,
+            impactBadge: selectedTeamMember.revenueAtRisk,
+            relatedRecord: selectedTeamMember.id,
+            owner: selectedTeamMember.name,
+            status: "Reviewed",
+            nextAction: selectedTeamMember.nextAction,
+            tone: selectedTeamMember.tone,
+          },
+          "Team workload reviewed",
+        );
+      }}
+      type="button"
+    >
+      Mark Workload Reviewed
+    </button>
+  </>
+}
           onClose={closeModal}
           title={selectedTeamMember.name}
         >
-          <div style={modalGridStyle}>
-            <DetailField label="Role" value={selectedTeamMember.role} />
-            <DetailField label="Active tasks" value={selectedTeamMember.activeTasks} />
-            <DetailField label="Overdue tasks" value={selectedTeamMember.overdueTasks} />
-            <DetailField label="Revenue at risk" value={selectedTeamMember.revenueAtRisk} />
-            <DetailField label="Recovered this month" value={selectedTeamMember.recoveredThisMonth} />
-            <DetailField label="Source focus" value={selectedTeamMember.sourceFocus} />
+          {(() => {
+  const assignedTasks = getAssignedTasksForTeamMember(selectedTeamMember);
+  const overdueBreakdown = getTeamOverdueBreakdown(assignedTasks);
+  const sourceCoverage = getTeamSourceCoverage(assignedTasks);
+  const capacityStatus = getTeamCapacityStatus(selectedTeamMember);
+  const workloadDiagnosis = getTeamWorkloadDiagnosis(selectedTeamMember, assignedTasks);
+
+  const priorityActions = assignedTasks
+    .slice()
+    .sort((a, b) => {
+      const priorityOrder: Record<Priority, number> = {
+        Critical: 0,
+        High: 1,
+        Medium: 2,
+        Low: 3,
+      };
+
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    })
+    .slice(0, 5);
+
+  return (
+    <>
+      <div className="owner-status-strip">
+        <div>
+          <span>Capacity status</span>
+          <strong>{capacityStatus}</strong>
+        </div>
+
+        <div>
+          <span>Active / overdue</span>
+          <strong>
+            {selectedTeamMember.activeTasks} active · {selectedTeamMember.overdueTasks} overdue
+          </strong>
+        </div>
+
+        <div>
+          <span>Owned risk</span>
+          <strong>{selectedTeamMember.revenueAtRisk}</strong>
+        </div>
+      </div>
+
+      <div style={modalGridStyle}>
+        <DetailField label="Role" value={selectedTeamMember.role} />
+        <DetailField label="Recovered this month" value={selectedTeamMember.recoveredThisMonth} />
+        <DetailField label="Source focus" value={selectedTeamMember.sourceFocus} />
+      </div>
+
+      <div className="detail-callout">
+        <span>Workload diagnosis</span>
+        <p>{workloadDiagnosis}</p>
+      </div>
+
+      <div className="team-load-modal-layout">
+        <section className="thread-panel team-priority-panel">
+          <div className="thread-header">
+            <div>
+              <h3>Priority assigned actions</h3>
+              <p>Highest-risk buyer moments owned by {selectedTeamMember.name}.</p>
+            </div>
+            <span>{priorityActions.length} shown</span>
           </div>
-          <div className="detail-callout">
-            <span>Next action</span>
-            <p>{selectedTeamMember.nextAction}</p>
+
+          <div className="team-priority-list">
+            {priorityActions.length > 0 ? (
+              priorityActions.map((task) => (
+                <div className="team-priority-row" key={task.id}>
+                  <div>
+                    <strong>{task.customer}</strong>
+                    <p>{task.productInterest}</p>
+
+                    <div className="recovery-meta">
+                      <span>{task.priority}</span>
+                      <span>{task.leakType}</span>
+                      <span>{task.dueStatus}</span>
+                    </div>
+                  </div>
+
+                  <div className="team-priority-value">
+                    <strong>{task.estimatedRevenueAtRisk}</strong>
+                    <span>{task.source}</span>
+                  </div>
+
+                  <small>{task.recommendedNextAction}</small>
+                </div>
+              ))
+            ) : (
+              <p className="team-empty-copy">
+                No directly assigned recovery actions found for this owner yet.
+              </p>
+            )}
           </div>
+        </section>
+
+        <div className="team-side-stack">
+          <section className="thread-panel team-mini-panel">
+            <div className="thread-header">
+              <div>
+                <h3>Overdue breakdown</h3>
+                <p>What type of work is creating pressure.</p>
+              </div>
+            </div>
+
+            <div className="team-breakdown-list">
+              {overdueBreakdown.length > 0 ? (
+                overdueBreakdown.map((item) => (
+                  <div key={item.label}>
+                    <span>{item.label}</span>
+                    <strong>{item.count} overdue</strong>
+                  </div>
+                ))
+              ) : (
+                <p className="team-empty-copy">No overdue assigned cases.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="thread-panel team-mini-panel">
+            <div className="thread-header">
+              <div>
+                <h3>Source coverage</h3>
+                <p>Where this owner's workload is coming from.</p>
+              </div>
+            </div>
+
+            <div className="team-breakdown-list">
+              {sourceCoverage.length > 0 ? (
+                sourceCoverage.map((item) => (
+                  <div key={item.label}>
+                    <span>{item.label}</span>
+                    <strong>{item.count} actions</strong>
+                  </div>
+                ))
+              ) : (
+                <p className="team-empty-copy">No source coverage data available.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div className="detail-callout">
+        <span>Recommended team action</span>
+        <p>{selectedTeamMember.nextAction}</p>
+      </div>
+
+      <div className="thread-panel team-note-panel">
+        <div className="thread-header">
+          <div>
+            <h3>Internal team notes</h3>
+            <p>Frontend-only workload notes for handoff and review.</p>
+          </div>
+          <span>{teamLocalNotes[selectedTeamMember.id]?.length ?? 0} notes</span>
+        </div>
+
+        <textarea
+          className="team-note-input"
+          value={teamNoteText}
+          onChange={(event) => setTeamNoteText(event.target.value)}
+          placeholder={`Add workload note for ${selectedTeamMember.name}...`}
+        />
+
+        <div className="capture-actions">
+          <button
+            className="secondary-btn"
+            onClick={() => {
+              const cleanNote = teamNoteText.trim();
+
+              if (!cleanNote) {
+                setTeamModalNotice("Write a workload note before adding it.");
+                return;
+              }
+
+              setTeamLocalNotes((current) => ({
+                ...current,
+                [selectedTeamMember.id]: [
+                  cleanNote,
+                  ...(current[selectedTeamMember.id] ?? []),
+                ],
+              }));
+
+              setTeamNoteText("");
+              setTeamModalNotice("Workload note added locally.");
+
+              addOverviewActivity(
+                {
+                  category: "Team Actions",
+                  title: "Workload note added",
+                  description: `Internal workload note added for ${selectedTeamMember.name}: ${cleanNote}`,
+                  impactBadge: selectedTeamMember.revenueAtRisk,
+                  relatedRecord: selectedTeamMember.id,
+                  owner: "Operations",
+                  status: "Note added",
+                  nextAction: selectedTeamMember.nextAction,
+                  tone: "indigo",
+                },
+                "Workload note added",
+              );
+            }}
+            type="button"
+          >
+            Add workload note
+          </button>
+        </div>
+
+        {(teamLocalNotes[selectedTeamMember.id] ?? []).map((note, index) => (
+          <div className="thread-message" key={`${selectedTeamMember.id}-note-${index}`}>
+            <div>
+              <strong>Operations</strong>
+              <span>Local note · Just now</span>
+            </div>
+            <p>{note}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="detail-notice">{teamModalNotice}</p>
+    </>
+  );
+})()}
         </ModalShell>
       ) : null}
 
@@ -7682,10 +8114,132 @@ function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOvervi
   );
 }
 
+type RecommendedRecoveryTemplate = {
+  name: string;
+  type: string;
+  status: "Approved template available" | "AI draft suggested";
+  matchReason: string;
+  body: string;
+};
+
+function getRecommendedTemplateForTask(task: RecoveryTask): RecommendedRecoveryTemplate {
+  const category = task.category.toLowerCase();
+  const leakType = task.leakType.toLowerCase();
+  const productInterest = task.productInterest.toLowerCase();
+
+  if (
+    leakType.includes("payment") ||
+    category.includes("payment")
+  ) {
+    return {
+      name: "Payment Recovery Reminder",
+      type: "Payment reminder",
+      status: "Approved template available",
+      matchReason: "Matched because this case has pending payment value and needs a payment recovery reminder.",
+      body:
+        `Hi ${task.customer.split(" ")[0]}, your ${task.productInterest.toLowerCase()} is still reserved. ` +
+        `Here is the secure checkout link again. Let me know if anything is blocking the payment and I can help.`,
+    };
+  }
+
+  if (
+    category.includes("refill") ||
+    category.includes("restock") ||
+    productInterest.includes("refill") ||
+    productInterest.includes("restock")
+  ) {
+    return {
+      name: "Refill / Restock Recovery Prompt",
+      type: "Refill / Restock",
+      status: "Approved template available",
+      matchReason: "Matched because this buyer has refill, restock, or repeat-purchase intent.",
+      body:
+        `Hi ${task.customer.split(" ")[0]}, I wanted to follow up on your ${task.productInterest.toLowerCase()}. ` +
+        `We can help you reorder while the right option is still available.`,
+    };
+  }
+
+  if (
+    category.includes("post") ||
+    leakType.includes("post")
+  ) {
+    return {
+      name: "Post-Purchase Review / Referral Prompt",
+      type: "Post-purchase",
+      status: "Approved template available",
+      matchReason: "Matched because this case is tied to post-purchase recovery, reviews, referrals, or UGC.",
+      body:
+        `Hi ${task.customer.split(" ")[0]}, checking in after your order. ` +
+        `If everything arrived well, we would love to hear your feedback or see how you styled it.`,
+    };
+  }
+
+  if (
+    category.includes("inquiry") ||
+    leakType.includes("follow-up") ||
+    leakType.includes("inquiry")
+  ) {
+    const isBridal = productInterest.includes("bridal") || task.brandContext.toLowerCase().includes("bridal");
+
+    return {
+      name: isBridal ? "Bridal Follow-up Recovery" : "High-Intent Inquiry Follow-up",
+      type: "Follow-up",
+      status: "Approved template available",
+      matchReason: isBridal
+        ? "Matched because this is a high-value bridal inquiry with follow-up leakage."
+        : "Matched because this is a captured inquiry that needs a first reply or follow-up.",
+      body:
+        task.messageTemplate ||
+        `Hi ${task.customer.split(" ")[0]}, I wanted to follow up on your ${task.productInterest.toLowerCase()}. ` +
+          `We can still help with the right option and next step today.`,
+    };
+  }
+
+  return {
+    name: "General Recovery Follow-up",
+    type: "General recovery",
+    status: "AI draft suggested",
+    matchReason: "No exact approved template matched, so a general recovery draft is recommended.",
+    body:
+      task.messageTemplate ||
+      `Hi ${task.customer.split(" ")[0]}, I wanted to follow up on your ${task.productInterest.toLowerCase()}. ` +
+        `Let me know if you would like help with the next step.`,
+  };
+}
+
+function buildRiskReason(task: RecoveryTask) {
+  if (task.priority === "Critical") {
+    return `${task.estimatedRevenueAtRisk} is at risk because this ${task.leakType.toLowerCase()} is ${task.dueStatus.toLowerCase()}, owned by ${task.assignedOwner}, and the last event says: ${task.lastEvent}.`;
+  }
+
+  if (task.dueStatus === "Overdue") {
+    return `This opportunity is overdue and may go cold without a recovery action. Last contact: ${task.lastContact}.`;
+  }
+
+  if (task.category === "Payment Recovery") {
+    return `The buyer has shown payment intent, but payment completion still needs follow-up.`;
+  }
+
+  if (task.category === "Refill/Restock") {
+    return `This buyer is inside a refill/restock window, so timing matters before the opportunity is lost.`;
+  }
+
+  return `This buyer has an open recovery opportunity that needs ownership, a clear next action, and follow-up tracking.`;
+}
+
+function buildAiResponseDraft(task: RecoveryTask) {
+  return (
+    `Hi ${task.customer.split(" ")[0]}, I wanted to follow up on your ${task.productInterest.toLowerCase()}. ` +
+    `${task.recommendedNextAction} ` +
+    `Would you like me to help with this today?`
+  );
+}
+
 function TodaysRecoveryQueue() {
   const [activeTab, setActiveTab] = useState<QueueTab>("All");
   const [selectedTaskId, setSelectedTaskId] = useState(recoveryTasks[0].id);
   const [detailNotice, setDetailNotice] = useState("Ready for recovery action.");
+  const [taskMessageDrafts, setTaskMessageDrafts] = useState<Record<string, string>>({});
 
   const filteredTasks = useMemo(() => {
     return recoveryTasks.filter((task) => matchesQueueTab(task, activeTab));
@@ -7694,10 +8248,67 @@ function TodaysRecoveryQueue() {
   const selectedTask =
     filteredTasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? recoveryTasks[0];
   const primaryActionLabel = getPrimaryRecoveryAction(selectedTask);
+  const recommendedTemplate = getRecommendedTemplateForTask(selectedTask);
+const riskReason = buildRiskReason(selectedTask);
+const currentMessageBody = taskMessageDrafts[selectedTask.id] ?? recommendedTemplate.body;
+
+const systemThreadMessages: RecoveryThreadMessage[] = [
+  {
+    id: `${selectedTask.id}-system-template`,
+    author: "System",
+    role: "System",
+    message: `Matched "${recommendedTemplate.name}" because ${recommendedTemplate.matchReason}`,
+    time: "Now",
+  },
+  ...(selectedTask.dueStatus === "Overdue"
+    ? [
+        {
+          id: `${selectedTask.id}-system-overdue`,
+          author: "System",
+          role: "System" as const,
+          message: `This recovery case is overdue. Last event: ${selectedTask.lastEvent}`,
+          time: "Now",
+        },
+      ]
+    : []),
+];
 
   function handleTaskAction(action: string) {
-    setDetailNotice(`${action} noted for ${selectedTask.customer}.`);
+  setDetailNotice(`${action} noted for ${selectedTask.customer}.`);
+}
+
+async function copyCurrentRecoveryMessage() {
+  try {
+    await navigator.clipboard.writeText(currentMessageBody);
+    setDetailNotice(`Template copied for ${selectedTask.customer}.`);
+  } catch {
+    setDetailNotice("Copy failed. Please copy the message manually.");
   }
+}
+
+function useApprovedTemplate() {
+  setTaskMessageDrafts((current) => ({
+    ...current,
+    [selectedTask.id]: recommendedTemplate.body,
+  }));
+
+  setDetailNotice(`Approved template selected: ${recommendedTemplate.name}.`);
+}
+
+function generateAiResponseDraft() {
+  const draft = buildAiResponseDraft(selectedTask);
+
+  setTaskMessageDrafts((current) => ({
+    ...current,
+    [selectedTask.id]: draft,
+  }));
+
+  setDetailNotice("AI response draft generated for review. Nothing was sent.");
+}
+
+function openTemplateSetup() {
+  setDetailNotice("Open Setup > Templates to edit this template.");
+}
 
   return (
     <div className="recovery-page">
@@ -7781,100 +8392,194 @@ function TodaysRecoveryQueue() {
           </div>
 
           <div className="customer-summary-box">
-            <span>Buyer recovery summary</span>
-            <p>
-              {selectedTask.leakType} from {selectedTask.source}. Last contact:{" "}
-              {selectedTask.lastContact}; {selectedTask.attemptCount} recovery attempts logged.
-            </p>
-          </div>
+  <span>Buyer recovery summary</span>
+  <p>
+    {selectedTask.customer} has {selectedTask.estimatedRevenueAtRisk} at risk from{" "}
+    {selectedTask.leakType.toLowerCase()} through {selectedTask.source}. Owner:{" "}
+    {selectedTask.assignedOwner}. Due status: {selectedTask.dueStatus}.
+  </p>
+</div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Leak type</span>
-              <strong>{selectedTask.leakType}</strong>
-            </div>
-            <div>
-              <span>Source</span>
-              <strong>{selectedTask.source}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedTask.assignedOwner}</strong>
-            </div>
-            <div>
-              <span>Due status</span>
-              <strong>{selectedTask.dueStatus}</strong>
-            </div>
-            <div>
-              <span>Priority</span>
-              <strong>{selectedTask.priority}</strong>
-            </div>
-            <div>
-              <span>Revenue at risk</span>
-              <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
-            </div>
-          </div>
+<div className="detail-callout">
+  <span>Risk reason</span>
+  <p>{riskReason}</p>
+</div>
 
-          <div className="detail-callout">
-            <span>Recommended next action</span>
-            <p>{selectedTask.recommendedNextAction}</p>
-          </div>
+<div className="detail-grid recovery-primary-grid">
+  <div>
+    <span>Revenue at risk</span>
+    <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
+  </div>
+  <div>
+    <span>Priority</span>
+    <strong>{selectedTask.priority}</strong>
+  </div>
+  <div>
+    <span>Due status</span>
+    <strong>{selectedTask.dueStatus}</strong>
+  </div>
+  <div>
+    <span>Assigned owner</span>
+    <strong>{selectedTask.assignedOwner}</strong>
+  </div>
+</div>
 
-          <div className="template-box">
-            <div>
-              <span>Message template</span>
-              <button type="button" onClick={() => handleTaskAction("Template copied")}>
-                Copy Template
-              </button>
-            </div>
-            <p>{selectedTask.messageTemplate}</p>
-          </div>
+<div className="detail-grid">
+  <div>
+    <span>Brand context</span>
+    <strong>{selectedTask.brandContext}</strong>
+  </div>
+  <div>
+    <span>Product interest</span>
+    <strong>{selectedTask.productInterest}</strong>
+  </div>
+  <div>
+    <span>Leak type</span>
+    <strong>{selectedTask.leakType}</strong>
+  </div>
+  <div>
+    <span>Source</span>
+    <strong>{selectedTask.source}</strong>
+  </div>
+  <div>
+    <span>Category</span>
+    <strong>{selectedTask.category}</strong>
+  </div>
+  <div>
+    <span>Attempt count</span>
+    <strong>{selectedTask.attemptCount}</strong>
+  </div>
+</div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Automation status</span>
-              <strong>{selectedTask.automationStatus}</strong>
-            </div>
-            <div>
-              <span>Source status</span>
-              <strong>{selectedTask.sourceStatus}</strong>
-            </div>
-          </div>
+<div className="detail-grid">
+  <div>
+    <span>Automation status</span>
+    <strong>{selectedTask.automationStatus}</strong>
+  </div>
+  <div>
+    <span>Source status</span>
+    <strong>{selectedTask.sourceStatus}</strong>
+  </div>
+  <div>
+    <span>Last contact</span>
+    <strong>{selectedTask.lastContact}</strong>
+  </div>
+  <div>
+    <span>Last event</span>
+    <strong>{selectedTask.lastEvent}</strong>
+  </div>
+</div>
 
-          <div className="thread-panel">
-            <div className="thread-header">
-              <h3>Internal Recovery Thread</h3>
-              <span>{selectedTask.lastEvent}</span>
-            </div>
-            {selectedTask.internalRecoveryThread.map((message) => (
-              <div className="thread-message" key={message.id}>
-                <div>
-                  <strong>{message.author}</strong>
-                  <span>{message.role}</span>
-                </div>
-                <p>{message.message}</p>
-                <small>{message.time}</small>
-              </div>
-            ))}
-          </div>
+<div className="detail-callout">
+  <span>Recommended next action</span>
+  <p>{selectedTask.recommendedNextAction}</p>
+</div>
+
+<div className="template-box message-recommendation-box">
+  <div>
+    <span>Message recommendation</span>
+    <strong>{recommendedTemplate.status}</strong>
+  </div>
+
+  <div className="template-match-grid">
+    <div>
+      <span>Template match</span>
+      <strong>{recommendedTemplate.name}</strong>
+    </div>
+    <div>
+      <span>Template type</span>
+      <strong>{recommendedTemplate.type}</strong>
+    </div>
+    <div className="template-match-full">
+      <span>Match reason</span>
+      <p>{recommendedTemplate.matchReason}</p>
+    </div>
+  </div>
+
+  <div className="recommended-message-preview">
+    <span>Selected message</span>
+    <p>{currentMessageBody}</p>
+  </div>
+
+  <div className="template-action-row">
+    <button type="button" onClick={useApprovedTemplate}>
+      Use Approved Template
+    </button>
+    <button type="button" onClick={generateAiResponseDraft}>
+      Generate AI Response
+    </button>
+    <button type="button" onClick={openTemplateSetup}>
+      Edit Template
+    </button>
+    <button type="button" onClick={copyCurrentRecoveryMessage}>
+      Copy
+    </button>
+  </div>
+</div>
+
+<div className="thread-panel">
+  <div className="thread-header">
+    <div>
+      <h3>Internal Recovery Thread</h3>
+      <p>Automation events, owner notes, and recovery decisions for this leak.</p>
+    </div>
+    <span>{selectedTask.internalRecoveryThread.length + systemThreadMessages.length} updates</span>
+  </div>
+
+  {[...systemThreadMessages, ...selectedTask.internalRecoveryThread].map((message) => (
+    <div className="thread-message" key={message.id}>
+      <div>
+        <strong>{message.author}</strong>
+        <span>{message.role} - {message.time}</span>
+      </div>
+      <p>{message.message}</p>
+    </div>
+  ))}
+</div>
 
           <p className="detail-notice">{detailNotice}</p>
 
           <div className="detail-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() => handleTaskAction(primaryActionLabel)}
-            >
-              {primaryActionLabel}
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => handleTaskAction("Snoozed")}>
-              Snooze
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => handleTaskAction("Reassign requested")}>
-              Reassign
-            </button>
-          </div>
+  <button
+    type="button"
+    className="primary-btn"
+    onClick={useApprovedTemplate}
+  >
+    Use Template
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn"
+    onClick={generateAiResponseDraft}
+  >
+    Generate AI Response
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn"
+    onClick={copyCurrentRecoveryMessage}
+  >
+    Copy Message
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn"
+    onClick={() => handleTaskAction("Follow-up created")}
+  >
+    Create Follow-up
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn"
+    onClick={() => handleTaskAction("Reviewed")}
+  >
+    Mark Reviewed
+  </button>
+</div>
         </aside>
       </section>
     </div>
@@ -7902,7 +8607,7 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
     nextAction = inquiry.recommendedAction,
     owner = inquiry.owner,
   ) {
-    onActivity({
+    onActivity?.({
       category: "Inquiries",
       title,
       description: `${inquiry.customer}'s ${inquiry.productInterest.toLowerCase()} was updated from ${inquiry.inquirySource}.`,
@@ -8234,7 +8939,7 @@ function ProductDemand({ onActivity }: { onActivity: (activity: NewRecoveryActiv
   }, [demandSignals]);
 
   function recordDemandActivity(signal: ProductDemandSignal, title: string, status: string, nextAction = signal.recommendedNextAction) {
-    onActivity({
+    onActivity?.({
       category: signal.demandType === "Refill" || signal.demandType === "Restock" ? "Repeat Revenue" : "Inquiries",
       title,
       description: `${signal.demandName} demand was updated with ${signal.totalSignals} captured signals.`,
@@ -8448,7 +9153,7 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
   }, [sourceRecords]);
 
   function recordSourceActivity(source: SourceLeakRecord, title: string, status: string, nextAction = source.recommendedFix) {
-    onActivity({
+    onActivity?.({
       category: source.syncIssues > 0 ? "Sync Issues" : "Team Actions",
       title,
       description: `${source.sourceName} source leakage was updated for ${source.totalCaptured} captured inquiries.`,
@@ -9881,7 +10586,7 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
   }, [opportunities]);
 
   function recordPipelineActivity(opportunity: RevenueOpportunity, title: string, status: string, nextAction = opportunity.nextAction) {
-    onActivity({
+    onActivity?.({
       category: opportunity.currentStage === "Payment Pending" ? "Payments" : "Inquiries",
       title,
       description: `${opportunity.buyerName}'s ${opportunity.productContext.toLowerCase()} moved inside revenue recovery.`,
@@ -10176,7 +10881,7 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
   }, [followUps]);
 
   function recordFollowUpActivity(item: FollowUpRecoveryItem, title: string, status: string) {
-    onActivity({
+    onActivity?.({
       category: item.followUpType === "Payment reminder" ? "Payments" : "Team Actions",
       title,
       description: `${item.buyerName}'s ${item.followUpType.toLowerCase()} was updated for ${item.productContext}.`,
@@ -10424,7 +11129,7 @@ function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAct
   }, [payments]);
 
   function recordPaymentActivity(item: PaymentRecoveryItem, title: string, status: string) {
-    onActivity({
+    onActivity?.({
       category: "Payments",
       title,
       description: `${item.buyerName}'s ${item.productContext.toLowerCase()} payment recovery was updated.`,

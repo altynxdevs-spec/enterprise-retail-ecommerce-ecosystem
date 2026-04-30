@@ -7499,3 +7499,290 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem * {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   Recovery detail message recommendation cleanup
+========================================================= */
+
+.recovery-primary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.message-recommendation-box {
+  display: grid !important;
+  gap: 14px !important;
+}
+
+.message-recommendation-box > div:first-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+
+.message-recommendation-box > div:first-child strong {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 28px !important;
+  padding: 5px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 69, 0, 0.2) !important;
+  background: rgba(255, 69, 0, 0.07) !important;
+  color: #111111 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+.template-match-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.template-match-grid > div,
+.recommended-message-preview {
+  padding: 12px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+}
+
+.template-match-grid span,
+.recommended-message-preview span {
+  display: block !important;
+  margin-bottom: 6px !important;
+  color: var(--muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.template-match-grid strong {
+  color: var(--text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.template-match-full {
+  grid-column: 1 / -1 !important;
+}
+
+.template-match-full p,
+.recommended-message-preview p {
+  margin: 0 !important;
+  color: #374151 !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+.template-action-row {
+  display: flex !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+}
+
+.template-action-row button {
+  min-height: 36px !important;
+  padding: 8px 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid var(--border) !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+.template-action-row button:hover {
+  border-color: rgba(255, 69, 0, 0.28) !important;
+  background: rgba(255, 69, 0, 0.06) !important;
+}
+
+.thread-header > div {
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.thread-header p {
+  margin: 0 !important;
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+@media (max-width: 900px) {
+  .recovery-primary-grid,
+  .template-match-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* =========================================================
+   Team Recovery Load modal upgrade
+========================================================= */
+
+.owner-status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+
+.owner-status-strip > div {
+  border: 1px solid #e8e8e5;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.owner-status-strip span,
+.team-breakdown-list span,
+.team-priority-value span,
+.team-priority-row small {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.owner-status-strip strong {
+  display: block;
+  margin-top: 5px;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.team-load-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.team-side-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.team-priority-list {
+  display: grid;
+  gap: 10px;
+}
+
+.team-priority-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: start;
+  border: 1px solid #e8e8e5;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.team-priority-row > small {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  color: #374151;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.team-priority-row strong,
+.team-breakdown-list strong {
+  color: #111111;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.team-priority-row p {
+  margin: 3px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.team-priority-value {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.team-priority-value strong {
+  display: block;
+  font-size: 16px;
+}
+
+.team-priority-value span {
+  margin-top: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.team-breakdown-list {
+  display: grid;
+  gap: 8px;
+}
+
+.team-breakdown-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e8e8e5;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.team-note-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.team-note-input {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  border: 1px solid #e8e8e5;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #111111;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
+
+.team-note-input:focus {
+  border-color: #ff4500;
+  box-shadow: 0 0 0 4px rgba(255, 69, 0, 0.1);
+}
+
+.team-empty-copy {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .owner-status-strip,
+  .team-load-modal-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .team-priority-row {
+    grid-template-columns: 1fr;
+  }
+
+  .team-priority-value {
+    text-align: left;
+  }
+}
