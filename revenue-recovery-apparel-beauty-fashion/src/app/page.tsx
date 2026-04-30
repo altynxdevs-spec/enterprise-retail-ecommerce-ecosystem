@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { CSSProperties, ChangeEvent, FormEvent, ReactNode } from "react";
+import { jsPDF } from "jspdf";
 
 type Tone = "cyan" | "rose" | "amber" | "emerald" | "indigo" | "gray";
 
@@ -40,11 +41,11 @@ type CaptureAssignee = {
 const assignmentRoles = ["Owner", "Support", "Reviewer", "Watcher"] as const;
 
 const fallbackCaptureAssignees: CaptureAssignee[] = [
-  { id: "amara-shah", name: "Amara Shah", role: "Recovery owner" },
-  { id: "mina-cole", name: "Mina Cole", role: "Beauty specialist" },
-  { id: "tessa-nguyen", name: "Tessa Nguyen", role: "Order recovery" },
-  { id: "luis-park", name: "Luis Park", role: "Post-purchase" },
-  { id: "operations", name: "Operations", role: "Admin" },
+  { id: "amara-shah", name: "Amara Shah", role: "Recovery owner", email: "amara@altynx.local" },
+  { id: "mina-cole", name: "Mina Cole", role: "Beauty specialist", email: "mina@altynx.local" },
+  { id: "tessa-nguyen", name: "Tessa Nguyen", role: "Order recovery", email: "tessa@altynx.local" },
+  { id: "luis-park", name: "Luis Park", role: "Post-purchase", email: "luis@altynx.local" },
+  { id: "operations", name: "Operations", role: "Admin", email: "ops@altynx.local" },
 ];
 
 type RecoveryThreadMessage = {
@@ -14494,13 +14495,20 @@ export default function Home() {
   const [quickToast, setQuickToast] = useState("");
   const canManageTeamMembers = true;
   const initialCaptureAssigneeId = teamUsers[0]?.id ?? fallbackCaptureAssignees[0]?.id ?? "amara-shah";
-  const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =>
-    (teamUsers.length > 0 ? teamUsers : fallbackCaptureAssignees).map((member) => ({
-      id: member.id,
-      name: member.name,
-      role: member.role,
-    })),
-  );
+const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =>
+  (teamUsers.length > 0 ? teamUsers : fallbackCaptureAssignees).map((member) => ({
+    id: member.id,
+    name: member.name,
+    role: member.role,
+    email:
+      "email" in member && member.email
+        ? member.email
+        : `${member.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ".")
+            .replace(/^\.+|\.+$/g, "")}@altynx.local`,
+  })),
+);
   const [isAddTeamMemberOpen, setIsAddTeamMemberOpen] = useState(false);
   const [newTeamMember, setNewTeamMember] = useState({
     email: "",
@@ -14562,91 +14570,468 @@ export default function Home() {
     ]);
   }
 
-  async function copyOverviewReportSummary() {
-    const summary = [
-      "Recovery Overview Report",
-      "",
-      "Included sections:",
-      "- KPIs",
-      "- Highest Risk Leaks",
-      "- Team Recovery Load",
-      "- Automation & Source Visibility",
-      "- Recovery Activity",
-      "",
-      ...kpis.map((item) => `${item.label}: ${item.value} (${item.caption})`),
-      `Recent activity events: ${activityFeed.length}`,
-    ].join("\n");
-
-    try {
-      await navigator.clipboard.writeText(summary);
-      setQuickToast("Report summary copied");
-    } catch {
-      setQuickToast("Copy failed. Please copy manually.");
-    }
-
-    addRecoveryActivity({
-      category: "Reports",
-      title: "Recovery overview report prepared",
-      description: "Copied a frontend-only Recovery Overview report summary.",
-      impactBadge: kpis[1]?.value ?? "$42.7K recovered",
-      relatedRecord: "Recovery Overview",
-      owner: "Operations",
-      status: "Prepared",
-      nextAction: "Share report summary with the recovery owner team.",
-      tone: "cyan",
-    });
-  }
-
   function handleCaptureInputChange(
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) {
-    const { name, value } = event.target;
+  event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+) {
+  const { name, value } = event.target;
 
+  setCaptureForm((current) => ({
+    ...current,
+    [name]: value,
+  }));
+}
+
+function handleNewTeamMemberInputChange(event: ChangeEvent<HTMLInputElement>) {
+  const { name, value } = event.target;
+
+  setNewTeamMember((current) => ({
+    ...current,
+    [name]: value,
+  }));
+
+  setQuickToast("");
+}
+
+function handleAddTeamMember() {
+  const name = newTeamMember.name.trim();
+  const role = newTeamMember.role.trim();
+  const email = newTeamMember.email.trim().toLowerCase();
+
+  if (!name) {
+    setQuickToast("Name is required.");
+    return;
+  }
+
+  if (!role) {
+    setQuickToast("Role is required.");
+    return;
+  }
+
+  if (!email) {
+    setQuickToast("Email is required.");
+    return;
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setQuickToast("Enter a valid email address.");
+    return;
+  }
+
+  const existingMember = captureAssignees.find(
+    (member) => member.email?.toLowerCase() === email,
+  );
+
+  if (existingMember) {
     setCaptureForm((current) => ({
       ...current,
-      [name]: value,
+      assignedTo: existingMember.id,
     }));
+
+    setQuickToast("This team member already has an account.");
+    return;
   }
 
-  function handleNewTeamMemberInputChange(event: ChangeEvent<HTMLInputElement>) {
-    const { name, value } = event.target;
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-    setNewTeamMember((current) => ({
-      ...current,
-      [name]: value,
-    }));
+  const member: CaptureAssignee = {
+    id: `${slug || "team-member"}-${Date.now()}`,
+    name,
+    role,
+    email,
+  };
+
+  setCaptureAssignees((current) => [...current, member]);
+
+  setCaptureForm((current) => ({
+    ...current,
+    assignedTo: member.id,
+  }));
+
+  setNewTeamMember({
+    email: "",
+    name: "",
+    role: "",
+  });
+
+  setIsAddTeamMemberOpen(false);
+  setQuickToast(`${name} added and selected.`);
+}
+
+  function downloadDetailedRecoveryReport() {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "pt",
+    format: "a4",
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 48;
+  const contentWidth = pageWidth - marginX * 2;
+  const footerY = pageHeight - 34;
+
+  const revenueAtRisk = kpis.find((item) => item.label === "Revenue at Risk")?.value ?? "$18.4K";
+  const recoveredThisMonth =
+    kpis.find((item) => item.label === "Recovered This Month")?.value ?? "$42.7K";
+  const pendingPaymentValue =
+    kpis.find((item) => item.label === "Pending Payment Value")?.value ?? "$6.8K";
+  const overdueActions =
+    kpis.find((item) => item.label === "Overdue Recovery Actions")?.value ?? "19";
+  const openRecoveryTasks =
+    kpis.find((item) => item.label === "Open Recovery Tasks")?.value ?? "63";
+
+  const topRecoveryCases = recoveryTasks
+    .slice()
+    .sort((a, b) => {
+      const priorityOrder: Record<Priority, number> = {
+        Critical: 0,
+        High: 1,
+        Medium: 2,
+        Low: 3,
+      };
+
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    })
+    .slice(0, 8);
+
+  const sourceIssues = automationSourceItems.filter((item) =>
+    ["Needs review", "Owner missing", "Payment watch"].includes(item.status),
+  );
+
+  function pageFooter(pageNumber: number) {
+    doc.setFontSize(8);
+    doc.setTextColor(130, 130, 130);
+    doc.text("Prepared by Altynx Revenue Recovery System", marginX, footerY);
+    doc.text(`Page ${pageNumber} of 6`, pageWidth - marginX - 50, footerY);
   }
 
-  function handleAddTeamMember() {
-    const name = newTeamMember.name.trim();
+  function pageTitle(title: string, subtitle: string, pageNumber: number) {
+    doc.setFillColor(255, 69, 0);
+    doc.rect(0, 0, pageWidth, 6, "F");
 
-    if (!name) {
-      setQuickToast("Enter a team member name");
-      return;
+    doc.setTextColor(17, 17, 17);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(21);
+    doc.text(title, marginX, 54);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(95, 99, 104);
+    doc.text(subtitle, marginX, 74);
+
+    doc.setDrawColor(232, 232, 229);
+    doc.line(marginX, 92, pageWidth - marginX, 92);
+
+    pageFooter(pageNumber);
+  }
+
+  function sectionHeading(text: string, y: number) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(17, 17, 17);
+    doc.text(text, marginX, y);
+  }
+
+  function paragraph(text: string, y: number, size = 10, color: [number, number, number] = [75, 85, 99]) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(size);
+    doc.setTextColor(color[0], color[1], color[2]);
+    const lines = doc.splitTextToSize(text, contentWidth);
+    doc.text(lines, marginX, y);
+    return y + lines.length * (size + 4);
+  }
+
+  function metricCard(label: string, value: string, x: number, y: number, width: number) {
+    doc.setDrawColor(232, 232, 229);
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(x, y, width, 68, 10, 10, "FD");
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text(label.toUpperCase(), x + 12, y + 20);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(17, 17, 17);
+    doc.text(value, x + 12, y + 47);
+  }
+
+  function tableRow(values: string[], x: number, y: number, widths: number[], isHeader = false) {
+    let currentX = x;
+
+    if (isHeader) {
+      doc.setFillColor(247, 247, 245);
+      doc.rect(x, y - 13, widths.reduce((sum, width) => sum + width, 0), 24, "F");
     }
 
-    const role = newTeamMember.role.trim() || "Recovery owner";
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const member: CaptureAssignee = {
-      email: newTeamMember.email.trim() || undefined,
-      id: `${slug || "team-member"}-${Date.now()}`,
-      name,
-      role,
-    };
+    values.forEach((value, index) => {
+      doc.setFont("helvetica", isHeader ? "bold" : "normal");
+      doc.setFontSize(isHeader ? 8 : 8.5);
+      doc.setTextColor(isHeader ? 17 : 75, isHeader ? 17 : 85, isHeader ? 17 : 99);
 
-    setCaptureAssignees((current) => [...current, member]);
-    setCaptureForm((current) => ({
-      ...current,
-      assignedTo: member.id,
-    }));
-    setNewTeamMember({
-      email: "",
-      name: "",
-      role: "",
+      const text = doc.splitTextToSize(value, widths[index] - 8);
+      doc.text(text.slice(0, 2), currentX + 4, y);
+      currentX += widths[index];
     });
-    setIsAddTeamMemberOpen(false);
-    setQuickToast(`${name} added locally`);
+
+    doc.setDrawColor(232, 232, 229);
+    doc.line(x, y + 11, x + widths.reduce((sum, width) => sum + width, 0), y + 11);
   }
+
+  function bulletList(items: string[], y: number) {
+    let currentY = y;
+
+    items.forEach((item) => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(75, 85, 99);
+
+      const lines = doc.splitTextToSize(item, contentWidth - 18);
+      doc.text("•", marginX, currentY);
+      doc.text(lines, marginX + 16, currentY);
+      currentY += lines.length * 13 + 4;
+    });
+
+    return currentY;
+  }
+
+  // PAGE 1
+  pageTitle(
+    "Altynx Revenue Recovery Report",
+    "Fashion, apparel, beauty, skincare, and cosmetics revenue recovery overview",
+    1,
+  );
+
+  let y = 120;
+  sectionHeading("Executive Recovery Summary", y);
+  y = paragraph(
+    `This report summarizes open recoverable revenue, recovered value, source visibility, team workload, and the next recovery actions for the current operating period. The system is designed to show where revenue is leaking, who owns the next action, and what needs to happen next.`,
+    y + 20,
+  );
+
+  const cardWidth = (contentWidth - 20) / 3;
+  metricCard("Revenue at Risk", revenueAtRisk, marginX, y + 14, cardWidth);
+  metricCard("Recovered This Month", recoveredThisMonth, marginX + cardWidth + 10, y + 14, cardWidth);
+  metricCard("Pending Payment Value", pendingPaymentValue, marginX + (cardWidth + 10) * 2, y + 14, cardWidth);
+
+  y += 112;
+  metricCard("Overdue Actions", overdueActions, marginX, y, cardWidth);
+  metricCard("Open Recovery Tasks", openRecoveryTasks, marginX + cardWidth + 10, y, cardWidth);
+  metricCard("Automation Issues", String(sourceIssues.length), marginX + (cardWidth + 10) * 2, y, cardWidth);
+
+  y += 108;
+  sectionHeading("Top Priority", y);
+  paragraph(
+    "Clear overdue first replies and payment reminders before close of day. These are the fastest paths to recovering revenue without increasing acquisition spend.",
+    y + 20,
+  );
+
+  // PAGE 2
+  doc.addPage();
+  pageTitle("Revenue Leakage Breakdown", "Open recovery cases grouped by buyer moment, value, owner, and urgency", 2);
+
+  y = 120;
+  sectionHeading("Highest Risk Recovery Cases", y);
+  y += 24;
+
+  tableRow(["Buyer", "Value", "Leak Type", "Owner", "Due"], marginX, y, [118, 72, 118, 100, 90], true);
+  y += 28;
+
+  topRecoveryCases.forEach((task) => {
+    tableRow(
+      [
+        task.customer,
+        task.estimatedRevenueAtRisk,
+        task.leakType,
+        task.assignedOwner,
+        task.dueStatus,
+      ],
+      marginX,
+      y,
+      [118, 72, 118, 100, 90],
+    );
+    y += 30;
+  });
+
+  y += 22;
+  sectionHeading("Leak Diagnosis", y);
+  paragraph(
+    "The most urgent recovery leaks are high-intent inquiries, overdue payment reminders, refill/restock timing, and post-purchase follow-ups. These should be handled as revenue actions, not generic CRM tasks.",
+    y + 20,
+  );
+
+  // PAGE 3
+  doc.addPage();
+  pageTitle("Source & Automation Visibility", "How external sources are creating, syncing, or failing recovery signals", 3);
+
+  y = 120;
+  sectionHeading("Source Visibility Summary", y);
+  y = paragraph(
+    "This section shows how website forms, Instagram messages, WhatsApp checkout events, Shopify/order history, restock forms, and CSV imports surface recovery opportunities.",
+    y + 20,
+  );
+
+  y += 18;
+  tableRow(["Source Event", "Status", "Owner", "Impact"], marginX, y, [180, 100, 100, 110], true);
+  y += 28;
+
+  automationSourceItems.slice(0, 8).forEach((item) => {
+    tableRow(
+      [item.title, item.status, item.owner, item.revenueAtRisk],
+      marginX,
+      y,
+      [180, 100, 100, 110],
+    );
+    y += 30;
+  });
+
+  y += 18;
+  sectionHeading("Manual Fallback Rule", y);
+  paragraph(
+    "If automation is blocked, the operator should manually verify the record, assign an owner, and create or confirm the recovery action before the buyer opportunity goes cold.",
+    y + 20,
+  );
+
+  // PAGE 4
+  doc.addPage();
+  pageTitle("Team Recovery Load", "Owner workload, overdue pressure, revenue risk, and recovered value", 4);
+
+  y = 120;
+  sectionHeading("Team Load Snapshot", y);
+  y += 24;
+
+  tableRow(["Owner", "Active", "Overdue", "At Risk", "Recovered"], marginX, y, [126, 70, 70, 96, 110], true);
+  y += 28;
+
+  teamUsers.forEach((user) => {
+    tableRow(
+      [
+        user.name,
+        String(user.activeTasks),
+        String(user.overdueTasks),
+        user.revenueAtRisk,
+        user.recoveredThisMonth,
+      ],
+      marginX,
+      y,
+      [126, 70, 70, 96, 110],
+    );
+    y += 30;
+  });
+
+  y += 20;
+  sectionHeading("Workload Diagnosis", y);
+  y = paragraph(
+    "Amara and Tessa carry the highest overdue load. High-value bridal inquiries, first-reply delays, and payment recovery should be prioritized before assigning more low-priority work.",
+    y + 20,
+  );
+
+  y += 12;
+  sectionHeading("Recommended Team Actions", y);
+  bulletList(
+    [
+      "Keep bridal and high-value inquiry follow-ups with Amara Shah.",
+      "Keep refill/restock and skincare routine recovery with Mina Cole.",
+      "Prioritize WhatsApp payment reminders and order-risk events with Tessa Nguyen.",
+      "Keep review, referral, and UGC prompts with Luis Park.",
+    ],
+    y + 22,
+  );
+
+  // PAGE 5
+  doc.addPage();
+  pageTitle("Next 7-Day Recovery Plan", "Action plan for clearing open risk and improving recovery discipline", 5);
+
+  y = 120;
+  sectionHeading("Day 1–2: Immediate Recovery", y);
+  y = bulletList(
+    [
+      "Clear overdue first replies for bridal, size/fit, sensitive-skin, and event/pop-up inquiries.",
+      "Send payment reminders to buyers with pending checkout/payment intent.",
+      "Assign owners to unassigned CSV, pop-up, and imported buyer signals.",
+    ],
+    y + 24,
+  );
+
+  y += 12;
+  sectionHeading("Day 3–4: Repeat Revenue & Source Review", y);
+  y = bulletList(
+    [
+      "Send refill and restock prompts while product timing is still relevant.",
+      "Review Shopify/restock sync issues and manually tag buyers if automation is blocked.",
+      "Confirm order-risk follow-ups such as address issues, delivery delays, or COD confirmation.",
+    ],
+    y + 24,
+  );
+
+  y += 12;
+  sectionHeading("Day 5–7: Post-Purchase & Reporting", y);
+  y = bulletList(
+    [
+      "Send review, referral, and UGC requests to positive post-purchase buyers.",
+      "Review recovered revenue and mark resolved cases accurately.",
+      "Prepare weekly owner report covering recovered value, open risk, source issues, and team workload.",
+    ],
+    y + 24,
+  );
+
+  // PAGE 6
+  doc.addPage();
+  pageTitle("Management Summary & Recommendations", "What the brand owner should understand and act on next", 6);
+
+  y = 120;
+  sectionHeading("Management Summary", y);
+  y = paragraph(
+    "The biggest recovery opportunity is not only more traffic. It is better follow-up speed, owner assignment, payment reminder discipline, refill/restock timing, and post-purchase execution.",
+    y + 20,
+  );
+
+  y += 18;
+  sectionHeading("Recommendations", y);
+  y = bulletList(
+    [
+      "Respond to high-intent inquiries within 2–4 hours.",
+      "Assign every captured buyer signal to an owner.",
+      "Track payment-pending buyers daily.",
+      "Use approved templates for first replies, follow-ups, payment reminders, refill reminders, and post-purchase prompts.",
+      "Review automation/source issues weekly.",
+      "Measure recovered revenue every month and connect recovered value to specific records.",
+    ],
+    y + 24,
+  );
+
+  y += 16;
+  sectionHeading("Final KPI Snapshot", y);
+  y = bulletList(
+    [
+      `Current recoverable value: ${revenueAtRisk}`,
+      `Recovered this month: ${recoveredThisMonth}`,
+      `Pending payment value: ${pendingPaymentValue}`,
+      `Open recovery tasks: ${openRecoveryTasks}`,
+      `Automation/source issues needing review: ${sourceIssues.length}`,
+    ],
+    y + 24,
+  );
+
+  doc.save("altynx-revenue-recovery-report.pdf");
+
+  setQuickToast("Detailed PDF report downloaded");
+
+  addRecoveryActivity({
+    category: "Reports",
+    title: "Detailed recovery PDF downloaded",
+    description: "Downloaded a 6-page Recovery Overview report covering KPIs, leaks, sources, team workload, action plan, and recommendations.",
+    impactBadge: revenueAtRisk,
+    relatedRecord: "Recovery Overview",
+    owner: "Operations",
+    status: "Downloaded",
+    nextAction: "Share the PDF with the brand owner or recovery lead.",
+    tone: "emerald",
+  });
+
+  setQuickModal(null);
+}
 
   function handleCaptureSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -14725,7 +15110,8 @@ function buildRecoveryOverviewReport() {
 
 function openExportReport() {
   setExportMessage("");
-  setIsExportModalOpen(true);
+  setIsExportModalOpen(false);
+  setQuickModal("export");
 }
 
 async function copyRecoveryOverviewReport() {
@@ -14852,111 +15238,6 @@ function closeExportReport() {
             <p>{quickToast}</p>
           </div>
         ) : null}
-{isExportModalOpen ? (
-  <div
-    aria-modal="true"
-    role="dialog"
-    onClick={closeExportReport}
-    style={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 9999,
-      display: "flex",
-      justifyContent: "flex-end",
-      alignItems: "stretch",
-      background: "rgba(17, 17, 17, 0.22)",
-      padding: 20,
-    }}
-  >
-    <div
-      className="glass-card panel-card"
-      onClick={(event) => event.stopPropagation()}
-      style={{
-        width: "min(560px, 100%)",
-        maxHeight: "100%",
-        overflowY: "auto",
-        background: "#ffffff",
-        border: "1px solid #e8e8e5",
-        boxShadow: "0 24px 70px rgba(17, 17, 17, 0.18)",
-      }}
-    >
-      <div className="panel-header">
-        <div>
-          <h2>Export Recovery Overview Report</h2>
-          <p>
-            Frontend-only report summary for KPIs, highest-risk leaks, team load,
-            source visibility, and recovery activity.
-          </p>
-        </div>
-        <Badge tone="amber">Preview</Badge>
-      </div>
-
-      <div className="summary-breakdown-grid" style={{ gridTemplateColumns: "1fr" }}>
-        <article className="summary-breakdown-card">
-          <h3>Included sections</h3>
-          <div>
-            <span>KPIs</span>
-            <strong>{kpis.length} metrics</strong>
-          </div>
-          <div>
-            <span>Highest Risk Leaks</span>
-            <strong>{overviewReportTasks.length} records</strong>
-          </div>
-          <div>
-            <span>Team Recovery Load</span>
-            <strong>{teamUsers.length} owners</strong>
-          </div>
-          <div>
-            <span>Recovery Activity</span>
-            <strong>{activityFeed.length} events</strong>
-          </div>
-        </article>
-
-        <article className="summary-breakdown-card">
-          <h3>Report preview</h3>
-          {kpis.map((item) => (
-            <div key={`export-${item.label}`}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </article>
-
-        <article className="summary-breakdown-card">
-          <h3>Top recovery leaks</h3>
-          {overviewReportTasks.slice(0, 4).map((task) => (
-            <div key={`export-task-${task.id}`}>
-              <span>{task.customer}</span>
-              <strong>{task.estimatedRevenueAtRisk}</strong>
-            </div>
-          ))}
-        </article>
-      </div>
-
-      {exportMessage ? (
-        <p
-          style={{
-            margin: "16px 0 0",
-            color: "#111111",
-            fontSize: 13,
-            fontWeight: 500,
-          }}
-        >
-          {exportMessage}
-        </p>
-      ) : null}
-
-      <div className="capture-actions" style={{ marginTop: 18 }}>
-        <button className="primary-btn" onClick={copyRecoveryOverviewReport} type="button">
-          Copy report summary
-        </button>
-        <button className="secondary-btn" onClick={closeExportReport} type="button">
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-) : null}
 
         {activePage === "Recovery Overview" ? (
           <RecoveryOverview
@@ -15038,9 +15319,9 @@ function closeExportReport() {
           <ModalShell
             footer={
               <>
-                <button className="primary-btn" onClick={copyOverviewReportSummary} type="button">
-                  Copy report summary
-                </button>
+                <button className="primary-btn" onClick={downloadDetailedRecoveryReport} type="button">
+  Download detailed PDF report
+</button>
                 <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
                   Close
                 </button>
@@ -15051,17 +15332,18 @@ function closeExportReport() {
           >
             <div style={modalGridStyle}>
               <DetailField label="Report type" value="Recovery Overview" />
-              <DetailField label="Format" value="Clipboard summary" />
+              <DetailField label="Format" value="6-page PDF report" />
             </div>
             <div className="detail-callout">
               <span>Included sections</span>
               <div className="recovery-meta">
-                <span>KPIs</span>
-                <span>Highest Risk Leaks</span>
-                <span>Team Recovery Load</span>
-                <span>Automation & Source Visibility</span>
-                <span>Recovery Activity</span>
-              </div>
+  <span>Executive Summary</span>
+  <span>Revenue Leakage Breakdown</span>
+  <span>Source & Automation Visibility</span>
+  <span>Team Recovery Load</span>
+  <span>Next 7-Day Action Plan</span>
+  <span>Management Recommendations</span>
+</div>
             </div>
           </ModalShell>
         ) : null}
@@ -15196,7 +15478,7 @@ function closeExportReport() {
                             />
                           </div>
                           <div className="capture-field">
-                            <label htmlFor="new-team-member-email">Email optional</label>
+                            <label htmlFor="new-team-member-email">Email *</label>
                             <input
                               id="new-team-member-email"
                               name="email"
