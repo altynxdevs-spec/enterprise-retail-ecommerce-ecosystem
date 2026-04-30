@@ -181,6 +181,26 @@ type SourceLeakRecord = {
   tone: Tone;
 };
 
+type SourceLeakDetailEntry = {
+  id: string;
+  entryType:
+    | "Unassigned record"
+    | "Missing first reply"
+    | "Payment pending"
+    | "Overdue follow-up"
+    | "Recovered revenue"
+    | "Sync issue";
+  buyerName: string;
+  productContext: string;
+  value: string;
+  owner: string;
+  status: string;
+  lastSignal: string;
+  nextAction: string;
+  confidence: "High" | "Medium-high" | "Medium" | "Estimated";
+  tone: Tone;
+};
+
 type BuyerLifecycleStatus =
   | "VIP"
   | "Active"
@@ -8486,6 +8506,9 @@ function TodaysRecoveryQueue({ onNavigate }: { onNavigate: (page: string) => voi
   const [queueMode, setQueueMode] = useState<"list" | "detail">("list");
   const [detailNotice, setDetailNotice] = useState("Ready for recovery action.");
   const [taskMessageDrafts, setTaskMessageDrafts] = useState<Record<string, string>>({});
+  const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+const [templateEditorName, setTemplateEditorName] = useState("");
+const [templateEditorBody, setTemplateEditorBody] = useState("");
   const [showAllQueueItems, setShowAllQueueItems] = useState(false);
 
   const [templateUsedTaskIds, setTemplateUsedTaskIds] = useState<Record<string, boolean>>({});
@@ -8493,6 +8516,7 @@ function TodaysRecoveryQueue({ onNavigate }: { onNavigate: (page: string) => voi
   const [copiedTaskIds, setCopiedTaskIds] = useState<Record<string, boolean>>({});
   const [followUpTaskIds, setFollowUpTaskIds] = useState<Record<string, boolean>>({});
   const [reviewedTaskIds, setReviewedTaskIds] = useState<Record<string, boolean>>({});
+  const [aiGeneratingTaskIds, setAiGeneratingTaskIds] = useState<Record<string, boolean>>({});
 
   const filteredTasks = useMemo(() => {
     return recoveryTasks.filter((task) => matchesQueueTab(task, activeTab));
@@ -8508,6 +8532,7 @@ function TodaysRecoveryQueue({ onNavigate }: { onNavigate: (page: string) => voi
   const recommendedTemplate = getRecommendedTemplateForTask(selectedTask);
   const riskReason = buildRiskReason(selectedTask);
   const currentMessageBody = taskMessageDrafts[selectedTask.id] ?? recommendedTemplate.body;
+  const isGeneratingAiForSelectedTask = Boolean(aiGeneratingTaskIds[selectedTask.id]);
 
   const systemThreadMessages: RecoveryThreadMessage[] = [
     {
@@ -8595,25 +8620,76 @@ function viewCreatedFollowUp() {
     setDetailNotice(`Approved template selected: ${recommendedTemplate.name}.`);
   }
 
-  function generateAiResponseDraft() {
-    const draft = buildAiResponseDraft(selectedTask);
+async function generateAiResponseDraft() {
+  if (isGeneratingAiForSelectedTask) return;
 
-    setTaskMessageDrafts((current) => ({
-      ...current,
-      [selectedTask.id]: draft,
-    }));
+  setAiGeneratingTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: true,
+  }));
 
-    setAiGeneratedTaskIds((current) => ({
-      ...current,
-      [selectedTask.id]: true,
-    }));
+  setDetailNotice(`Generating AI response for ${selectedTask.customer}...`);
 
-    setDetailNotice("AI response draft generated for review. Nothing was sent.");
-  }
+  await new Promise((resolve) => window.setTimeout(resolve, 900));
+
+  const draft = buildAiResponseDraft(selectedTask);
+
+  setTaskMessageDrafts((current) => ({
+    ...current,
+    [selectedTask.id]: draft,
+  }));
+
+  setAiGeneratedTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: true,
+  }));
+
+  setAiGeneratingTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: false,
+  }));
+
+  setDetailNotice("AI response draft generated for review. Nothing was sent.");
+}
 
   function openTemplateSetup() {
-    setDetailNotice("Open Setup > Templates to edit this template.");
+  setTemplateEditorName(recommendedTemplate.name);
+  setTemplateEditorBody(currentMessageBody);
+  setIsTemplateEditorOpen(true);
+  setDetailNotice(`Editing template for ${selectedTask.customer}.`);
+}
+
+function closeTemplateEditor() {
+  setIsTemplateEditorOpen(false);
+}
+
+function saveTemplateEditor() {
+  const cleanedBody = templateEditorBody.trim();
+
+  if (!cleanedBody) {
+    setDetailNotice("Template message cannot be empty.");
+    return;
   }
+
+  setTaskMessageDrafts((current) => ({
+    ...current,
+    [selectedTask.id]: cleanedBody,
+  }));
+
+  setIsTemplateEditorOpen(false);
+  setDetailNotice(`Template updated for ${selectedTask.customer}.`);
+}
+
+function resetTemplateEditor() {
+  setTemplateEditorName(recommendedTemplate.name);
+  setTemplateEditorBody(recommendedTemplate.body);
+  setDetailNotice("Template reset to approved version. Save to apply it.");
+}
+
+  function openTemplatesLibrary() {
+  setDetailNotice("Opening Templates library.");
+  onNavigate("Templates");
+}
 
   if (queueMode === "detail") {
     return (
@@ -8761,20 +8837,44 @@ function viewCreatedFollowUp() {
                 <p>{currentMessageBody}</p>
               </div>
 
-              <div className="template-action-row">
-                <button type="button" onClick={useApprovedTemplate}>
-                  Use Approved Template
-                </button>
-                <button type="button" onClick={generateAiResponseDraft}>
-                  Generate AI Response
-                </button>
-                <button type="button" onClick={openTemplateSetup}>
-                  Edit Template
-                </button>
-                <button type="button" onClick={copyCurrentRecoveryMessage}>
-                  Copy
-                </button>
-              </div>
+              <div className="template-action-row template-action-row-upgraded">
+  <div className="template-left-actions">
+    <button type="button" className="template-action-primary" onClick={useApprovedTemplate}>
+      Use Approved Template
+    </button>
+
+    <button
+      type="button"
+      className="template-ai-button"
+      onClick={generateAiResponseDraft}
+      disabled={isGeneratingAiForSelectedTask}
+      aria-busy={isGeneratingAiForSelectedTask}
+    >
+      {isGeneratingAiForSelectedTask ? (
+        <>
+          <span className="template-spinner" aria-hidden="true" />
+          Generating...
+        </>
+      ) : aiGeneratedTaskIds[selectedTask.id] ? (
+        "Regenerate AI Response"
+      ) : (
+        "Generate AI Response"
+      )}
+    </button>
+
+    <button type="button" className="template-action-secondary" onClick={openTemplateSetup}>
+      Edit Template
+    </button>
+
+    <button type="button" className="template-action-secondary" onClick={copyCurrentRecoveryMessage}>
+      {copiedTaskIds[selectedTask.id] ? "Copied ✓" : "Copy"}
+    </button>
+  </div>
+
+  <button type="button" className="template-view-button" onClick={openTemplatesLibrary}>
+    View Templates
+  </button>
+</div>
             </div>
 
             <div className="thread-panel">
@@ -8828,8 +8928,97 @@ function viewCreatedFollowUp() {
                 {reviewedTaskIds[selectedTask.id] ? "Reviewed ✓" : "Mark Reviewed"}
               </button>
             </div>
-          </article>
+                    </article>
         </section>
+
+        {isTemplateEditorOpen ? (
+          <div className="template-editor-backdrop" role="presentation" onClick={closeTemplateEditor}>
+            <article
+              aria-labelledby="template-editor-title"
+              aria-modal="true"
+              className="template-editor-modal"
+              role="dialog"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="template-editor-header">
+                <div>
+                  <span>Template editor</span>
+                  <h2 id="template-editor-title">Edit recovery template</h2>
+                  <p>
+                    Update the message for {selectedTask.customer}. This will only update the selected message preview.
+                  </p>
+                </div>
+
+                <button className="template-editor-close" type="button" onClick={closeTemplateEditor}>
+                  ×
+                </button>
+              </div>
+
+              <div className="template-editor-meta">
+                <div>
+                  <span>Buyer</span>
+                  <strong>{selectedTask.customer}</strong>
+                </div>
+
+                <div>
+                  <span>Template type</span>
+                  <strong>{recommendedTemplate.type}</strong>
+                </div>
+
+                <div>
+                  <span>Status</span>
+                  <strong>{recommendedTemplate.status}</strong>
+                </div>
+
+                <div>
+                  <span>Revenue at risk</span>
+                  <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
+                </div>
+              </div>
+
+              <div className="template-editor-field">
+                <label htmlFor="template-editor-name">Template name</label>
+                <input
+                  id="template-editor-name"
+                  type="text"
+                  value={templateEditorName}
+                  onChange={(event) => setTemplateEditorName(event.target.value)}
+                />
+              </div>
+
+              <div className="template-editor-field">
+                <label htmlFor="template-editor-body">Template message</label>
+                <textarea
+                  id="template-editor-body"
+                  value={templateEditorBody}
+                  onChange={(event) => setTemplateEditorBody(event.target.value)}
+                  rows={8}
+                />
+              </div>
+
+              <div className="template-editor-note">
+                <span>Match reason</span>
+                <p>{recommendedTemplate.matchReason}</p>
+              </div>
+
+              <div className="template-editor-actions">
+                <button type="button" className="template-editor-reset" onClick={resetTemplateEditor}>
+                  Reset approved template
+                </button>
+
+                <div>
+                  <button type="button" className="template-editor-cancel" onClick={closeTemplateEditor}>
+                    Cancel
+                  </button>
+
+                  <button type="button" className="template-editor-save" onClick={saveTemplateEditor}>
+                    Save Template
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -8934,10 +9123,97 @@ function viewCreatedFollowUp() {
           </div>
         ) : null}
       </section>
+       {isTemplateEditorOpen ? (
+        <div className="template-editor-backdrop" role="presentation" onClick={closeTemplateEditor}>
+          <article
+            aria-labelledby="template-editor-title"
+            aria-modal="true"
+            className="template-editor-modal"
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="template-editor-header">
+              <div>
+                <span>Template editor</span>
+                <h2 id="template-editor-title">Edit recovery template</h2>
+                <p>
+                  Update the message for {selectedTask.customer}. This will only update the selected message preview.
+                </p>
+              </div>
+
+              <button className="template-editor-close" type="button" onClick={closeTemplateEditor}>
+                ×
+              </button>
+            </div>
+
+            <div className="template-editor-meta">
+              <div>
+                <span>Buyer</span>
+                <strong>{selectedTask.customer}</strong>
+              </div>
+
+              <div>
+                <span>Template type</span>
+                <strong>{recommendedTemplate.type}</strong>
+              </div>
+
+              <div>
+                <span>Status</span>
+                <strong>{recommendedTemplate.status}</strong>
+              </div>
+
+              <div>
+                <span>Revenue at risk</span>
+                <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
+              </div>
+            </div>
+
+            <div className="template-editor-field">
+              <label htmlFor="template-editor-name">Template name</label>
+              <input
+                id="template-editor-name"
+                type="text"
+                value={templateEditorName}
+                onChange={(event) => setTemplateEditorName(event.target.value)}
+              />
+            </div>
+
+            <div className="template-editor-field">
+              <label htmlFor="template-editor-body">Template message</label>
+              <textarea
+                id="template-editor-body"
+                value={templateEditorBody}
+                onChange={(event) => setTemplateEditorBody(event.target.value)}
+                rows={8}
+              />
+            </div>
+
+            <div className="template-editor-note">
+              <span>Match reason</span>
+              <p>{recommendedTemplate.matchReason}</p>
+            </div>
+
+            <div className="template-editor-actions">
+              <button type="button" className="template-editor-reset" onClick={resetTemplateEditor}>
+                Reset approved template
+              </button>
+
+              <div>
+                <button type="button" className="template-editor-cancel" onClick={closeTemplateEditor}>
+                  Cancel
+                </button>
+
+                <button type="button" className="template-editor-save" onClick={saveTemplateEditor}>
+                  Save Template
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
-
 function InquiryInbox({
   onActivity,
   onNavigate,
@@ -8956,6 +9232,8 @@ function InquiryInbox({
   const [selectedOwnerName, setSelectedOwnerName] = useState("");
   const [isInternalNoteOpen, setIsInternalNoteOpen] = useState(false);
   const [internalNoteDraft, setInternalNoteDraft] = useState("");
+  const [editingInternalNoteIndex, setEditingInternalNoteIndex] = useState<number | null>(null);
+const [editingInternalNoteDraft, setEditingInternalNoteDraft] = useState("");
 
   const [localInquiryNotes, setLocalInquiryNotes] = useState<Record<string, string[]>>({});
   const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
@@ -9020,7 +9298,9 @@ function InquiryInbox({
     setInquiryMode("detail");
     setIsAssignOwnerOpen(false);
     setIsInternalNoteOpen(false);
-    setDetailNotice("Ready to triage captured buyer interest.");
+setEditingInternalNoteIndex(null);
+setEditingInternalNoteDraft("");
+setDetailNotice("Ready to triage captured buyer interest.");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -9028,7 +9308,9 @@ function InquiryInbox({
     setInquiryMode("list");
     setIsAssignOwnerOpen(false);
     setIsInternalNoteOpen(false);
-    setDetailNotice("Ready to triage captured buyer interest.");
+setEditingInternalNoteIndex(null);
+setEditingInternalNoteDraft("");
+setDetailNotice("Ready to triage captured buyer interest.");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -9189,35 +9471,113 @@ function InquiryInbox({
   }
 
   function addInternalNote() {
-    const note = internalNoteDraft.trim();
+  const note = internalNoteDraft.trim();
 
-    if (!note) {
-      setDetailNotice("Write an internal note before saving.");
-      return;
-    }
-
-    setLocalInquiryNotes((current) => ({
-      ...current,
-      [selectedInquiry.id]: [`${note} — Now`, ...(current[selectedInquiry.id] ?? [])],
-    }));
-
-    setInquiryRecords((records) =>
-      records.map((record) =>
-        record.id === selectedInquiry.id
-          ? {
-              ...record,
-              internalNotes: record.internalNotes + 1,
-              lastAction: "Internal note added",
-            }
-          : record,
-      ),
-    );
-
-    setInternalNoteDraft("");
-    setIsInternalNoteOpen(false);
-    setDetailNotice(`Internal note added for ${selectedInquiry.customer}.`);
-    recordInquiryActivity(selectedInquiry, "Internal inquiry note added", "Team note");
+  if (!note) {
+    setDetailNotice("Write an internal note before saving.");
+    return;
   }
+
+  setLocalInquiryNotes((current) => ({
+    ...current,
+    [selectedInquiry.id]: [`${note} — Now`, ...(current[selectedInquiry.id] ?? [])],
+  }));
+
+  setInquiryRecords((records) =>
+    records.map((record) =>
+      record.id === selectedInquiry.id
+        ? {
+            ...record,
+            lastAction: "Internal note added",
+          }
+        : record,
+    ),
+  );
+
+  setInternalNoteDraft("");
+  setIsInternalNoteOpen(false);
+  setEditingInternalNoteIndex(null);
+  setEditingInternalNoteDraft("");
+  setDetailNotice(`Internal note added for ${selectedInquiry.customer}.`);
+  recordInquiryActivity(selectedInquiry, "Internal inquiry note added", "Team note");
+}
+
+function startEditingInternalNote(note: string, index: number) {
+  setEditingInternalNoteIndex(index);
+  setEditingInternalNoteDraft(note);
+  setIsInternalNoteOpen(false);
+  setDetailNotice("Editing internal note.");
+}
+
+function cancelEditingInternalNote() {
+  setEditingInternalNoteIndex(null);
+  setEditingInternalNoteDraft("");
+  setDetailNotice("Internal note edit cancelled.");
+}
+
+function saveEditedInternalNote(index: number) {
+  const cleanedNote = editingInternalNoteDraft.trim();
+
+  if (!cleanedNote) {
+    setDetailNotice("Internal note cannot be empty.");
+    return;
+  }
+
+  setLocalInquiryNotes((current) => {
+    const existingNotes = current[selectedInquiry.id] ?? [];
+
+    return {
+      ...current,
+      [selectedInquiry.id]: existingNotes.map((note, noteIndex) =>
+        noteIndex === index ? cleanedNote : note,
+      ),
+    };
+  });
+
+  setInquiryRecords((records) =>
+    records.map((record) =>
+      record.id === selectedInquiry.id
+        ? {
+            ...record,
+            lastAction: "Internal note edited",
+          }
+        : record,
+    ),
+  );
+
+  setEditingInternalNoteIndex(null);
+  setEditingInternalNoteDraft("");
+  setDetailNotice(`Internal note updated for ${selectedInquiry.customer}.`);
+  recordInquiryActivity(selectedInquiry, "Internal inquiry note edited", "Team note updated");
+}
+
+function deleteInternalNote(index: number) {
+  setLocalInquiryNotes((current) => {
+    const existingNotes = current[selectedInquiry.id] ?? [];
+    const updatedNotes = existingNotes.filter((_, noteIndex) => noteIndex !== index);
+
+    return {
+      ...current,
+      [selectedInquiry.id]: updatedNotes,
+    };
+  });
+
+  setInquiryRecords((records) =>
+    records.map((record) =>
+      record.id === selectedInquiry.id
+        ? {
+            ...record,
+            lastAction: "Internal note deleted",
+          }
+        : record,
+    ),
+  );
+
+  setEditingInternalNoteIndex(null);
+  setEditingInternalNoteDraft("");
+  setDetailNotice(`Internal note deleted for ${selectedInquiry.customer}.`);
+  recordInquiryActivity(selectedInquiry, "Internal inquiry note deleted", "Team note removed");
+}
 
   function getInquiryRiskReason(inquiry: Inquiry) {
     if (inquiry.firstReplyStatus === "Not replied") {
@@ -9402,14 +9762,47 @@ function InquiryInbox({
               </div>
 
               {selectedNotes.map((note, index) => (
-                <div className="thread-message" key={`${selectedInquiry.id}-note-${index}`}>
-                  <div>
-                    <strong>Internal Note</strong>
-                    <span>Team - Manual</span>
-                  </div>
-                  <p>{note}</p>
-                </div>
-              ))}
+  <div className="thread-message internal-note-message" key={`${selectedInquiry.id}-note-${index}`}>
+    <div className="internal-note-head">
+      <div>
+        <strong>Internal Note</strong>
+        <span>Team - Manual</span>
+      </div>
+
+      <div className="internal-note-actions">
+        {editingInternalNoteIndex === index ? (
+          <>
+            <button type="button" onClick={() => saveEditedInternalNote(index)}>
+              Save
+            </button>
+            <button type="button" onClick={cancelEditingInternalNote}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={() => startEditingInternalNote(note, index)}>
+              Edit
+            </button>
+            <button type="button" onClick={() => deleteInternalNote(index)}>
+              Delete
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+
+    {editingInternalNoteIndex === index ? (
+      <textarea
+        className="internal-note-edit-textarea"
+        value={editingInternalNoteDraft}
+        onChange={(event) => setEditingInternalNoteDraft(event.target.value)}
+      />
+    ) : (
+      <p>{note}</p>
+    )}
+  </div>
+))}
             </div>
 
             {isAssignOwnerOpen ? (
@@ -9487,9 +9880,17 @@ function InquiryInbox({
                 </button>
               ) : null}
 
-              <button type="button" className="secondary-btn" onClick={() => setIsInternalNoteOpen(true)}>
-                Add Internal Note
-              </button>
+              <button
+  type="button"
+  className="secondary-btn"
+  onClick={() => {
+    setIsInternalNoteOpen(true);
+    setEditingInternalNoteIndex(null);
+    setEditingInternalNoteDraft("");
+  }}
+>
+  Add Internal Note
+</button>
             </div>
           </article>
         </section>
@@ -9969,6 +10370,302 @@ function handleDemandAction(signal: ProductDemandSignal, action: "tasks" | "revi
   );
 }
 
+function getSourceLeakDetailEntries(source: SourceLeakRecord): SourceLeakDetailEntry[] {
+  if (source.sourceName === "Website Form") {
+    return [
+      {
+        id: "WF-001",
+        entryType: "Unassigned record",
+        buyerName: "Sophia Bennett",
+        productContext: "Atelier Luma bridal capsule - appointment inquiry",
+        value: "$1,850",
+        owner: "Unassigned",
+        status: "First reply missing",
+        lastSignal: "Website form submitted 46h ago",
+        nextAction: "Assign Amara Shah and send bridal appointment windows today.",
+        confidence: "Medium-high",
+        tone: "rose",
+      },
+      {
+        id: "WF-002",
+        entryType: "Missing first reply",
+        buyerName: "Arielle Stone",
+        productContext: "Bare Kind calming cream - sensitive skin question",
+        value: "$155",
+        owner: "Mina Cole",
+        status: "Needs ingredient reassurance",
+        lastSignal: "Website chat captured 4h ago",
+        nextAction: "Send fragrance-free ingredient note and patch-test guidance.",
+        confidence: "Medium",
+        tone: "cyan",
+      },
+      {
+        id: "WF-003",
+        entryType: "Payment pending",
+        buyerName: "Maison Belle Studio",
+        productContext: "Wholesale bridal sample request",
+        value: "$1,200",
+        owner: "Amara Shah",
+        status: "Deposit link not completed",
+        lastSignal: "Form lead requested invoice yesterday",
+        nextAction: "Send deposit reminder and confirm sample package availability.",
+        confidence: "High",
+        tone: "amber",
+      },
+      {
+        id: "WF-004",
+        entryType: "Overdue follow-up",
+        buyerName: "Leah Grant",
+        productContext: "Soho pop-up styling form - saved cart recap",
+        value: "$540",
+        owner: "Unassigned",
+        status: "Follow-up overdue",
+        lastSignal: "Event form imported 1d ago",
+        nextAction: "Create post-event styling recap recovery case.",
+        confidence: "Medium",
+        tone: "rose",
+      },
+      {
+        id: "WF-005",
+        entryType: "Recovered revenue",
+        buyerName: "Nadia Brooks",
+        productContext: "Rue Muse knitwear early-access form",
+        value: "$960",
+        owner: "Luis Park",
+        status: "Recovered through early-access follow-up",
+        lastSignal: "Waitlist form clicked twice before launch",
+        nextAction: "Keep source active and reuse early-access reminder template.",
+        confidence: "High",
+        tone: "emerald",
+      },
+      {
+        id: "WF-006",
+        entryType: "Sync issue",
+        buyerName: "Website form workflow",
+        productContext: "Bridal appointment source tag",
+        value: "$0",
+        owner: "Operations",
+        status: "Source tag needs review",
+        lastSignal: "1 form event synced without owner routing",
+        nextAction: "Review form mapping and default owner routing.",
+        confidence: "High",
+        tone: "amber",
+      },
+    ];
+  }
+
+  if (source.sourceName === "Instagram DM") {
+    return [
+      {
+        id: "IG-001",
+        entryType: "Missing first reply",
+        buyerName: "Maya Chen",
+        productContext: "Vela Denim cropped jacket - size/fit question",
+        value: "$240",
+        owner: "Amara Shah",
+        status: "High-intent fit question unanswered",
+        lastSignal: "Instagram DM 18h ago",
+        nextAction: "Reply with fit guidance, exchange reassurance, and product link.",
+        confidence: "Medium-high",
+        tone: "rose",
+      },
+      {
+        id: "IG-002",
+        entryType: "Unassigned record",
+        buyerName: "Imani Wallace",
+        productContext: "Coco Bloom lip oil shade restock",
+        value: "$420",
+        owner: "Unassigned",
+        status: "Shade restock interest not routed",
+        lastSignal: "DM restock request captured 8h ago",
+        nextAction: "Assign Mina Cole and send shade restock bundle suggestion.",
+        confidence: "Medium",
+        tone: "amber",
+      },
+      {
+        id: "IG-003",
+        entryType: "Overdue follow-up",
+        buyerName: "Talia Monroe",
+        productContext: "Glow Haus UGC/referral follow-up",
+        value: "$300",
+        owner: "Luis Park",
+        status: "Positive review follow-up not sent",
+        lastSignal: "Review event synced 8h ago",
+        nextAction: "Send UGC prompt and referral code.",
+        confidence: "Medium",
+        tone: "emerald",
+      },
+    ];
+  }
+
+  if (source.sourceName === "WhatsApp") {
+    return [
+      {
+        id: "WA-001",
+        entryType: "Payment pending",
+        buyerName: "Priya Nair",
+        productContext: "Saffron Skin evening routine bundle",
+        value: "$670",
+        owner: "Tessa Nguyen",
+        status: "Checkout link unpaid",
+        lastSignal: "Buyer confirmed bundle in WhatsApp yesterday",
+        nextAction: "Send payment reminder and verify checkout link is still valid.",
+        confidence: "High",
+        tone: "amber",
+      },
+      {
+        id: "WA-002",
+        entryType: "Payment pending",
+        buyerName: "Routine Bundle Lead",
+        productContext: "Beauty routine consultation package",
+        value: "$1,180",
+        owner: "Tessa Nguyen",
+        status: "Payment reminder due",
+        lastSignal: "WhatsApp payment link opened but not paid",
+        nextAction: "Send second payment nudge with support note.",
+        confidence: "High",
+        tone: "rose",
+      },
+      {
+        id: "WA-003",
+        entryType: "Overdue follow-up",
+        buyerName: "Camila Torres",
+        productContext: "Pop-up styling recap through WhatsApp",
+        value: "$540",
+        owner: "Operations",
+        status: "Post-event recap overdue",
+        lastSignal: "Manual WhatsApp note added 1d ago",
+        nextAction: "Create recovery case and assign styling recap owner.",
+        confidence: "Medium",
+        tone: "rose",
+      },
+    ];
+  }
+
+  if (source.sourceName === "Shopify / Ecommerce") {
+    return [
+      {
+        id: "SHOP-001",
+        entryType: "Recovered revenue",
+        buyerName: "Elena Rodriguez",
+        productContext: "Neroli Lab Vitamin C serum refill",
+        value: "$118",
+        owner: "Mina Cole",
+        status: "Recovered through refill reminder",
+        lastSignal: "60-day refill window opened this morning",
+        nextAction: "Keep refill timing rule active for serum buyers.",
+        confidence: "High",
+        tone: "emerald",
+      },
+      {
+        id: "SHOP-002",
+        entryType: "Sync issue",
+        buyerName: "Shopify refill workflow",
+        productContext: "Back-in-stock and refill tags",
+        value: "$0",
+        owner: "Operations",
+        status: "3 source sync issues",
+        lastSignal: "Product tags failed during order-history sync",
+        nextAction: "Review failed tags inside Automation Health.",
+        confidence: "High",
+        tone: "amber",
+      },
+      {
+        id: "SHOP-003",
+        entryType: "Overdue follow-up",
+        buyerName: "Grace Miller",
+        productContext: "Delivered denim order - review request",
+        value: "$180",
+        owner: "Luis Park",
+        status: "Review request not sent",
+        lastSignal: "Delivery confirmed yesterday",
+        nextAction: "Send delivery satisfaction check and review request.",
+        confidence: "Medium",
+        tone: "indigo",
+      },
+    ];
+  }
+
+  return [
+    {
+      id: `${source.id}-UNASSIGNED`,
+      entryType: "Unassigned record",
+      buyerName: `${source.sourceName} captured buyer`,
+      productContext: "Captured buyer interest awaiting owner routing",
+      value: source.paymentPendingValue,
+      owner: source.unassignedRecords > 0 ? "Unassigned" : getSourceDetailDefaultOwner(source),
+      status: `${source.unassignedRecords} unassigned records`,
+      lastSignal: `${source.totalCaptured} records captured from ${source.sourceName}`,
+      nextAction: source.recommendedFix,
+      confidence: "Estimated",
+      tone: source.tone,
+    },
+    {
+      id: `${source.id}-REPLY`,
+      entryType: "Missing first reply",
+      buyerName: `${source.sourceName} high-intent lead`,
+      productContext: "Buyer interest captured but first reply is missing",
+      value: "$0",
+      owner: getSourceDetailDefaultOwner(source),
+      status: `${source.firstRepliesMissing} missing first replies`,
+      lastSignal: `${source.highIntentInquiries} high-intent records detected`,
+      nextAction: "Create first-reply recovery tasks and assign source owner.",
+      confidence: "Medium",
+      tone: "rose",
+    },
+    {
+      id: `${source.id}-PAYMENT`,
+      entryType: "Payment pending",
+      buyerName: `${source.sourceName} payment lead`,
+      productContext: "Buyer showed purchase intent but payment is still open",
+      value: source.paymentPendingValue,
+      owner: getSourceDetailDefaultOwner(source),
+      status: "Payment pending by source",
+      lastSignal: "Payment value grouped from source-level recovery records",
+      nextAction: "Open payment recovery and send approved reminder.",
+      confidence: "High",
+      tone: "amber",
+    },
+    {
+      id: `${source.id}-RECOVERED`,
+      entryType: "Recovered revenue",
+      buyerName: `${source.sourceName} recovered buyer`,
+      productContext: "Recovered revenue attributed to this source",
+      value: source.recoveredValue,
+      owner: getSourceDetailDefaultOwner(source),
+      status: "Recovered value proof",
+      lastSignal: "Recovered cases grouped by source",
+      nextAction: "Use this source pattern in monthly proof-of-value reporting.",
+      confidence: "High",
+      tone: "emerald",
+    },
+  ];
+}
+
+function getSourceDetailDefaultOwner(source: SourceLeakRecord) {
+  if (
+    source.sourceName.includes("Shopify") ||
+    source.sourceName.includes("Back-in-stock") ||
+    source.sourceName.includes("Ecommerce")
+  ) {
+    return "Mina Cole";
+  }
+
+  if (source.sourceName.includes("WhatsApp")) {
+    return "Tessa Nguyen";
+  }
+
+  if (source.sourceName.includes("Referral") || source.sourceName.includes("Campaign")) {
+    return "Luis Park";
+  }
+
+  if (source.sourceName.includes("Event") || source.sourceName.includes("CSV")) {
+    return "Operations";
+  }
+
+  return "Amara Shah";
+}
+
 function SourceLeakTracking({
   onActivity,
   onNavigate,
@@ -9982,12 +10679,15 @@ function SourceLeakTracking({
   const [activeOwnerSourceId, setActiveOwnerSourceId] = useState<string | null>(null);
   const [selectedSourceOwner, setSelectedSourceOwner] = useState("");
   const [casePreviewSourceId, setCasePreviewSourceId] = useState<string | null>(null);
+  const [selectedSourceDetailId, setSelectedSourceDetailId] = useState<string | null>(null);
+  const [focusedSourceTileId, setFocusedSourceTileId] = useState<string | null>(null);
 
   const filteredSources = sourceRecords.filter((source) =>
     matchesSourceLeakFilter(source, activeSourceFilter),
   );
 
   const selectedCaseSource = sourceRecords.find((source) => source.id === casePreviewSourceId);
+  const selectedDetailSource = sourceRecords.find((source) => source.id === selectedSourceDetailId);
 
   const sourceOwnerOptions = [
     ...teamUsers.map((member) => ({
@@ -10162,6 +10862,309 @@ function SourceLeakTracking({
     onNavigate("Revenue Pipeline");
   }
 
+function openSourceDetailPage(source: SourceLeakRecord) {
+  setSelectedSourceDetailId(source.id);
+  setCasePreviewSourceId(null);
+  setActiveOwnerSourceId(null);
+  setNotice(`Viewing source records for ${source.sourceName}.`);
+  recordSourceActivity(source, "Source records opened", "View more");
+}
+
+function closeSourceDetailPage() {
+  setSelectedSourceDetailId(null);
+  setNotice("Source leakage is ready for recovery review.");
+}
+
+function scrollToSourceTile(sourceId: string) {
+  window.setTimeout(() => {
+    const sourceTile = document.querySelector(`[data-source-tile-id="${sourceId}"]`);
+
+    sourceTile?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, 80);
+
+  window.setTimeout(() => {
+    setFocusedSourceTileId(null);
+  }, 1800);
+}
+
+function returnToSourceTile(source: SourceLeakRecord, message: string) {
+  setSelectedSourceDetailId(null);
+  setCasePreviewSourceId(null);
+  setFocusedSourceTileId(source.id);
+  setNotice(message);
+  scrollToSourceTile(source.id);
+}
+
+function openSourceOwnerPanelFromDetail(source: SourceLeakRecord) {
+  setSelectedSourceDetailId(null);
+  setCasePreviewSourceId(null);
+  setActiveOwnerSourceId(source.id);
+  setSelectedSourceOwner(getDefaultOwnerForSource(source));
+  setFocusedSourceTileId(source.id);
+  setNotice(`Select owner coverage for ${source.sourceName}.`);
+  recordSourceActivity(source, "Source owner panel opened from detail page", "Owner assignment");
+  scrollToSourceTile(source.id);
+}
+
+function createSourceFollowUpTasksFromDetail(source: SourceLeakRecord) {
+  createSourceFollowUpTasks(source);
+  setSelectedSourceDetailId(null);
+  setCasePreviewSourceId(null);
+  setActiveOwnerSourceId(null);
+  setFocusedSourceTileId(source.id);
+  setNotice(`Follow-up recovery tasks created for ${source.sourceName}.`);
+  scrollToSourceTile(source.id);
+}
+
+function openRevenuePipelineFromSourceDetail(source: SourceLeakRecord) {
+  setSelectedSourceDetailId(null);
+  setNotice(`Opening Revenue Pipeline for ${source.sourceName}.`);
+  recordSourceActivity(source, "Revenue Pipeline opened from source detail", "Pipeline opened");
+  onNavigate("Revenue Pipeline");
+}
+
+function openAutomationHealthFromSourceDetail(source: SourceLeakRecord) {
+  setSelectedSourceDetailId(null);
+  setNotice(`Opening Automation Health for ${source.sourceName}.`);
+  recordSourceActivity(source, "Automation Health opened from source detail", "Automation review");
+  onNavigate("Automation Health");
+}
+
+function getSourceEntryActionLabel(entry: SourceLeakDetailEntry) {
+  if (entry.entryType === "Payment pending") return "Open Payment Recovery";
+  if (entry.entryType === "Recovered revenue") return "View Recovered Revenue";
+  if (entry.entryType === "Sync issue") return "Open Automation Health";
+  if (entry.entryType === "Unassigned record") return "Assign Owner";
+  return "Create Recovery Task";
+}
+
+function handleSourceEntryAction(source: SourceLeakRecord, entry: SourceLeakDetailEntry) {
+  if (entry.entryType === "Payment pending") {
+    onNavigate("Payment Recovery");
+    return;
+  }
+
+  if (entry.entryType === "Recovered revenue") {
+    onNavigate("Recovered Revenue");
+    return;
+  }
+
+  if (entry.entryType === "Sync issue") {
+    onNavigate("Automation Health");
+    return;
+  }
+
+if (entry.entryType === "Unassigned record") {
+  openSourceOwnerPanelFromDetail(source);
+  return;
+}
+
+  createSourceFollowUpTasks(source);
+}
+
+if (selectedDetailSource) {
+  const sourceEntries = getSourceLeakDetailEntries(selectedDetailSource);
+  const openEntries = sourceEntries.filter((entry) => entry.entryType !== "Recovered revenue");
+  const recoveredEntries = sourceEntries.filter((entry) => entry.entryType === "Recovered revenue");
+  const actionRequiredEntries = sourceEntries.filter(
+    (entry) =>
+      entry.entryType === "Unassigned record" ||
+      entry.entryType === "Missing first reply" ||
+      entry.entryType === "Payment pending" ||
+      entry.entryType === "Overdue follow-up" ||
+      entry.entryType === "Sync issue",
+  );
+
+  return (
+    <div className="recovery-page source-detail-page">
+      <section className={`source-detail-hero glass-card ${selectedDetailSource.tone}`}>
+        <button type="button" className="secondary-btn source-detail-back" onClick={closeSourceDetailPage}>
+          ← Back to Source Leak Tracking
+        </button>
+
+        <div className="source-detail-hero-main">
+          <div>
+            <span className="source-detail-eyebrow">Source recovery records</span>
+            <h1>{selectedDetailSource.sourceName}</h1>
+            <p>
+              This page shows the actual revenue recovery work behind this source: unassigned records, missing replies,
+              payment leakage, recovered value, source quality, and the next action needed.
+            </p>
+          </div>
+
+          <div className="source-detail-money-card">
+            <span>Payment pending</span>
+            <strong>{selectedDetailSource.paymentPendingValue}</strong>
+            <small>{selectedDetailSource.highIntentInquiries} high-intent signals</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="source-detail-summary-grid">
+        <div className="glass-card source-detail-summary-card">
+          <span>Captured</span>
+          <strong>{selectedDetailSource.totalCaptured}</strong>
+          <p>Total source records captured.</p>
+        </div>
+
+        <div className="glass-card source-detail-summary-card">
+          <span>Unassigned</span>
+          <strong>{selectedDetailSource.unassignedRecords}</strong>
+          <p>Records leaking because no owner is attached.</p>
+        </div>
+
+        <div className="glass-card source-detail-summary-card">
+          <span>Missing replies</span>
+          <strong>{selectedDetailSource.firstRepliesMissing}</strong>
+          <p>Buyer interest that needs first response.</p>
+        </div>
+
+        <div className="glass-card source-detail-summary-card">
+          <span>Recovered</span>
+          <strong>{selectedDetailSource.recoveredValue}</strong>
+          <p>Proof value already recovered from this source.</p>
+        </div>
+
+        <div className="glass-card source-detail-summary-card">
+          <span>Source quality</span>
+          <strong>{selectedDetailSource.sourceQualityScore}/100</strong>
+          <p>{selectedDetailSource.sourceQuality}</p>
+        </div>
+      </section>
+
+      <section className="glass-card panel-card source-detail-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Source Record List</h2>
+            <p>
+              These are the source-level records that explain why this source needs attention and what action should
+              happen next.
+            </p>
+          </div>
+
+          <Badge tone={selectedDetailSource.tone}>{sourceEntries.length} records</Badge>
+        </div>
+
+        <div className="source-detail-record-list">
+          {sourceEntries.map((entry) => (
+            <article className={`source-detail-record ${entry.tone}`} key={entry.id}>
+              <div className="source-detail-record-main">
+                <div>
+                  <div className="source-detail-record-title">
+                    <h3>{entry.buyerName}</h3>
+                    <Badge tone={entry.tone}>{entry.entryType}</Badge>
+                    <span className="queue-status-pill">{entry.confidence} confidence</span>
+                  </div>
+
+                  <p>{entry.productContext}</p>
+
+                  <div className="recovery-meta">
+                    <span>{entry.status}</span>
+                    <span>Owner: {entry.owner}</span>
+                    <span>{entry.lastSignal}</span>
+                  </div>
+                </div>
+
+                <div className="capture-value-stack">
+                  <strong>{entry.value}</strong>
+                  <span>{entry.entryType === "Recovered revenue" ? "recovered" : "at risk"}</span>
+                </div>
+              </div>
+
+              <div className="detail-callout source-detail-next-action">
+                <span>Next recovery action</span>
+                <p>{entry.nextAction}</p>
+              </div>
+
+              <div className="source-detail-record-actions">
+                <button
+                  type="button"
+                  className={entry.entryType === "Unassigned record" ? "primary-btn" : "secondary-btn"}
+                  onClick={() => handleSourceEntryAction(selectedDetailSource, entry)}
+                >
+                  {getSourceEntryActionLabel(entry)}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="source-detail-split-grid">
+        <article className="glass-card panel-card source-detail-proof-card">
+          <div className="panel-header stacked">
+            <h2>Why this source matters</h2>
+            <p>This is not a traffic report. It shows where buyer intent is stuck after the source already created demand.</p>
+          </div>
+
+          <div className="source-detail-proof-list">
+            <div>
+              <strong>{actionRequiredEntries.length}</strong>
+              <span>records still need recovery action</span>
+            </div>
+
+            <div>
+              <strong>{openEntries.length}</strong>
+              <span>open source leakage records</span>
+            </div>
+
+            <div>
+              <strong>{recoveredEntries.length}</strong>
+              <span>recovered proof records</span>
+            </div>
+          </div>
+        </article>
+
+        <article className="glass-card panel-card source-detail-proof-card">
+          <div className="panel-header stacked">
+            <h2>Recommended source fix</h2>
+            <p>{selectedDetailSource.recommendedFix}</p>
+          </div>
+
+          <div className="source-detail-page-actions">
+  <button
+    type="button"
+    className="primary-btn"
+    onClick={() => openSourceOwnerPanelFromDetail(selectedDetailSource)}
+  >
+    Assign Source Owner
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn"
+    onClick={() => createSourceFollowUpTasksFromDetail(selectedDetailSource)}
+  >
+    {selectedDetailSource.followUpTasksCreated ? "View Follow-up Tasks" : "Create Follow-up Tasks"}
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn"
+    onClick={() => openRevenuePipelineFromSourceDetail(selectedDetailSource)}
+  >
+    Open Revenue Pipeline
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn"
+    onClick={() => openAutomationHealthFromSourceDetail(selectedDetailSource)}
+  >
+    Open Automation Health
+  </button>
+</div>
+        </article>
+      </section>
+
+      <p className="detail-notice capture-page-notice">{notice}</p>
+    </div>
+  );
+}
+
   return (
     <div className="recovery-page">
       <section className="recovery-kpi-grid capture-kpi-grid source-kpi-grid">
@@ -10197,7 +11200,13 @@ function SourceLeakTracking({
 
         <div className="capture-card-list">
           {filteredSources.map((source) => (
-            <article className={`source-leak-card ${source.tone}`} key={source.id}>
+            <article
+  className={`source-leak-card ${source.tone} ${
+    focusedSourceTileId === source.id ? "is-source-focus-return" : ""
+  }`}
+  data-source-tile-id={source.id}
+  key={source.id}
+>
               <div className="capture-card-main">
                 <div>
                   <div className="recovery-row-title">
@@ -10281,9 +11290,9 @@ function SourceLeakTracking({
                   {source.reviewed ? "Reviewed ✓" : "Mark source issue reviewed"}
                 </button>
 
-                <button type="button" className="secondary-btn" onClick={() => openRelatedCasesPreview(source)}>
-                  {source.relatedCasesOpened ? "View related recovery cases" : "Open related recovery cases"}
-                </button>
+                <button type="button" className="secondary-btn source-view-more-btn" onClick={() => openSourceDetailPage(source)}>
+  View More
+</button>
               </div>
 
               {activeOwnerSourceId === source.id ? (
