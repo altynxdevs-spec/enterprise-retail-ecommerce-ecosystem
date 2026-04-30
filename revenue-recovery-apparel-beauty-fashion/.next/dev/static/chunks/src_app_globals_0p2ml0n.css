@@ -4482,18 +4482,6 @@ html, body {
   font-weight: 700;
 }
 
-.side-group-trigger:hover {
-  color: var(--text);
-  background: #f4f4f2;
-}
-
-.side-group.is-open .side-group-trigger {
-  color: #fff;
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 8px 18px #f45a1e24;
-}
-
 .side-title {
   font-size: 13px;
   font-weight: 750;
@@ -4504,10 +4492,6 @@ html, body {
   border-radius: 999px;
   width: 7px;
   height: 7px;
-}
-
-.side-group.is-open .side-dot {
-  background: #fff;
 }
 
 .side-arrow {
@@ -4524,25 +4508,10 @@ html, body {
   background: #ffffff29;
 }
 
-.side-submenu-inner {
-  border-left-color: var(--border);
-}
-
 .side-subitem {
   color: #6b7280;
   font-size: 12px;
   font-weight: 650;
-}
-
-.side-subitem:hover {
-  color: var(--text);
-  background: #f5f5f3;
-}
-
-.side-subitem.is-active {
-  color: var(--text);
-  background: var(--accent-soft);
-  font-weight: 750;
 }
 
 .side-subitem.is-active:before {
@@ -4585,12 +4554,6 @@ h1 {
   box-shadow: 0 8px 18px #f45a1e24;
 }
 
-.primary-btn:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  box-shadow: 0 10px 20px #f45a1e29;
-}
-
 .primary-btn:active {
   background: var(--accent-strong);
   border-color: var(--accent-strong);
@@ -4602,20 +4565,10 @@ h1 {
   background: #fff;
 }
 
-.secondary-btn:hover, .row-action:hover, .sku-row-actions button:hover {
-  color: var(--text);
-  border-color: var(--accent-border);
-  background: #fff7f3;
-}
-
 .glass-card, .panel-card, .summary-breakdown-card, .activity-summary-card, .timeline-event-card, .recovery-row, .source-health-row, .team-load-card, .activity-row, .recovery-task-card, .inquiry-card, .demand-card, .source-leak-card, .buyer-card, .segment-card, .value-card, .pipeline-card, .recovered-card, .product-card, .order-risk-card, .delivery-card, .post-purchase-card, .mini-stat, .detail-grid div, .detail-callout, .customer-summary-box, .template-box, .thread-panel, .thread-message, .import-preview-row, .export-option-card, .sheet-field-summary div, .import-step-grid div, .sku-sheet-row, .legacy-recovery-row {
   border-color: var(--border) !important;
   background: var(--surface-raised) !important;
   box-shadow: var(--shadow-tiny) !important;
-}
-
-.glass-card, .panel-card, .summary-breakdown-card, .activity-summary-card, .timeline-event-card {
-  box-shadow: var(--shadow-soft) !important;
 }
 
 .recovery-row:hover, .recovery-task-card:hover, .inquiry-button:hover, .buyer-card:hover, .pipeline-card:hover, .product-card:hover, .team-load-card:hover, .source-health-row:hover, .activity-row:hover {
@@ -4645,24 +4598,6 @@ h1 {
   color: var(--accent) !important;
   border-color: var(--accent-border) !important;
   background: var(--accent-soft) !important;
-}
-
-.badge.rose, .mini-status.rose, .pill.rose, .kpi-caption.rose, .recent-status.rose {
-  color: #b42318 !important;
-  background: #d92d2014 !important;
-  border-color: #d92d2038 !important;
-}
-
-.badge.amber, .mini-status.amber, .pill.amber, .kpi-caption.amber, .recent-status.amber {
-  color: #b45309 !important;
-  background: #d9770614 !important;
-  border-color: #d9770638 !important;
-}
-
-.badge.emerald, .mini-status.emerald, .pill.emerald, .kpi-caption.emerald, .recent-status.emerald {
-  color: #087f5b !important;
-  background: #087f5b14 !important;
-  border-color: #087f5b33 !important;
 }
 
 .badge.indigo, .mini-status.indigo, .pill.indigo, .recent-status.indigo, .badge.gray, .mini-status.gray, .pill.gray, .recent-status.gray {
@@ -4719,24 +4654,6 @@ h1 {
   background: #6f737b !important;
 }
 
-.donut-chart {
-  background: radial-gradient(circle at center, #fff 56%, transparent 57%),
-    conic-gradient(from 90deg,
-      var(--accent) 0 42%,
-      #d97706 42% 72%,
-      #087f5b 72% 89%,
-      #d1d5db 89% 97%,
-      #eeeeec 97% 100%);
-}
-
-.source-purple, .source-cyan {
-  background: var(--accent) !important;
-}
-
-.source-green {
-  background: #087f5b !important;
-}
-
 .queue-toolbar, .recent-toolbar, .recent-feed-card, .recent-detail-card {
   border-color: var(--border) !important;
   box-shadow: var(--shadow-tiny) !important;
@@ -4764,6 +4681,297 @@ h1 {
 input:focus, select:focus, textarea:focus, .sku-sheet-row input:focus, .sku-sheet-row select:focus {
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 3px #f45a1e1f !important;
+}
+
+:root {
+  --bg: #f7f7f5;
+  --card: #fff;
+  --card-soft: #fafafa;
+  --surface-raised: #fff;
+  --surface-subtle: #f4f4f2;
+  --border: #e8e8e8;
+  --border-strong: #d9d9d7;
+  --text: #111;
+  --muted: #5f6368;
+  --muted-soft: #8b8f97;
+  --accent: #f45a1e;
+  --accent-hover: #ff6a35;
+  --accent-strong: #cf4314;
+  --accent-soft: #f45a1e0f;
+  --accent-border: #f45a1e2e;
+  --cyan: #6f737b;
+  --blue: #6f737b;
+  --purple: #6f737b;
+}
+
+body {
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.brand {
+  height: auto;
+  min-height: 38px;
+  margin-bottom: 22px;
+}
+
+.brand-logo {
+  width: 124px;
+}
+
+.side-group-trigger {
+  color: var(--muted);
+  font-weight: 550;
+}
+
+.side-title {
+  font-weight: 550;
+}
+
+.side-group-trigger:hover {
+  color: var(--text);
+  background: #f5f5f3;
+}
+
+.side-group.is-open .side-group-trigger {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 6px 14px #f45a1e1f;
+}
+
+.side-group.is-open .side-title, .side-group.is-open .side-arrow {
+  color: #fff;
+}
+
+.side-group.is-open .side-dot {
+  background: #fff;
+}
+
+.side-submenu-inner {
+  border-left-color: #eeeeec;
+}
+
+.side-subitem {
+  color: #747982;
+  background: none;
+  border-radius: 6px;
+  font-weight: 450;
+}
+
+.side-subitem:hover {
+  color: var(--text);
+  background: #f5f5f3;
+}
+
+.side-subitem.is-active {
+  color: var(--text);
+  background: #f3f3f1;
+  font-weight: 550;
+}
+
+.side-subitem.is-active:before {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+h1 {
+  letter-spacing: -.015em;
+  font-size: clamp(28px, 2.65vw, 38px);
+  font-weight: 700;
+}
+
+.panel-header h2, .detail-heading h2 {
+  letter-spacing: -.01em;
+  font-weight: 600;
+}
+
+.recovery-row h3, .recovery-task-card h3, .inquiry-card h3, .team-load-card h3, .activity-row h3, .source-health-row h3, .demand-card h3, .source-leak-card h3, .buyer-card h3, .segment-card h3, .value-card h3, .pipeline-card h3, .recovered-card h3, .product-card h3, .order-risk-card h3, .delivery-card h3, .post-purchase-card h3, .summary-breakdown-card h3, .import-preview-row h3, .export-option-card h3, .stage-heading h3 {
+  font-weight: 600 !important;
+}
+
+.dashboard-header p, .panel-header p, .detail-heading p, .content :where(p, small) {
+  font-weight: 400;
+  color: var(--muted) !important;
+}
+
+.kpi-top, .activity-summary-card p, .capture-stat-grid span, .recovery-meta span, .product-tag-list span, .task-money span, .inquiry-value span, .capture-value-stack span {
+  font-weight: 500;
+  color: var(--muted) !important;
+}
+
+.kpi-main strong, .recovery-row > strong, .task-money strong, .inquiry-value strong, .detail-heading > strong, .capture-value-stack strong, .summary-breakdown-card strong, .activity-summary-card strong, .mini-stat strong {
+  font-weight: 650;
+  color: var(--text) !important;
+}
+
+.kpi-main strong {
+  font-size: clamp(28px, 2.75vw, 36px);
+}
+
+.primary-btn {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.primary-btn:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 6px 14px #f45a1e1f;
+}
+
+.secondary-btn, .row-action, .sku-row-actions button {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: #fff;
+  font-weight: 550;
+}
+
+.secondary-btn:hover, .row-action:hover, .sku-row-actions button:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: #f7f7f5;
+}
+
+.template-box button {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: #fff;
+}
+
+.template-box button:hover {
+  background: #f7f7f5;
+}
+
+.avatar {
+  border-color: var(--border-strong);
+  background: #f3f3f1;
+}
+
+.avatar span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.queue-tab, .recent-tab, .recent-filters button {
+  color: var(--muted);
+  background: #f1f1ef;
+  font-weight: 500;
+}
+
+.queue-tab:hover, .recent-tab:hover, .recent-filters button:hover {
+  color: var(--text);
+  background: #ececea;
+  border-color: #dededb;
+}
+
+.queue-tab.active, .recent-tab.active {
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: inset 0 -2px 0 var(--accent);
+  background: #fff;
+}
+
+.status-chip {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: #fff;
+  font-weight: 550;
+}
+
+.status-dot {
+  background: var(--accent);
+}
+
+.badge, .pill, .mini-status, .kpi-caption {
+  font-weight: 550;
+}
+
+.badge.cyan, .mini-status.cyan, .pill.cyan, .kpi-caption.cyan, .badge.indigo, .mini-status.indigo, .pill.indigo, .recent-status.cyan, .recent-status.indigo {
+  color: #4b5563 !important;
+  background: #f1f1f1 !important;
+  border-color: #6b728029 !important;
+}
+
+.badge.rose, .mini-status.rose, .pill.rose, .kpi-caption.rose, .recent-status.rose {
+  color: #9f241b !important;
+  background: #d92d200f !important;
+  border-color: #d92d202e !important;
+}
+
+.badge.amber, .mini-status.amber, .pill.amber, .kpi-caption.amber, .recent-status.amber {
+  color: #924f08 !important;
+  background: #d977060f !important;
+  border-color: #d977062e !important;
+}
+
+.badge.emerald, .mini-status.emerald, .pill.emerald, .kpi-caption.emerald, .recent-status.emerald {
+  color: #08704f !important;
+  background: #087f5b0f !important;
+  border-color: #087f5b2e !important;
+}
+
+.tiny-dot.cyan, .activity-node.cyan, .timeline-node.cyan, .recent-summary-glow.cyan, .recent-event-node.cyan, .tiny-dot.indigo, .activity-node.indigo, .timeline-node.indigo, .recent-summary-glow.indigo, .recent-event-node.indigo {
+  background: #8b8f97 !important;
+}
+
+.mini-trend-cyan, .timeline-time.cyan, .recent-time.cyan, .timeline-time.indigo, .recent-time.indigo {
+  color: var(--muted) !important;
+}
+
+.demand-card.cyan:before, .source-leak-card.cyan:before, .buyer-card.cyan:before, .segment-card.cyan:before, .value-card.cyan:before, .pipeline-card.cyan:before, .recovered-card.cyan:before, .product-card.cyan:before, .order-risk-card.cyan:before, .delivery-card.cyan:before, .post-purchase-card.cyan:before, .recovery-task-card.cyan:before, .inquiry-card.cyan:before, .demand-card.indigo:before, .source-leak-card.indigo:before, .buyer-card.indigo:before, .segment-card.indigo:before, .value-card.indigo:before, .pipeline-card.indigo:before, .recovered-card.indigo:before, .product-card.indigo:before, .order-risk-card.indigo:before, .delivery-card.indigo:before, .post-purchase-card.indigo:before, .recovery-task-card.indigo:before, .inquiry-card.indigo:before {
+  background: #8b8f97 !important;
+}
+
+.donut-chart {
+  background: radial-gradient(circle at center, #fff 56%, transparent 57%),
+    conic-gradient(from 90deg,
+      #111 0 42%,
+      var(--accent) 42% 68%,
+      #087f5b 68% 86%,
+      #cfcfca 86% 96%,
+      #ececea 96% 100%);
+}
+
+.source-purple, .source-cyan {
+  background: #8b8f97 !important;
+}
+
+.source-green {
+  background: #087f5b !important;
+}
+
+.detail-actions .primary-small, .recent-detail-actions .primary-small {
+  color: #fff !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
+}
+
+.recent-detail-actions button {
+  color: var(--text) !important;
+  border-color: var(--border-strong) !important;
+  background: #fff !important;
+  font-weight: 550 !important;
+}
+
+.recent-detail-actions .primary-small {
+  color: #fff !important;
+}
+
+.glass-card, .panel-card, .summary-breakdown-card, .activity-summary-card, .timeline-event-card, .recovery-row, .source-health-row, .team-load-card, .activity-row, .recovery-task-card, .inquiry-card, .demand-card, .source-leak-card, .buyer-card, .segment-card, .value-card, .pipeline-card, .recovered-card, .product-card, .order-risk-card, .delivery-card, .post-purchase-card, .mini-stat, .detail-grid div, .detail-callout, .customer-summary-box, .template-box, .thread-panel, .thread-message, .import-preview-row, .export-option-card, .sheet-field-summary div, .import-step-grid div, .sku-sheet-row, .legacy-recovery-row {
+  box-shadow: none !important;
+}
+
+.glass-card, .panel-card, .summary-breakdown-card, .activity-summary-card, .timeline-event-card {
+  box-shadow: 0 1px 2px #11111108 !important;
+}
+
+.recovery-row:hover, .recovery-task-card:hover, .inquiry-button:hover, .buyer-card:hover, .pipeline-card:hover, .product-card:hover, .team-load-card:hover, .source-health-row:hover, .activity-row:hover {
+  background: #fbfbfa !important;
 }
 
 @media (max-width: 1240px) {

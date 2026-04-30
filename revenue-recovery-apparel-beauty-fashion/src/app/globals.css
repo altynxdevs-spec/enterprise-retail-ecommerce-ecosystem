@@ -6062,6 +6062,459 @@ textarea:focus,
   box-shadow: 0 0 0 3px rgba(244, 90, 30, 0.12) !important;
 }
 
+/* Final calm system tuning */
+:root {
+  --bg: #f7f7f5;
+  --card: #ffffff;
+  --card-soft: #fafafa;
+  --surface-raised: #ffffff;
+  --surface-subtle: #f4f4f2;
+  --border: #e8e8e8;
+  --border-strong: #d9d9d7;
+  --text: #111111;
+  --muted: #5f6368;
+  --muted-soft: #8b8f97;
+  --accent: #f45a1e;
+  --accent-hover: #ff6a35;
+  --accent-strong: #cf4314;
+  --accent-soft: rgba(244, 90, 30, 0.06);
+  --accent-border: rgba(244, 90, 30, 0.18);
+  --cyan: #6f737b;
+  --blue: #6f737b;
+  --purple: #6f737b;
+}
+
+body {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.brand {
+  height: auto;
+  min-height: 38px;
+  margin-bottom: 22px;
+}
+
+.brand-logo {
+  width: 124px;
+}
+
+.side-group-trigger {
+  color: var(--muted);
+  font-weight: 550;
+}
+
+.side-title {
+  font-weight: 550;
+}
+
+.side-group-trigger:hover {
+  color: var(--text);
+  background: #f5f5f3;
+}
+
+.side-group.is-open .side-group-trigger {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 6px 14px rgba(244, 90, 30, 0.12);
+}
+
+.side-group.is-open .side-title,
+.side-group.is-open .side-arrow {
+  color: #ffffff;
+}
+
+.side-group.is-open .side-dot {
+  background: #ffffff;
+}
+
+.side-submenu-inner {
+  border-left-color: #eeeeec;
+}
+
+.side-subitem {
+  color: #747982;
+  background: transparent;
+  border-radius: 6px;
+  font-weight: 450;
+}
+
+.side-subitem:hover {
+  color: var(--text);
+  background: #f5f5f3;
+}
+
+.side-subitem.is-active {
+  color: var(--text);
+  background: #f3f3f1;
+  font-weight: 550;
+}
+
+.side-subitem.is-active::before {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+h1 {
+  font-size: clamp(28px, 2.65vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.panel-header h2,
+.detail-heading h2 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.recovery-row h3,
+.recovery-task-card h3,
+.inquiry-card h3,
+.team-load-card h3,
+.activity-row h3,
+.source-health-row h3,
+.demand-card h3,
+.source-leak-card h3,
+.buyer-card h3,
+.segment-card h3,
+.value-card h3,
+.pipeline-card h3,
+.recovered-card h3,
+.product-card h3,
+.order-risk-card h3,
+.delivery-card h3,
+.post-purchase-card h3,
+.summary-breakdown-card h3,
+.import-preview-row h3,
+.export-option-card h3,
+.stage-heading h3 {
+  font-weight: 600 !important;
+}
+
+.dashboard-header p,
+.panel-header p,
+.detail-heading p,
+.content :where(p, small) {
+  color: var(--muted) !important;
+  font-weight: 400;
+}
+
+.kpi-top,
+.activity-summary-card p,
+.capture-stat-grid span,
+.recovery-meta span,
+.product-tag-list span,
+.task-money span,
+.inquiry-value span,
+.capture-value-stack span {
+  color: var(--muted) !important;
+  font-weight: 500;
+}
+
+.kpi-main strong,
+.recovery-row > strong,
+.task-money strong,
+.inquiry-value strong,
+.detail-heading > strong,
+.capture-value-stack strong,
+.summary-breakdown-card strong,
+.activity-summary-card strong,
+.mini-stat strong {
+  color: var(--text) !important;
+  font-weight: 650;
+}
+
+.kpi-main strong {
+  font-size: clamp(28px, 2.75vw, 36px);
+}
+
+.primary-btn {
+  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.primary-btn:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 6px 14px rgba(244, 90, 30, 0.12);
+}
+
+.secondary-btn,
+.row-action,
+.sku-row-actions button {
+  color: var(--text);
+  background: #ffffff;
+  border-color: var(--border-strong);
+  font-weight: 550;
+}
+
+.secondary-btn:hover,
+.row-action:hover,
+.sku-row-actions button:hover {
+  color: var(--text);
+  background: #f7f7f5;
+  border-color: var(--border-strong);
+}
+
+.template-box button {
+  color: var(--text);
+  background: #ffffff;
+  border-color: var(--border-strong);
+}
+
+.template-box button:hover {
+  background: #f7f7f5;
+}
+
+.avatar {
+  border-color: var(--border-strong);
+  background: #f3f3f1;
+}
+
+.avatar span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.queue-tab,
+.recent-tab,
+.recent-filters button {
+  color: var(--muted);
+  background: #f1f1ef;
+  font-weight: 500;
+}
+
+.queue-tab:hover,
+.recent-tab:hover,
+.recent-filters button:hover {
+  color: var(--text);
+  background: #ececea;
+  border-color: #dededb;
+}
+
+.queue-tab.active,
+.recent-tab.active {
+  color: var(--text);
+  background: #ffffff;
+  border-color: var(--border-strong);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.status-chip {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: #ffffff;
+  font-weight: 550;
+}
+
+.status-dot {
+  background: var(--accent);
+}
+
+.badge,
+.pill,
+.mini-status,
+.kpi-caption {
+  font-weight: 550;
+}
+
+.badge.cyan,
+.mini-status.cyan,
+.pill.cyan,
+.kpi-caption.cyan,
+.badge.indigo,
+.mini-status.indigo,
+.pill.indigo,
+.recent-status.cyan,
+.recent-status.indigo {
+  color: #4b5563 !important;
+  border-color: rgba(107, 114, 128, 0.16) !important;
+  background: #f1f1f1 !important;
+}
+
+.badge.rose,
+.mini-status.rose,
+.pill.rose,
+.kpi-caption.rose,
+.recent-status.rose {
+  color: #9f241b !important;
+  border-color: rgba(217, 45, 32, 0.18) !important;
+  background: rgba(217, 45, 32, 0.06) !important;
+}
+
+.badge.amber,
+.mini-status.amber,
+.pill.amber,
+.kpi-caption.amber,
+.recent-status.amber {
+  color: #924f08 !important;
+  border-color: rgba(217, 119, 6, 0.18) !important;
+  background: rgba(217, 119, 6, 0.06) !important;
+}
+
+.badge.emerald,
+.mini-status.emerald,
+.pill.emerald,
+.kpi-caption.emerald,
+.recent-status.emerald {
+  color: #08704f !important;
+  border-color: rgba(8, 127, 91, 0.18) !important;
+  background: rgba(8, 127, 91, 0.06) !important;
+}
+
+.tiny-dot.cyan,
+.activity-node.cyan,
+.timeline-node.cyan,
+.recent-summary-glow.cyan,
+.recent-event-node.cyan,
+.tiny-dot.indigo,
+.activity-node.indigo,
+.timeline-node.indigo,
+.recent-summary-glow.indigo,
+.recent-event-node.indigo {
+  background: #8b8f97 !important;
+}
+
+.mini-trend-cyan,
+.timeline-time.cyan,
+.recent-time.cyan,
+.timeline-time.indigo,
+.recent-time.indigo {
+  color: var(--muted) !important;
+}
+
+.demand-card.cyan::before,
+.source-leak-card.cyan::before,
+.buyer-card.cyan::before,
+.segment-card.cyan::before,
+.value-card.cyan::before,
+.pipeline-card.cyan::before,
+.recovered-card.cyan::before,
+.product-card.cyan::before,
+.order-risk-card.cyan::before,
+.delivery-card.cyan::before,
+.post-purchase-card.cyan::before,
+.recovery-task-card.cyan::before,
+.inquiry-card.cyan::before,
+.demand-card.indigo::before,
+.source-leak-card.indigo::before,
+.buyer-card.indigo::before,
+.segment-card.indigo::before,
+.value-card.indigo::before,
+.pipeline-card.indigo::before,
+.recovered-card.indigo::before,
+.product-card.indigo::before,
+.order-risk-card.indigo::before,
+.delivery-card.indigo::before,
+.post-purchase-card.indigo::before,
+.recovery-task-card.indigo::before,
+.inquiry-card.indigo::before {
+  background: #8b8f97 !important;
+}
+
+.donut-chart {
+  background:
+    radial-gradient(circle at center, #ffffff 56%, transparent 57%),
+    conic-gradient(
+      from 90deg,
+      #111111 0 42%,
+      var(--accent) 42% 68%,
+      #087f5b 68% 86%,
+      #cfcfca 86% 96%,
+      #ececea 96% 100%
+    );
+}
+
+.source-purple,
+.source-cyan {
+  background: #8b8f97 !important;
+}
+
+.source-green {
+  background: #087f5b !important;
+}
+
+.detail-actions .primary-small,
+.recent-detail-actions .primary-small {
+  color: #ffffff !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
+}
+
+.recent-detail-actions button {
+  color: var(--text) !important;
+  background: #ffffff !important;
+  border-color: var(--border-strong) !important;
+  font-weight: 550 !important;
+}
+
+.recent-detail-actions .primary-small {
+  color: #ffffff !important;
+}
+
+.glass-card,
+.panel-card,
+.summary-breakdown-card,
+.activity-summary-card,
+.timeline-event-card,
+.recovery-row,
+.source-health-row,
+.team-load-card,
+.activity-row,
+.recovery-task-card,
+.inquiry-card,
+.demand-card,
+.source-leak-card,
+.buyer-card,
+.segment-card,
+.value-card,
+.pipeline-card,
+.recovered-card,
+.product-card,
+.order-risk-card,
+.delivery-card,
+.post-purchase-card,
+.mini-stat,
+.detail-grid div,
+.detail-callout,
+.customer-summary-box,
+.template-box,
+.thread-panel,
+.thread-message,
+.import-preview-row,
+.export-option-card,
+.sheet-field-summary div,
+.import-step-grid div,
+.sku-sheet-row,
+.legacy-recovery-row {
+  box-shadow: none !important;
+}
+
+.glass-card,
+.panel-card,
+.summary-breakdown-card,
+.activity-summary-card,
+.timeline-event-card {
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.03) !important;
+}
+
+.recovery-row:hover,
+.recovery-task-card:hover,
+.inquiry-button:hover,
+.buyer-card:hover,
+.pipeline-card:hover,
+.product-card:hover,
+.team-load-card:hover,
+.source-health-row:hover,
+.activity-row:hover {
+  background: #fbfbfa !important;
+}
+
 @media (max-width: 1240px) {
   .content {
     padding: 24px;
