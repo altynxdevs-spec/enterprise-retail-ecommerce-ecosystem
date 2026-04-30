@@ -17,7 +17,7 @@ const sidebarGroups = [
         title: "Command Center",
         items: [
             "Recovery Overview",
-            "TodayÃ¢â‚¬â„¢s Recovery Queue",
+            "Today's Recovery Queue",
             "Recovery Activity"
         ]
     },
@@ -6976,7 +6976,7 @@ const activities = [
         title: "Bridal collection inquiry captured",
         description: "Website form created a recovery action for Sophia Bennett's Atelier Luma bridal capsule inquiry.",
         impactBadge: "$1,850 at risk",
-        relatedRecord: "Website form Ã‚Â· RR-1041",
+        relatedRecord: "Website form - RR-1041",
         owner: "Amara Shah",
         status: "Action required",
         nextAction: "Send bridal appointment windows.",
@@ -6989,7 +6989,7 @@ const activities = [
         title: "Size/fit inquiry flagged",
         description: "Instagram DM about the Vela Denim cropped jacket was classified as a high-intent fit question.",
         impactBadge: "$240 at risk",
-        relatedRecord: "Instagram DM Ã‚Â· RR-1043",
+        relatedRecord: "Instagram DM - RR-1043",
         owner: "Amara Shah",
         status: "Needs first reply",
         nextAction: "Reply with fit guidance and exchange reassurance.",
@@ -7002,7 +7002,7 @@ const activities = [
         title: "Skincare refill window opened",
         description: "Elena Rodriguez entered the 60-day Vitamin C serum refill window from order history.",
         impactBadge: "$118 opportunity",
-        relatedRecord: "Shopify order history Ã‚Â· RR-1042",
+        relatedRecord: "Shopify order history - RR-1042",
         owner: "Mina Cole",
         status: "Triggered",
         nextAction: "Send serum refill reorder link.",
@@ -7015,7 +7015,7 @@ const activities = [
         title: "Restock waitlist sync failed",
         description: "Coco Bloom lip oil restock request was captured, but the external buyer tag did not update.",
         impactBadge: "$420 at risk",
-        relatedRecord: "Back-in-stock form Ã‚Â· RR-1045",
+        relatedRecord: "Back-in-stock form - RR-1045",
         owner: "Mina Cole",
         status: "Sync issue",
         nextAction: "Fix sync and send restock link manually.",
@@ -7028,7 +7028,7 @@ const activities = [
         title: "Delivered order review request created",
         description: "Harper Row denim delivery confirmation created a review and second-purchase recovery action.",
         impactBadge: "$180 lifecycle value",
-        relatedRecord: "Delivery event Ã‚Â· RR-1047",
+        relatedRecord: "Delivery event - RR-1047",
         owner: "Luis Park",
         status: "Created",
         nextAction: "Send delivery satisfaction and review request.",
@@ -7041,7 +7041,7 @@ const activities = [
         title: "Referral / UGC request scheduled",
         description: "Glow Haus positive review qualified Talia Monroe for creator-style UGC and referral follow-up.",
         impactBadge: "$300 referral value",
-        relatedRecord: "Review survey Ã‚Â· RR-1048",
+        relatedRecord: "Review survey - RR-1048",
         owner: "Luis Park",
         status: "Scheduled",
         nextAction: "Send UGC prompt and referral code.",
@@ -7054,7 +7054,7 @@ const activities = [
         title: "Payment reminder sent",
         description: "WhatsApp checkout reminder was sent for Priya Nair's Saffron Skin evening routine bundle.",
         impactBadge: "$670 pending",
-        relatedRecord: "WhatsApp checkout Ã‚Â· RR-1046",
+        relatedRecord: "WhatsApp checkout - RR-1046",
         owner: "Tessa Nguyen",
         status: "Sent",
         nextAction: "Watch payment completion and resend link if needed.",
@@ -7067,7 +7067,7 @@ const activities = [
         title: "Pop-up CSV import missing owners",
         description: "Soho pop-up styling inquiries imported from CSV without assigned recovery owners.",
         impactBadge: "$4,200 unassigned",
-        relatedRecord: "Event CSV import Ã‚Â· RR-1050",
+        relatedRecord: "Event CSV import - RR-1050",
         status: "Owner missing",
         nextAction: "Assign imported pop-up inquiries.",
         timestamp: "6h ago",
@@ -7079,7 +7079,7 @@ const activities = [
         title: "Weekly recovery report generated",
         description: "Owner summary reported recovered revenue, source quality, team load, and automation health.",
         impactBadge: "$42.7K recovered",
-        relatedRecord: "Weekly summary Ã‚Â· April recovery",
+        relatedRecord: "Weekly summary - April recovery",
         owner: "Operations",
         status: "Generated",
         nextAction: "Review source quality and team load risks.",
@@ -7483,7 +7483,7 @@ const revenueStages = [
 ];
 const pageSubtitles = {
     "Recovery Overview": "Owner-level visibility into missed revenue, recovery actions, source quality, team workload, and automation-captured events.",
-    "TodayÃ¢â‚¬â„¢s Recovery Queue": "The team execution screen for overdue leaks, payment nudges, refill prompts, post-purchase asks, and order risks.",
+    "Today's Recovery Queue": "The team execution screen for overdue leaks, payment nudges, refill prompts, post-purchase asks, and order risks.",
     "Recovery Activity": "A live trail of captured recovery events, failed syncs, workflow outcomes, and manual updates.",
     "Inquiry Inbox": "New and aging inquiries from website, Instagram, WhatsApp, referrals, campaigns, pop-ups, and imports.",
     "Product Demand": "Recoverable demand by product, category, drop, refill window, restock request, and buyer question.",
@@ -8090,7 +8090,7 @@ function RecoveryOverview({ activities }) {
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                                 children: [
                                                                     task.brandContext,
-                                                                    " Ã‚Â· ",
+                                                                    " - ",
                                                                     task.productInterest
                                                                 ]
                                                             }, void 0, true, {
@@ -8802,7 +8802,7 @@ function TodaysRecoveryQueue() {
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                                 children: [
                                                                     task.brandContext,
-                                                                    " Ã‚Â· ",
+                                                                    " - ",
                                                                     task.productInterest
                                                                 ]
                                                             }, void 0, true, {
@@ -8952,7 +8952,7 @@ function TodaysRecoveryQueue() {
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                         children: [
                                                             selectedTask.brandContext,
-                                                            " Ã‚Â· ",
+                                                            " - ",
                                                             selectedTask.productInterest
                                                         ]
                                                     }, void 0, true, {
@@ -9434,7 +9434,7 @@ function InquiryInbox({ onActivity }) {
             title,
             description: `${inquiry.customer}'s ${inquiry.productInterest.toLowerCase()} was updated from ${inquiry.inquirySource}.`,
             impactBadge: `${inquiry.estimatedValue} at risk`,
-            relatedRecord: `${inquiry.inquirySource} Ã‚Â· ${inquiry.id}`,
+            relatedRecord: `${inquiry.inquirySource} - ${inquiry.id}`,
             owner: owner === "Unassigned" ? undefined : owner,
             status,
             nextAction,
@@ -10284,7 +10284,7 @@ function ProductDemand({ onActivity }) {
             title,
             description: `${signal.demandName} demand was updated with ${signal.totalSignals} captured signals.`,
             impactBadge: `${signal.estimatedDemandValue} demand value`,
-            relatedRecord: `${signal.industryType} Ã‚Â· ${signal.id}`,
+            relatedRecord: `${signal.industryType} - ${signal.id}`,
             owner: signal.owner === "Unassigned" ? undefined : signal.owner,
             status,
             nextAction,
@@ -10808,7 +10808,7 @@ function SourceLeakTracking({ onActivity }) {
             title,
             description: `${source.sourceName} source leakage was updated for ${source.totalCaptured} captured inquiries.`,
             impactBadge: `${source.paymentPendingValue} pending`,
-            relatedRecord: `${source.sourceName} Ã‚Â· ${source.id}`,
+            relatedRecord: `${source.sourceName} - ${source.id}`,
             status,
             nextAction,
             tone: source.tone
@@ -11533,9 +11533,9 @@ function ProductCatalog() {
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                                 children: [
                                                                     product.productType,
-                                                                    " Ã‚Â· ",
+                                                                    " - ",
                                                                     product.category,
-                                                                    " Ã‚Â· ",
+                                                                    " - ",
                                                                     product.productFolder
                                                                 ]
                                                             }, void 0, true, {
@@ -13717,7 +13717,7 @@ function ProductImportExport() {
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h3", {
                                                             children: [
                                                                 row.rowLabel,
-                                                                " Ã‚Â· ",
+                                                                " - ",
                                                                 row.productName
                                                             ]
                                                         }, void 0, true, {
@@ -13742,9 +13742,9 @@ function ProductImportExport() {
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                     children: [
                                                         row.sku || "Missing SKU",
-                                                        " Ã‚Â· ",
+                                                        " - ",
                                                         row.category || "Missing category",
-                                                        " Ã‚Â· ",
+                                                        " - ",
                                                         row.price || "Missing price"
                                                     ]
                                                 }, void 0, true, {
@@ -16154,7 +16154,7 @@ function RevenuePipeline({ onActivity }) {
             title,
             description: `${opportunity.buyerName}'s ${opportunity.productContext.toLowerCase()} moved inside revenue recovery.`,
             impactBadge: `${opportunity.revenueAtRisk} at risk`,
-            relatedRecord: `${opportunity.source} Ã‚Â· ${opportunity.id}`,
+            relatedRecord: `${opportunity.source} - ${opportunity.id}`,
             owner: opportunity.owner === "Unassigned" ? undefined : opportunity.owner,
             status,
             nextAction,
@@ -16894,7 +16894,7 @@ function FollowUpRecovery({ onActivity }) {
             title,
             description: `${item.buyerName}'s ${item.followUpType.toLowerCase()} was updated for ${item.productContext}.`,
             impactBadge: `${item.revenueAtRisk} at risk`,
-            relatedRecord: `${item.source} Ã‚Â· ${item.id}`,
+            relatedRecord: `${item.source} - ${item.id}`,
             owner: item.owner === "Unassigned" ? undefined : item.owner,
             status,
             nextAction: item.recommendedNextAction,
@@ -17616,7 +17616,7 @@ function PaymentRecovery({ onActivity }) {
             title,
             description: `${item.buyerName}'s ${item.productContext.toLowerCase()} payment recovery was updated.`,
             impactBadge: `${item.paymentAmount} payment value`,
-            relatedRecord: `${item.source} Ã‚Â· ${item.id}`,
+            relatedRecord: `${item.source} - ${item.id}`,
             owner: item.owner === "Unassigned" ? undefined : item.owner,
             status,
             nextAction: item.recommendedNextAction,
@@ -21097,7 +21097,7 @@ function RefillOpportunities() {
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                                 children: [
                                                                     item.productName,
-                                                                    " Ã‚Â· ",
+                                                                    " - ",
                                                                     item.productCategory
                                                                 ]
                                                             }, void 0, true, {
@@ -21781,9 +21781,9 @@ function RestockWaitlist() {
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                         children: [
                                                             item.skuVariant,
-                                                            " Ã‚Â· ",
+                                                            " - ",
                                                             item.sizeShadeColor,
-                                                            " Ã‚Â· ",
+                                                            " - ",
                                                             item.productCategory
                                                         ]
                                                     }, void 0, true, {
@@ -22995,7 +22995,7 @@ function AssignedRecoveryActions() {
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                                 children: [
                                                                     item.buyerName,
-                                                                    " Ã‚Â· ",
+                                                                    " - ",
                                                                     item.productContext
                                                                 ]
                                                             }, void 0, true, {
@@ -23888,7 +23888,7 @@ function RecoveryThreads() {
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                         children: [
                                                             selectedThread.linkedBuyer,
-                                                            " Ã‚Â· ",
+                                                            " - ",
                                                             selectedThread.linkedRecoveryCase
                                                         ]
                                                     }, void 0, true, {
@@ -25062,9 +25062,9 @@ function AutomationHealth() {
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                         children: [
                                                             record.thirdPartySource,
-                                                            " Ã‚Â· ",
+                                                            " - ",
                                                             record.eventType,
-                                                            " Ã‚Â· Last run ",
+                                                            " - Last run ",
                                                             record.lastRunTime
                                                         ]
                                                     }, void 0, true, {
@@ -25661,7 +25661,7 @@ function RevenueLeakReports() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 source.sourceName,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 source.sourceQualityNote
                                             ]
                                         }, void 0, true, {
@@ -25703,7 +25703,7 @@ function RevenueLeakReports() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 product.productCategory,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 product.openRecoveryCases,
                                                 " cases"
                                             ]
@@ -25746,7 +25746,7 @@ function RevenueLeakReports() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 owner.owner,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 owner.overdueActions,
                                                 " overdue"
                                             ]
@@ -26196,7 +26196,7 @@ function MonthlySummary() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 item.label,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 item.note
                                             ]
                                         }, void 0, true, {
@@ -26238,7 +26238,7 @@ function MonthlySummary() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 item.label,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 item.note
                                             ]
                                         }, void 0, true, {
@@ -26280,7 +26280,7 @@ function MonthlySummary() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 item.label,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 item.note
                                             ]
                                         }, void 0, true, {
@@ -26331,9 +26331,9 @@ function MonthlySummary() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 item.owner,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 item.openActions,
-                                                " open Ã‚Â· ",
+                                                " open - ",
                                                 item.overdueActions,
                                                 " overdue"
                                             ]
@@ -26376,7 +26376,7 @@ function MonthlySummary() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 item.productCategory,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 item.recommendedAction
                                             ]
                                         }, void 0, true, {
@@ -27000,7 +27000,7 @@ function BrandSettingsPage() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 module.moduleName,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 module.defaultOwner
                                             ]
                                         }, void 0, true, {
@@ -27080,7 +27080,7 @@ function BrandSettingsPage() {
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                             children: [
                                                 source.sourceName,
-                                                " Ã‚Â· ",
+                                                " - ",
                                                 source.defaultOwner
                                             ]
                                         }, void 0, true, {
@@ -27458,7 +27458,7 @@ function TeamUsersSetup() {
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                 children: [
                                                     user.email,
-                                                    " Ã‚Â· ",
+                                                    " - ",
                                                     user.permissionLevel
                                                 ]
                                             }, void 0, true, {
@@ -30015,7 +30015,7 @@ function Home() {
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                         className: "secondary-btn",
-                                        onClick: ()=>setActivePage("TodayÃ¢â‚¬â„¢s Recovery Queue"),
+                                        onClick: ()=>setActivePage("Today's Recovery Queue"),
                                         type: "button",
                                         children: "Open Recovery Queue"
                                     }, void 0, false, {
@@ -30050,7 +30050,7 @@ function Home() {
                         fileName: "[project]/src/app/page.tsx",
                         lineNumber: 13091,
                         columnNumber: 11
-                    }, this) : activePage === "TodayÃ¢â‚¬â„¢s Recovery Queue" ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(TodaysRecoveryQueue, {}, void 0, false, {
+                    }, this) : activePage === "Today's Recovery Queue" ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(TodaysRecoveryQueue, {}, void 0, false, {
                         fileName: "[project]/src/app/page.tsx",
                         lineNumber: 13093,
                         columnNumber: 11

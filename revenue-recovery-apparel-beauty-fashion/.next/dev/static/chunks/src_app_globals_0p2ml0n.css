@@ -1088,12 +1088,6 @@ h1 {
   display: flex !important;
 }
 
-.side-group.is-open .side-group-trigger {
-  color: #f8fafc !important;
-  background: linear-gradient(135deg, #22d3ee1b, #818cf80e) !important;
-  border-color: #22d3ee2e !important;
-}
-
 .side-title {
   align-items: center !important;
   gap: 11px !important;
@@ -3599,7 +3593,7 @@ h1 {
   --accent-hover: var(--altynx-orange-light);
   --accent-strong: var(--altynx-orange-dark);
   --accent-soft: #ff450014;
-  --accent-border: #ff450038;
+  --accent-border: #ff45002e;
   --shadow-soft: 0 1px 2px #0c0c0c0a, 0 12px 34px #0c0c0c0f;
   --shadow-tiny: 0 1px 2px #0c0c0c0a;
   --radius-xs: 6px;
@@ -3645,6 +3639,7 @@ body {
 
 .sidebar {
   border-right: 1px solid var(--border);
+  color: #374151;
   padding: 22px 16px 24px;
   box-shadow: 1px 0 #ffffffd9;
   background: var(--sidebar-bg) !important;
@@ -3703,7 +3698,7 @@ body {
 
 .side-group-trigger {
   border-radius: var(--radius-sm);
-  color: #4b5563;
+  color: #374151;
   min-height: 42px;
   box-shadow: none;
   background: none;
@@ -3712,14 +3707,14 @@ body {
 }
 
 .side-group-trigger:hover {
-  color: var(--text);
-  background: #f4f4f5;
+  color: #111;
+  background: #f8f8f8;
 }
 
 .side-group.is-open .side-group-trigger {
-  color: var(--text);
-  border-color: var(--border);
-  background: #f6f6f7;
+  color: #111;
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
 
 .side-title {
@@ -3730,7 +3725,7 @@ body {
 }
 
 .side-dot {
-  background: #2a2a2a38;
+  background: #cbd5e1;
   border-radius: 3px;
   width: 8px;
   height: 8px;
@@ -3742,7 +3737,7 @@ body {
 }
 
 .side-arrow {
-  color: #9ca3af;
+  color: #6b7280;
   background: none;
   width: 24px;
   height: 24px;
@@ -3754,7 +3749,7 @@ body {
 }
 
 .side-submenu-inner {
-  border-left: 1px solid #2a2a2a17;
+  border-left: 1px solid #e5e7eb;
   gap: 4px;
   margin-left: 13px;
   padding-left: 12px;
@@ -3775,8 +3770,8 @@ body {
 }
 
 .side-subitem:hover {
-  color: var(--text);
-  background: #f4f4f5;
+  color: #111;
+  background: #f8f8f8;
   transform: none;
 }
 

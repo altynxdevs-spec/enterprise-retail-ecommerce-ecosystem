@@ -1013,7 +1013,7 @@ type NewRecoveryActivity = Omit<RecoveryActivity, "id" | "timestamp">;
 const sidebarGroups: SidebarGroup[] = [
   {
     title: "Command Center",
-    items: ["Recovery Overview", "TodayÃ¢â‚¬â„¢s Recovery Queue", "Recovery Activity"],
+    items: ["Recovery Overview", "Today's Recovery Queue", "Recovery Activity"],
   },
   {
     title: "Capture",
@@ -5914,7 +5914,7 @@ const activities: RecoveryActivity[] = [
     title: "Bridal collection inquiry captured",
     description: "Website form created a recovery action for Sophia Bennett's Atelier Luma bridal capsule inquiry.",
     impactBadge: "$1,850 at risk",
-    relatedRecord: "Website form Ã‚Â· RR-1041",
+    relatedRecord: "Website form - RR-1041",
     owner: "Amara Shah",
     status: "Action required",
     nextAction: "Send bridal appointment windows.",
@@ -5927,7 +5927,7 @@ const activities: RecoveryActivity[] = [
     title: "Size/fit inquiry flagged",
     description: "Instagram DM about the Vela Denim cropped jacket was classified as a high-intent fit question.",
     impactBadge: "$240 at risk",
-    relatedRecord: "Instagram DM Ã‚Â· RR-1043",
+    relatedRecord: "Instagram DM - RR-1043",
     owner: "Amara Shah",
     status: "Needs first reply",
     nextAction: "Reply with fit guidance and exchange reassurance.",
@@ -5940,7 +5940,7 @@ const activities: RecoveryActivity[] = [
     title: "Skincare refill window opened",
     description: "Elena Rodriguez entered the 60-day Vitamin C serum refill window from order history.",
     impactBadge: "$118 opportunity",
-    relatedRecord: "Shopify order history Ã‚Â· RR-1042",
+    relatedRecord: "Shopify order history - RR-1042",
     owner: "Mina Cole",
     status: "Triggered",
     nextAction: "Send serum refill reorder link.",
@@ -5953,7 +5953,7 @@ const activities: RecoveryActivity[] = [
     title: "Restock waitlist sync failed",
     description: "Coco Bloom lip oil restock request was captured, but the external buyer tag did not update.",
     impactBadge: "$420 at risk",
-    relatedRecord: "Back-in-stock form Ã‚Â· RR-1045",
+    relatedRecord: "Back-in-stock form - RR-1045",
     owner: "Mina Cole",
     status: "Sync issue",
     nextAction: "Fix sync and send restock link manually.",
@@ -5966,7 +5966,7 @@ const activities: RecoveryActivity[] = [
     title: "Delivered order review request created",
     description: "Harper Row denim delivery confirmation created a review and second-purchase recovery action.",
     impactBadge: "$180 lifecycle value",
-    relatedRecord: "Delivery event Ã‚Â· RR-1047",
+    relatedRecord: "Delivery event - RR-1047",
     owner: "Luis Park",
     status: "Created",
     nextAction: "Send delivery satisfaction and review request.",
@@ -5979,7 +5979,7 @@ const activities: RecoveryActivity[] = [
     title: "Referral / UGC request scheduled",
     description: "Glow Haus positive review qualified Talia Monroe for creator-style UGC and referral follow-up.",
     impactBadge: "$300 referral value",
-    relatedRecord: "Review survey Ã‚Â· RR-1048",
+    relatedRecord: "Review survey - RR-1048",
     owner: "Luis Park",
     status: "Scheduled",
     nextAction: "Send UGC prompt and referral code.",
@@ -5992,7 +5992,7 @@ const activities: RecoveryActivity[] = [
     title: "Payment reminder sent",
     description: "WhatsApp checkout reminder was sent for Priya Nair's Saffron Skin evening routine bundle.",
     impactBadge: "$670 pending",
-    relatedRecord: "WhatsApp checkout Ã‚Â· RR-1046",
+    relatedRecord: "WhatsApp checkout - RR-1046",
     owner: "Tessa Nguyen",
     status: "Sent",
     nextAction: "Watch payment completion and resend link if needed.",
@@ -6005,7 +6005,7 @@ const activities: RecoveryActivity[] = [
     title: "Pop-up CSV import missing owners",
     description: "Soho pop-up styling inquiries imported from CSV without assigned recovery owners.",
     impactBadge: "$4,200 unassigned",
-    relatedRecord: "Event CSV import Ã‚Â· RR-1050",
+    relatedRecord: "Event CSV import - RR-1050",
     status: "Owner missing",
     nextAction: "Assign imported pop-up inquiries.",
     timestamp: "6h ago",
@@ -6017,7 +6017,7 @@ const activities: RecoveryActivity[] = [
     title: "Weekly recovery report generated",
     description: "Owner summary reported recovered revenue, source quality, team load, and automation health.",
     impactBadge: "$42.7K recovered",
-    relatedRecord: "Weekly summary Ã‚Â· April recovery",
+    relatedRecord: "Weekly summary - April recovery",
     owner: "Operations",
     status: "Generated",
     nextAction: "Review source quality and team load risks.",
@@ -6479,7 +6479,7 @@ const revenueStages: RevenueStage[] = [
 const pageSubtitles: Record<string, string> = {
   "Recovery Overview":
     "Owner-level visibility into missed revenue, recovery actions, source quality, team workload, and automation-captured events.",
-  "TodayÃ¢â‚¬â„¢s Recovery Queue":
+  "Today's Recovery Queue":
     "The team execution screen for overdue leaks, payment nudges, refill prompts, post-purchase asks, and order risks.",
   "Recovery Activity":
     "A live trail of captured recovery events, failed syncs, workflow outcomes, and manual updates.",
@@ -7007,7 +7007,7 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
                       <h3>{task.customer}</h3>
                       <Badge tone={task.tone}>{task.priority}</Badge>
                     </div>
-                    <p>{task.brandContext} Ã‚Â· {task.productInterest}</p>
+                    <p>{task.brandContext} - {task.productInterest}</p>
                     <div className="recovery-meta">
                       <span>{task.leakType}</span>
                       <span>{task.source}</span>
@@ -7185,7 +7185,7 @@ function TodaysRecoveryQueue() {
                       <h3>{task.customer}</h3>
                       <Badge tone={task.tone}>{task.priority}</Badge>
                     </div>
-                    <p>{task.brandContext} Ã‚Â· {task.productInterest}</p>
+                    <p>{task.brandContext} - {task.productInterest}</p>
                     <div className="recovery-meta">
                       <span>{task.leakType}</span>
                       <span>{task.source}</span>
@@ -7212,7 +7212,7 @@ function TodaysRecoveryQueue() {
               <Avatar name={selectedTask.customer} />
               <div>
                 <h2>{selectedTask.customer}</h2>
-                <p>{selectedTask.brandContext} Ã‚Â· {selectedTask.productInterest}</p>
+                <p>{selectedTask.brandContext} - {selectedTask.productInterest}</p>
               </div>
             </div>
             <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
@@ -7345,7 +7345,7 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
       title,
       description: `${inquiry.customer}'s ${inquiry.productInterest.toLowerCase()} was updated from ${inquiry.inquirySource}.`,
       impactBadge: `${inquiry.estimatedValue} at risk`,
-      relatedRecord: `${inquiry.inquirySource} Ã‚Â· ${inquiry.id}`,
+      relatedRecord: `${inquiry.inquirySource} - ${inquiry.id}`,
       owner: owner === "Unassigned" ? undefined : owner,
       status,
       nextAction,
@@ -7677,7 +7677,7 @@ function ProductDemand({ onActivity }: { onActivity: (activity: NewRecoveryActiv
       title,
       description: `${signal.demandName} demand was updated with ${signal.totalSignals} captured signals.`,
       impactBadge: `${signal.estimatedDemandValue} demand value`,
-      relatedRecord: `${signal.industryType} Ã‚Â· ${signal.id}`,
+      relatedRecord: `${signal.industryType} - ${signal.id}`,
       owner: signal.owner === "Unassigned" ? undefined : signal.owner,
       status,
       nextAction,
@@ -7891,7 +7891,7 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
       title,
       description: `${source.sourceName} source leakage was updated for ${source.totalCaptured} captured inquiries.`,
       impactBadge: `${source.paymentPendingValue} pending`,
-      relatedRecord: `${source.sourceName} Ã‚Â· ${source.id}`,
+      relatedRecord: `${source.sourceName} - ${source.id}`,
       status,
       nextAction,
       tone: source.tone,
@@ -8182,7 +8182,7 @@ function ProductCatalog() {
                       <h3>{product.productName}</h3>
                       <Badge tone={product.tone}>{product.industryType}</Badge>
                     </div>
-                    <p>{product.productType} Ã‚Â· {product.category} Ã‚Â· {product.productFolder}</p>
+                    <p>{product.productType} - {product.category} - {product.productFolder}</p>
                     <div className="recovery-meta">
                       <span>{product.skuCount} SKUs</span>
                       <span>{product.priceRange}</span>
@@ -8737,10 +8737,10 @@ function ProductImportExport() {
               <article className={`import-preview-row ${row.tone}`} key={row.id}>
                 <div>
                   <div className="recovery-row-title">
-                    <h3>{row.rowLabel} Ã‚Â· {row.productName}</h3>
+                    <h3>{row.rowLabel} - {row.productName}</h3>
                     <Badge tone={row.tone}>{row.detectedIssue}</Badge>
                   </div>
-                  <p>{row.sku || "Missing SKU"} Ã‚Â· {row.category || "Missing category"} Ã‚Â· {row.price || "Missing price"}</p>
+                  <p>{row.sku || "Missing SKU"} - {row.category || "Missing category"} - {row.price || "Missing price"}</p>
                   <div className="recovery-meta">
                     <span>{row.tags || "Missing tags"}</span>
                     <span>{row.importAction}</span>
@@ -9324,7 +9324,7 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
       title,
       description: `${opportunity.buyerName}'s ${opportunity.productContext.toLowerCase()} moved inside revenue recovery.`,
       impactBadge: `${opportunity.revenueAtRisk} at risk`,
-      relatedRecord: `${opportunity.source} Ã‚Â· ${opportunity.id}`,
+      relatedRecord: `${opportunity.source} - ${opportunity.id}`,
       owner: opportunity.owner === "Unassigned" ? undefined : opportunity.owner,
       status,
       nextAction,
@@ -9619,7 +9619,7 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
       title,
       description: `${item.buyerName}'s ${item.followUpType.toLowerCase()} was updated for ${item.productContext}.`,
       impactBadge: `${item.revenueAtRisk} at risk`,
-      relatedRecord: `${item.source} Ã‚Â· ${item.id}`,
+      relatedRecord: `${item.source} - ${item.id}`,
       owner: item.owner === "Unassigned" ? undefined : item.owner,
       status,
       nextAction: item.recommendedNextAction,
@@ -9867,7 +9867,7 @@ function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAct
       title,
       description: `${item.buyerName}'s ${item.productContext.toLowerCase()} payment recovery was updated.`,
       impactBadge: `${item.paymentAmount} payment value`,
-      relatedRecord: `${item.source} Ã‚Â· ${item.id}`,
+      relatedRecord: `${item.source} - ${item.id}`,
       owner: item.owner === "Unassigned" ? undefined : item.owner,
       status,
       nextAction: item.recommendedNextAction,
@@ -10843,7 +10843,7 @@ function RefillOpportunities() {
                       <h3>{item.buyerName}</h3>
                       <Badge tone={item.tone}>{item.reminderStatus}</Badge>
                     </div>
-                    <p>{item.productName} Ã‚Â· {item.productCategory}</p>
+                    <p>{item.productName} - {item.productCategory}</p>
                     <div className="recovery-meta">
                       <span>{item.lastPurchaseDate}</span>
                       <span>{item.refillWindow}</span>
@@ -11037,7 +11037,7 @@ function RestockWaitlist() {
                     <h3>{item.productName}</h3>
                     <Badge tone={item.tone}>{item.notificationStatus}</Badge>
                   </div>
-                  <p>{item.skuVariant} Ã‚Â· {item.sizeShadeColor} Ã‚Â· {item.productCategory}</p>
+                  <p>{item.skuVariant} - {item.sizeShadeColor} - {item.productCategory}</p>
                   <div className="recovery-meta">
                     <span>{item.industryType}</span>
                     <span>{item.buyerCount} buyers</span>
@@ -11405,7 +11405,7 @@ function AssignedRecoveryActions() {
                       <h3>{item.actionTitle}</h3>
                       <Badge tone={item.tone}>{item.recoveryType}</Badge>
                     </div>
-                    <p>{item.buyerName} Ã‚Â· {item.productContext}</p>
+                    <p>{item.buyerName} - {item.productContext}</p>
                     <div className="recovery-meta">
                       <span>{item.owner}</span>
                       <span>{item.roleTeam}</span>
@@ -11649,7 +11649,7 @@ function RecoveryThreads() {
               <Avatar name={selectedThread.linkedBuyer} />
               <div>
                 <h2>{selectedThread.threadTitle}</h2>
-                <p>{selectedThread.linkedBuyer} Ã‚Â· {selectedThread.linkedRecoveryCase}</p>
+                <p>{selectedThread.linkedBuyer} - {selectedThread.linkedRecoveryCase}</p>
               </div>
             </div>
             <strong>{selectedThread.revenueAtRisk}</strong>
@@ -11955,7 +11955,7 @@ function AutomationHealth() {
                     <h3>{record.automationName}</h3>
                     <Badge tone={record.tone}>{record.syncStatus}</Badge>
                   </div>
-                  <p>{record.thirdPartySource} Ã‚Â· {record.eventType} Ã‚Â· Last run {record.lastRunTime}</p>
+                  <p>{record.thirdPartySource} - {record.eventType} - Last run {record.lastRunTime}</p>
                   <div className="recovery-meta">
                     <span>{record.sourceCategory}</span>
                     <span>{record.recordsProcessed} processed</span>
@@ -12093,7 +12093,7 @@ function RevenueLeakReports() {
           <h3>Source Leakage Report</h3>
           {sourceLeakReportItems.slice(0, 6).map((source) => (
             <div key={source.id}>
-              <span>{source.sourceName} Ã‚Â· {source.sourceQualityNote}</span>
+              <span>{source.sourceName} - {source.sourceQualityNote}</span>
               <strong>{source.paymentPendingValue}</strong>
             </div>
           ))}
@@ -12102,7 +12102,7 @@ function RevenueLeakReports() {
           <h3>Product / Category Leak Report</h3>
           {productLeakReportItems.slice(0, 6).map((product) => (
             <div key={product.id}>
-              <span>{product.productCategory} Ã‚Â· {product.openRecoveryCases} cases</span>
+              <span>{product.productCategory} - {product.openRecoveryCases} cases</span>
               <strong>{product.demandValue}</strong>
             </div>
           ))}
@@ -12111,7 +12111,7 @@ function RevenueLeakReports() {
           <h3>Team Ownership Report</h3>
           {teamOwnershipReportItems.slice(0, 6).map((owner) => (
             <div key={owner.id}>
-              <span>{owner.owner} Ã‚Â· {owner.overdueActions} overdue</span>
+              <span>{owner.owner} - {owner.overdueActions} overdue</span>
               <strong>{owner.revenueAtRiskOwned}</strong>
             </div>
           ))}
@@ -12212,7 +12212,7 @@ function MonthlySummary() {
           <h3>Revenue Recovered Breakdown</h3>
           {monthlyRecoveredBreakdown.map((item) => (
             <div key={item.id}>
-              <span>{item.label} Ã‚Â· {item.note}</span>
+              <span>{item.label} - {item.note}</span>
               <strong>{item.value}</strong>
             </div>
           ))}
@@ -12221,7 +12221,7 @@ function MonthlySummary() {
           <h3>Open Revenue At Risk</h3>
           {monthlyOpenRiskItems.map((item) => (
             <div key={item.id}>
-              <span>{item.label} Ã‚Â· {item.note}</span>
+              <span>{item.label} - {item.note}</span>
               <strong>{item.value}</strong>
             </div>
           ))}
@@ -12230,7 +12230,7 @@ function MonthlySummary() {
           <h3>Automation Monitoring Summary</h3>
           {monthlyAutomationSummary.map((item) => (
             <div key={item.id}>
-              <span>{item.label} Ã‚Â· {item.note}</span>
+              <span>{item.label} - {item.note}</span>
               <strong>{item.value}</strong>
             </div>
           ))}
@@ -12242,7 +12242,7 @@ function MonthlySummary() {
           <h3>Team Performance Summary</h3>
           {teamOwnershipReportItems.slice(0, 5).map((item) => (
             <div key={item.id}>
-              <span>{item.owner} Ã‚Â· {item.openActions} open Ã‚Â· {item.overdueActions} overdue</span>
+              <span>{item.owner} - {item.openActions} open - {item.overdueActions} overdue</span>
               <strong>{item.recoveredValue}</strong>
             </div>
           ))}
@@ -12251,7 +12251,7 @@ function MonthlySummary() {
           <h3>Product / Buyer Insights</h3>
           {productLeakReportItems.slice(0, 5).map((item) => (
             <div key={item.id}>
-              <span>{item.productCategory} Ã‚Â· {item.recommendedAction}</span>
+              <span>{item.productCategory} - {item.recommendedAction}</span>
               <strong>{item.demandValue}</strong>
             </div>
           ))}
@@ -12355,7 +12355,7 @@ function BrandSettingsPage() {
           <h3>Recovery Module Settings</h3>
           {recoveryModuleSettings.slice(0, 6).map((module) => (
             <div key={module.id}>
-              <span>{module.moduleName} Ã‚Â· {module.defaultOwner}</span>
+              <span>{module.moduleName} - {module.defaultOwner}</span>
               <strong>{module.status}</strong>
             </div>
           ))}
@@ -12373,7 +12373,7 @@ function BrandSettingsPage() {
           <h3>Source Configuration Preview</h3>
           {sourceSetupRecords.slice(0, 6).map((source) => (
             <div key={source.id}>
-              <span>{source.sourceName} Ã‚Â· {source.defaultOwner}</span>
+              <span>{source.sourceName} - {source.defaultOwner}</span>
               <strong>{source.sourceStatus}</strong>
             </div>
           ))}
@@ -12457,7 +12457,7 @@ function TeamUsersSetup() {
                   <h3>{user.name}</h3>
                   <Badge tone={user.tone}>{user.role}</Badge>
                 </div>
-                <p>{user.email} Ã‚Â· {user.permissionLevel}</p>
+                <p>{user.email} - {user.permissionLevel}</p>
               </div>
               <div className="capture-value-stack">
                 <strong>{user.revenueAtRiskOwned}</strong>
@@ -13076,7 +13076,7 @@ export default function Home() {
             </button>
             <button
               className="secondary-btn"
-              onClick={() => setActivePage("TodayÃ¢â‚¬â„¢s Recovery Queue")}
+              onClick={() => setActivePage("Today's Recovery Queue")}
               type="button"
             >
               Open Recovery Queue
@@ -13089,7 +13089,7 @@ export default function Home() {
 
         {activePage === "Recovery Overview" ? (
           <RecoveryOverview activities={activityFeed} />
-        ) : activePage === "TodayÃ¢â‚¬â„¢s Recovery Queue" ? (
+        ) : activePage === "Today's Recovery Queue" ? (
           <TodaysRecoveryQueue />
         ) : activePage === "Inquiry Inbox" ? (
           <InquiryInbox onActivity={addRecoveryActivity} />

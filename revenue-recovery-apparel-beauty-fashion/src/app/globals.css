@@ -2292,7 +2292,7 @@ h1 {
 }
 
 /* =====================================================
-   RECENT ACTIVITY PAGE — FINAL FORCE FIX
+   RECENT ACTIVITY PAGE - FINAL FORCE FIX
    Paste this at the VERY BOTTOM of globals.css
 ===================================================== */
 
@@ -4301,7 +4301,7 @@ h1 {
   --accent-hover: var(--altynx-orange-light);
   --accent-strong: var(--altynx-orange-dark);
   --accent-soft: rgba(255, 69, 0, 0.08);
-  --accent-border: rgba(255, 69, 0, 0.22);
+  --accent-border: rgba(255, 69, 0, 0.18);
   --shadow-soft: 0 1px 2px rgba(12, 12, 12, 0.04), 0 12px 34px rgba(12, 12, 12, 0.06);
   --shadow-tiny: 0 1px 2px rgba(12, 12, 12, 0.04);
   --radius-xs: 6px;
@@ -4361,6 +4361,7 @@ body {
   background: var(--sidebar-bg) !important;
   border-right: 1px solid var(--border);
   box-shadow: 1px 0 0 rgba(255, 255, 255, 0.85);
+  color: #374151;
 }
 
 .content {
@@ -4424,21 +4425,21 @@ body {
   min-height: 42px;
   padding: 0 10px;
   border-radius: var(--radius-sm);
-  color: #4b5563;
+  color: #374151;
   border: 1px solid transparent;
   background: transparent;
   box-shadow: none;
 }
 
 .side-group-trigger:hover {
-  color: var(--text);
-  background: #f4f4f5;
+  color: #111111;
+  background: #f8f8f8;
 }
 
 .side-group.is-open .side-group-trigger {
-  color: var(--text);
-  background: #f6f6f7;
-  border-color: var(--border);
+  color: #111111;
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
 }
 
 .side-title {
@@ -4452,7 +4453,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 3px;
-  background: rgba(42, 42, 42, 0.22);
+  background: #cbd5e1;
 }
 
 .side-group.is-open .side-dot {
@@ -4463,7 +4464,7 @@ body {
 .side-arrow {
   width: 24px;
   height: 24px;
-  color: #9ca3af;
+  color: #6b7280;
   background: transparent;
 }
 
@@ -4477,7 +4478,7 @@ body {
   gap: 4px;
   margin-left: 13px;
   padding-left: 12px;
-  border-left: 1px solid rgba(42, 42, 42, 0.09);
+  border-left: 1px solid #e5e7eb;
 }
 
 .side-group.is-open .side-submenu-inner {
@@ -4495,8 +4496,8 @@ body {
 }
 
 .side-subitem:hover {
-  color: var(--text);
-  background: #f4f4f5;
+  color: #111111;
+  background: #f8f8f8;
   transform: none;
 }
 
