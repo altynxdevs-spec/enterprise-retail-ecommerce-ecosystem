@@ -7166,6 +7166,174 @@ function getTeamSourceCoverage(assignedTasks: RecoveryTask[]) {
   }));
 }
 
+function getSourceSyncSeverity(item: OverviewSourceEvent) {
+  if (item.status === "Needs review" || item.status === "Owner missing") {
+    return "Needs operator review";
+  }
+
+  if (item.status === "Payment watch") {
+    return "Revenue watch";
+  }
+
+  if (item.status === "Action created") {
+    return "Recovery action created";
+  }
+
+  return "Synced";
+}
+
+function getSourceDiagnosis(item: OverviewSourceEvent) {
+  if (item.status === "Needs review") {
+    return `${item.source} captured the buyer signal, but the external workflow did not fully update the recovery record. Review the source sync before the buyer opportunity goes cold.`;
+  }
+
+  if (item.status === "Owner missing") {
+    return `${item.source} created recoverable buyer interest, but no owner was attached. Assign an owner so the recovery action does not sit unworked.`;
+  }
+
+  if (item.status === "Payment watch") {
+    return `${item.source} created a payment-related recovery signal. Watch the payment completion and send a reminder if the buyer does not complete checkout.`;
+  }
+
+  if (item.status === "Action created") {
+    return `${item.source} successfully created a recovery action. Confirm the assigned owner completes the next step.`;
+  }
+
+  return `${item.source} synced successfully and is visible in the recovery activity trail.`;
+}
+
+function getSourceBusinessImpact(item: OverviewSourceEvent) {
+  if (item.status === "Needs review") {
+    return `${item.revenueAtRisk} may stay unrecovered if the source tag, buyer record, or recovery case is not cleaned up.`;
+  }
+
+  if (item.status === "Owner missing") {
+    return `${item.revenueAtRisk} is at risk because the signal is not owned by a team member yet.`;
+  }
+
+  if (item.status === "Payment watch") {
+    return `${item.revenueAtRisk} is tied to payment intent and should be watched until payment is recovered or marked lost.`;
+  }
+
+  return `${item.revenueAtRisk} is already connected to a visible recovery workflow.`;
+}
+
+function getSourceManualFallback(item: OverviewSourceEvent) {
+  if (item.status === "Needs review") {
+    return "Manually verify the source record, fix the missing tag or field, and send the recovery message if automation is blocked.";
+  }
+
+  if (item.status === "Owner missing") {
+    return "Assign a recovery owner first, then create or review the follow-up task.";
+  }
+
+  if (item.status === "Payment watch") {
+    return "Send a payment reminder manually if the automation does not confirm payment completion.";
+  }
+
+  if (item.status === "Action created") {
+    return "No manual source fix needed. Review owner execution only.";
+  }
+
+  return "No fallback required unless this source stops syncing.";
+}
+
+function getActivityRelatedArea(activity: RecoveryActivity) {
+  if (activity.category === "Inquiries") return "Inquiry Inbox";
+  if (activity.category === "Payments") return "Payment Recovery";
+  if (activity.category === "Repeat Revenue") return "Refill Opportunities";
+  if (activity.category === "Post-Purchase") return "Reviews / Referrals / UGC";
+  if (activity.category === "Sync Issues" || activity.category === "Automation") return "Automation Health";
+  if (activity.category === "Team Actions") return "Assigned Recovery Actions";
+  if (activity.category === "Reports") return "Revenue Leak Reports";
+
+  return "Recovery Overview";
+}
+
+function getActivitySourceType(activity: RecoveryActivity) {
+  const record = activity.relatedRecord.toLowerCase();
+
+  if (record.includes("website")) return "Website / form capture";
+  if (record.includes("instagram")) return "Instagram / social message";
+  if (record.includes("whatsapp")) return "WhatsApp / checkout event";
+  if (record.includes("shopify")) return "Shopify / ecommerce event";
+  if (record.includes("csv")) return "CSV / import event";
+  if (record.includes("delivery")) return "Order / delivery event";
+  if (record.includes("report") || record.includes("summary")) return "Reporting event";
+
+  return "Recovery activity trail";
+}
+
+function getActivityWhyItMatters(activity: RecoveryActivity) {
+  if (activity.category === "Inquiries") {
+    return "A buyer showed purchase intent. The system captured it, attached a source, and created a visible next action so the inquiry does not stay hidden in forms, DMs, or chats.";
+  }
+
+  if (activity.category === "Payments") {
+    return "The buyer already showed checkout/payment intent. This activity helps the team recover payment before the order is lost or forgotten.";
+  }
+
+  if (activity.category === "Repeat Revenue") {
+    return "This signal is tied to refill, restock, repeat purchase, or product timing. Acting on it helps recover revenue from existing buyers instead of only chasing new leads.";
+  }
+
+  if (activity.category === "Post-Purchase") {
+    return "This creates post-purchase value through reviews, referrals, UGC, delivery follow-up, or second-purchase timing.";
+  }
+
+  if (activity.category === "Sync Issues" || activity.category === "Automation") {
+    return "An external workflow or source event needs visibility. This helps confirm whether the automation created the right recovery record, owner, and next action.";
+  }
+
+  if (activity.category === "Team Actions") {
+    return "This records ownership and workload movement so the team can see who reviewed, reassigned, or updated a recovery action.";
+  }
+
+  if (activity.category === "Reports") {
+    return "This activity supports owner-level reporting across sources, recovery actions, team workload, and revenue outcomes.";
+  }
+
+  return "This event is part of the recovery trail and should be reviewed if it has an open next action.";
+}
+
+function getActivityHandlingStep(activity: RecoveryActivity) {
+  if (activity.category === "Inquiries") {
+    return "Open the inquiry or recovery queue, confirm the owner, and send the first reply or follow-up template.";
+  }
+
+  if (activity.category === "Payments") {
+    return "Open Payment Recovery, confirm payment status, and send a reminder if payment is still pending.";
+  }
+
+  if (activity.category === "Repeat Revenue") {
+    return "Open the repeat revenue area and confirm the buyer receives the refill, restock, or reorder prompt.";
+  }
+
+  if (activity.category === "Post-Purchase") {
+    return "Open the post-purchase workflow and complete the review, referral, UGC, or second-purchase action.";
+  }
+
+  if (activity.category === "Sync Issues" || activity.category === "Automation") {
+    return "Open Automation Health, review the source issue, and confirm the related recovery case is visible.";
+  }
+
+  if (activity.category === "Team Actions") {
+    return "Open Team Workspace to review the owner, workload, handoff, or assigned recovery action.";
+  }
+
+  if (activity.category === "Reports") {
+    return "Open the report area and review unresolved tasks, source quality, pending payments, and team load.";
+  }
+
+  return "Open the related area and review the next recovery step.";
+}
+
+function getActivityAuditProof(activity: RecoveryActivity) {
+  return `Logged as ${activity.category} from ${getActivitySourceType(
+    activity,
+  )}. Related record: ${activity.relatedRecord}. Current status: ${activity.status}.`;
+}
+
 function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOverviewProps) {
   const [selectedTask, setSelectedTask] = useState<RecoveryTask | null>(null);
   const [selectedTeamMember, setSelectedTeamMember] = useState<TeamUser | null>(null);
@@ -8041,19 +8209,57 @@ function handleAddTeamWorkloadNote(member: TeamUser) {
           onClose={closeModal}
           title={selectedSourceEvent.title}
         >
-          <p>{selectedSourceEvent.description}</p>
-          <div style={modalGridStyle}>
-            <DetailField label="Related record" value={getSourceRelatedRecord(selectedSourceEvent)} />
-            <DetailField label="Status" value={selectedSourceEvent.status} />
-            <DetailField label="Owner" value={selectedSourceEvent.owner} />
-            <DetailField label="Revenue at risk" value={selectedSourceEvent.revenueAtRisk} />
-            <DetailField label="Source" value={selectedSourceEvent.source} />
-            <DetailField label="Tone" value={selectedSourceEvent.tone} />
-          </div>
-          <div className="detail-callout">
-            <span>Next action</span>
-            <p>{selectedSourceEvent.nextAction}</p>
-          </div>
+          <div className="source-visibility-summary">
+  <p>{selectedSourceEvent.description}</p>
+
+  <div className="source-status-strip">
+    <div>
+      <span>Sync status</span>
+      <strong>{getSourceSyncSeverity(selectedSourceEvent)}</strong>
+    </div>
+
+    <div>
+      <span>Revenue impact</span>
+      <strong>{selectedSourceEvent.revenueAtRisk}</strong>
+    </div>
+
+    <div>
+      <span>Owner</span>
+      <strong>{selectedSourceEvent.owner}</strong>
+    </div>
+  </div>
+</div>
+
+<div style={modalGridStyle}>
+  <DetailField label="Source" value={selectedSourceEvent.source} />
+  <DetailField label="Related record" value={getSourceRelatedRecord(selectedSourceEvent)} />
+  <DetailField label="Current status" value={selectedSourceEvent.status} />
+  <DetailField label="Backend object" value="automation_events" />
+  <DetailField label="Activity type" value="Sync / source visibility" />
+  <DetailField label="Review owner" value={selectedSourceEvent.owner} />
+</div>
+
+<div className="detail-callout">
+  <span>Sync diagnosis</span>
+  <p>{getSourceDiagnosis(selectedSourceEvent)}</p>
+</div>
+
+<div className="source-impact-grid">
+  <div className="detail-callout">
+    <span>Business impact</span>
+    <p>{getSourceBusinessImpact(selectedSourceEvent)}</p>
+  </div>
+
+  <div className="detail-callout">
+    <span>Manual fallback</span>
+    <p>{getSourceManualFallback(selectedSourceEvent)}</p>
+  </div>
+</div>
+
+<div className="detail-callout">
+  <span>Recommended next action</span>
+  <p>{selectedSourceEvent.nextAction}</p>
+</div>
         </ModalShell>
       ) : null}
 
@@ -8095,19 +8301,57 @@ function handleAddTeamWorkloadNote(member: TeamUser) {
           onClose={closeModal}
           title={selectedActivity.title}
         >
-          <p>{selectedActivity.description}</p>
-          <div style={modalGridStyle}>
-            <DetailField label="Category" value={selectedActivity.category} />
-            <DetailField label="Impact" value={selectedActivity.impactBadge} />
-            <DetailField label="Related record" value={selectedActivity.relatedRecord} />
-            <DetailField label="Owner" value={selectedActivity.owner ?? "External automation"} />
-            <DetailField label="Status" value={selectedActivity.status} />
-            <DetailField label="Timestamp" value={selectedActivity.timestamp} />
-          </div>
-          <div className="detail-callout">
-            <span>Next action</span>
-            <p>{selectedActivity.nextAction}</p>
-          </div>
+          <div className="activity-decision-summary">
+  <p>{selectedActivity.description}</p>
+
+  <div className="activity-status-strip">
+    <div>
+      <span>Event type</span>
+      <strong>{selectedActivity.category}</strong>
+    </div>
+
+    <div>
+      <span>Revenue signal</span>
+      <strong>{selectedActivity.impactBadge}</strong>
+    </div>
+
+    <div>
+      <span>Owner</span>
+      <strong>{selectedActivity.owner ?? "External automation"}</strong>
+    </div>
+  </div>
+</div>
+
+<div style={modalGridStyle}>
+  <DetailField label="Related record" value={selectedActivity.relatedRecord} />
+  <DetailField label="Source type" value={getActivitySourceType(selectedActivity)} />
+  <DetailField label="Related system area" value={getActivityRelatedArea(selectedActivity)} />
+  <DetailField label="Status" value={selectedActivity.status} />
+  <DetailField label="Timestamp" value={selectedActivity.timestamp} />
+  <DetailField label="Activity purpose" value="Recovery audit trail" />
+</div>
+
+<div className="detail-callout">
+  <span>Why this matters</span>
+  <p>{getActivityWhyItMatters(selectedActivity)}</p>
+</div>
+
+<div className="activity-context-grid">
+  <div className="detail-callout">
+    <span>Recommended handling</span>
+    <p>{getActivityHandlingStep(selectedActivity)}</p>
+  </div>
+
+  <div className="detail-callout">
+    <span>Audit proof</span>
+    <p>{getActivityAuditProof(selectedActivity)}</p>
+  </div>
+</div>
+
+<div className="detail-callout">
+  <span>Next action</span>
+  <p>{selectedActivity.nextAction}</p>
+</div>
         </ModalShell>
       ) : null}
     </div>

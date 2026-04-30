@@ -5893,4 +5893,114 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem * {
   }
 }
 
+.source-visibility-summary {
+  gap: 14px;
+  margin-bottom: 16px;
+  display: grid;
+}
+
+.source-visibility-summary > p {
+  color: #4b5563;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.source-status-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  display: grid;
+}
+
+.source-status-strip > div {
+  background: #fff;
+  border: 1px solid #e8e8e5;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.source-status-strip span {
+  color: #6b7280;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+  display: block;
+}
+
+.source-status-strip strong {
+  color: #111;
+  margin-top: 5px;
+  font-size: 15px;
+  font-weight: 650;
+  display: block;
+}
+
+.source-impact-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  display: grid;
+}
+
+@media (max-width: 900px) {
+  .source-status-strip, .source-impact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.activity-decision-summary {
+  gap: 14px;
+  margin-bottom: 16px;
+  display: grid;
+}
+
+.activity-decision-summary > p {
+  color: #4b5563;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.activity-status-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  display: grid;
+}
+
+.activity-status-strip > div {
+  background: #fff;
+  border: 1px solid #e8e8e5;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.activity-status-strip span {
+  color: #6b7280;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+  display: block;
+}
+
+.activity-status-strip strong {
+  color: #111;
+  margin-top: 5px;
+  font-size: 15px;
+  font-weight: 650;
+  display: block;
+}
+
+.activity-context-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  display: grid;
+}
+
+@media (max-width: 900px) {
+  .activity-status-strip, .activity-context-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /*# sourceMappingURL=src_app_globals_0p2ml0n.css.map*/

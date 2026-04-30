@@ -7786,3 +7786,123 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem * {
     text-align: left;
   }
 }
+
+/* =========================================================
+   Automation & Source Visibility modal
+========================================================= */
+
+.source-visibility-summary {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.source-visibility-summary > p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.source-status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.source-status-strip > div {
+  border: 1px solid #e8e8e5;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.source-status-strip span {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.source-status-strip strong {
+  display: block;
+  margin-top: 5px;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.source-impact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .source-status-strip,
+  .source-impact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   Recovery Activity decision modal
+========================================================= */
+
+.activity-decision-summary {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.activity-decision-summary > p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.activity-status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.activity-status-strip > div {
+  border: 1px solid #e8e8e5;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.activity-status-strip span {
+  display: block;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.activity-status-strip strong {
+  display: block;
+  margin-top: 5px;
+  color: #111111;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.activity-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .activity-status-strip,
+  .activity-context-grid {
+    grid-template-columns: 1fr;
+  }
+}
