@@ -13518,6 +13518,8 @@ export default function Home() {
   const [openGroup, setOpenGroup] = useState<string>("Command Center");
   const [activePage, setActivePage] = useState<string>("Recovery Overview");
   const [activityFeed, setActivityFeed] = useState<RecoveryActivity[]>(activities);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
   const [quickModal, setQuickModal] = useState<"export" | "capture" | null>(null);
   const [quickToast, setQuickToast] = useState("");
   const [captureForm, setCaptureForm] = useState({
@@ -13617,6 +13619,78 @@ export default function Home() {
     });
     setQuickModal(null);
   }
+const overviewReportTaskIds = [
+  "RR-1041",
+  "RR-1043",
+  "RR-1042",
+  "RR-1045",
+  "RR-1044",
+];
+
+const overviewReportTasks = overviewReportTaskIds
+  .map((id) => recoveryTasks.find((task) => task.id === id))
+  .filter((task): task is RecoveryTask => Boolean(task));
+
+function buildRecoveryOverviewReport() {
+  return [
+    "ALTYNX RECOVERY OVERVIEW REPORT",
+    `Generated: ${new Date().toLocaleString()}`,
+    "",
+    "KPIs",
+    ...kpis.map((item) => `- ${item.label}: ${item.value} (${item.caption})`),
+    "",
+    "Highest Risk Leaks",
+    ...overviewReportTasks.map(
+      (task) =>
+        `- ${task.customer}: ${task.estimatedRevenueAtRisk} at risk | ${task.leakType} | Owner: ${task.assignedOwner} | Next: ${task.recommendedNextAction}`,
+    ),
+    "",
+    "Team Recovery Load",
+    ...teamUsers.map(
+      (user) =>
+        `- ${user.name}: ${user.activeTasks} active, ${user.overdueTasks} overdue, ${user.revenueAtRisk} at risk, ${user.recoveredThisMonth} recovered`,
+    ),
+    "",
+    "Recent Recovery Activity",
+    ...activityFeed.slice(0, 6).map(
+      (activity) =>
+        `- ${activity.title}: ${activity.description} | ${activity.impactBadge} | ${activity.status}`,
+    ),
+  ].join("\n");
+}
+
+function openExportReport() {
+  setExportMessage("");
+  setIsExportModalOpen(true);
+}
+
+async function copyRecoveryOverviewReport() {
+  const report = buildRecoveryOverviewReport();
+
+  try {
+    await navigator.clipboard.writeText(report);
+    setExportMessage("Report summary copied to clipboard.");
+
+    addRecoveryActivity({
+      category: "Reports",
+      title: "Recovery overview report copied",
+      description: "Owner-level recovery overview summary was prepared and copied.",
+      impactBadge: "$18.4K at risk",
+      relatedRecord: "Recovery Overview",
+      owner: "Operations",
+      status: "Copied",
+      nextAction: "Share report summary with the brand owner or internal recovery lead.",
+      tone: "emerald",
+    });
+  } catch {
+    setExportMessage("Copy failed. Please select and copy the report manually.");
+  }
+}
+
+function closeExportReport() {
+  setIsExportModalOpen(false);
+  setExportMessage("");
+}
 
   return (
     <main className="app-shell">
@@ -13693,7 +13767,7 @@ export default function Home() {
           </div>
 
           <div className="header-actions">
-            <button className="secondary-btn" onClick={() => setQuickModal("export")} type="button">
+            <button className="secondary-btn" onClick={openExportReport} type="button">
               Export report
             </button>
             <button
@@ -13714,6 +13788,111 @@ export default function Home() {
             <p>{quickToast}</p>
           </div>
         ) : null}
+{isExportModalOpen ? (
+  <div
+    aria-modal="true"
+    role="dialog"
+    onClick={closeExportReport}
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 9999,
+      display: "flex",
+      justifyContent: "flex-end",
+      alignItems: "stretch",
+      background: "rgba(17, 17, 17, 0.22)",
+      padding: 20,
+    }}
+  >
+    <div
+      className="glass-card panel-card"
+      onClick={(event) => event.stopPropagation()}
+      style={{
+        width: "min(560px, 100%)",
+        maxHeight: "100%",
+        overflowY: "auto",
+        background: "#ffffff",
+        border: "1px solid #e8e8e5",
+        boxShadow: "0 24px 70px rgba(17, 17, 17, 0.18)",
+      }}
+    >
+      <div className="panel-header">
+        <div>
+          <h2>Export Recovery Overview Report</h2>
+          <p>
+            Frontend-only report summary for KPIs, highest-risk leaks, team load,
+            source visibility, and recovery activity.
+          </p>
+        </div>
+        <Badge tone="amber">Preview</Badge>
+      </div>
+
+      <div className="summary-breakdown-grid" style={{ gridTemplateColumns: "1fr" }}>
+        <article className="summary-breakdown-card">
+          <h3>Included sections</h3>
+          <div>
+            <span>KPIs</span>
+            <strong>{kpis.length} metrics</strong>
+          </div>
+          <div>
+            <span>Highest Risk Leaks</span>
+            <strong>{overviewReportTasks.length} records</strong>
+          </div>
+          <div>
+            <span>Team Recovery Load</span>
+            <strong>{teamUsers.length} owners</strong>
+          </div>
+          <div>
+            <span>Recovery Activity</span>
+            <strong>{activityFeed.length} events</strong>
+          </div>
+        </article>
+
+        <article className="summary-breakdown-card">
+          <h3>Report preview</h3>
+          {kpis.map((item) => (
+            <div key={`export-${item.label}`}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </article>
+
+        <article className="summary-breakdown-card">
+          <h3>Top recovery leaks</h3>
+          {overviewReportTasks.slice(0, 4).map((task) => (
+            <div key={`export-task-${task.id}`}>
+              <span>{task.customer}</span>
+              <strong>{task.estimatedRevenueAtRisk}</strong>
+            </div>
+          ))}
+        </article>
+      </div>
+
+      {exportMessage ? (
+        <p
+          style={{
+            margin: "16px 0 0",
+            color: "#111111",
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          {exportMessage}
+        </p>
+      ) : null}
+
+      <div className="capture-actions" style={{ marginTop: 18 }}>
+        <button className="primary-btn" onClick={copyRecoveryOverviewReport} type="button">
+          Copy report summary
+        </button>
+        <button className="secondary-btn" onClick={closeExportReport} type="button">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+) : null}
 
         {activePage === "Recovery Overview" ? (
           <RecoveryOverview
@@ -13824,63 +14003,81 @@ export default function Home() {
         ) : null}
 
         {quickModal === "capture" ? (
-          <ModalShell onClose={() => setQuickModal(null)} title="Capture Missed Inquiry">
-            <form onSubmit={handleCaptureSubmit} style={modalStackStyle}>
-              <label>
-                <span className="sr-only">Buyer name</span>
-                <input
-                  onChange={(event) => setCaptureForm((current) => ({ ...current, buyerName: event.target.value }))}
-                  placeholder="Buyer name"
-                  type="text"
-                  value={captureForm.buyerName}
-                />
-              </label>
-              <label>
-                <span className="sr-only">Source</span>
-                <input
-                  onChange={(event) => setCaptureForm((current) => ({ ...current, source: event.target.value }))}
-                  placeholder="Source"
-                  type="text"
-                  value={captureForm.source}
-                />
-              </label>
-              <label>
-                <span className="sr-only">Estimated value</span>
-                <input
-                  onChange={(event) => setCaptureForm((current) => ({ ...current, estimatedValue: event.target.value }))}
-                  placeholder="Estimated value"
-                  type="text"
-                  value={captureForm.estimatedValue}
-                />
-              </label>
-              <label>
-                <span className="sr-only">Owner</span>
-                <input
-                  onChange={(event) => setCaptureForm((current) => ({ ...current, owner: event.target.value }))}
-                  placeholder="Owner"
-                  type="text"
-                  value={captureForm.owner}
-                />
-              </label>
-              <label>
-                <span className="sr-only">Recovery note</span>
-                <textarea
-                  onChange={(event) => setCaptureForm((current) => ({ ...current, recoveryNote: event.target.value }))}
-                  placeholder="Recovery note"
-                  rows={4}
-                  value={captureForm.recoveryNote}
-                />
-              </label>
-              <div className="capture-actions">
-                <button className="primary-btn" type="submit">
-                  Capture inquiry
-                </button>
+          <div style={modalOverlayStyle} role="presentation">
+            <article aria-modal="true" className="capture-modal-shell" role="dialog">
+              <div className="capture-modal-header">
+                <div>
+                  <h2>Capture Missed Inquiry</h2>
+                </div>
                 <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
                   Close
                 </button>
               </div>
-            </form>
-          </ModalShell>
+              <div className="capture-modal-body">
+                <form onSubmit={handleCaptureSubmit}>
+                  <div className="capture-modal-grid">
+                    <div className="capture-field">
+                      <label htmlFor="capture-buyer-name">Buyer name</label>
+                      <input
+                        id="capture-buyer-name"
+                        onChange={(event) => setCaptureForm((current) => ({ ...current, buyerName: event.target.value }))}
+                        placeholder="Sophia Bennett"
+                        type="text"
+                        value={captureForm.buyerName}
+                      />
+                    </div>
+                    <div className="capture-field">
+                      <label htmlFor="capture-source">Source</label>
+                      <input
+                        id="capture-source"
+                        onChange={(event) => setCaptureForm((current) => ({ ...current, source: event.target.value }))}
+                        placeholder="Instagram DM"
+                        type="text"
+                        value={captureForm.source}
+                      />
+                    </div>
+                    <div className="capture-field">
+                      <label htmlFor="capture-estimated-value">Estimated value</label>
+                      <input
+                        id="capture-estimated-value"
+                        onChange={(event) => setCaptureForm((current) => ({ ...current, estimatedValue: event.target.value }))}
+                        placeholder="$850"
+                        type="text"
+                        value={captureForm.estimatedValue}
+                      />
+                    </div>
+                    <div className="capture-field">
+                      <label htmlFor="capture-owner">Owner</label>
+                      <input
+                        id="capture-owner"
+                        onChange={(event) => setCaptureForm((current) => ({ ...current, owner: event.target.value }))}
+                        placeholder="Amara Shah"
+                        type="text"
+                        value={captureForm.owner}
+                      />
+                    </div>
+                    <div className="capture-field capture-field-full">
+                      <label htmlFor="capture-recovery-note">Recovery note</label>
+                      <textarea
+                        id="capture-recovery-note"
+                        onChange={(event) => setCaptureForm((current) => ({ ...current, recoveryNote: event.target.value }))}
+                        placeholder="Add context, next action, or message reminder."
+                        value={captureForm.recoveryNote}
+                      />
+                    </div>
+                  </div>
+                  <div className="capture-modal-actions">
+                    <button className="primary-btn" type="submit">
+                      Capture inquiry
+                    </button>
+                    <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
+                      Close
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </article>
+          </div>
         ) : null}
       </section>
     </main>

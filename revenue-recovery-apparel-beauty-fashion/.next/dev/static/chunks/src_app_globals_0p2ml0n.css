@@ -4938,6 +4938,132 @@ h1 {
   }
 }
 
+.capture-modal-shell {
+  background: #fff;
+  border: 1px solid #e7e3dc;
+  border-radius: 24px;
+  width: min(960px, 100vw - 32px);
+  max-height: calc(100vh - 32px);
+  padding: 28px;
+  overflow-y: auto;
+  box-shadow: 0 28px 80px #1111112e;
+}
+
+.capture-modal-header {
+  border-bottom: 1px solid #ece7df;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  display: flex;
+}
+
+.capture-modal-header h2 {
+  color: #111;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.capture-modal-body {
+  width: 100%;
+}
+
+.capture-modal-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+  width: 100%;
+  display: grid;
+}
+
+.capture-field {
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  display: flex;
+}
+
+.capture-field-full {
+  grid-column: 1 / -1;
+}
+
+.capture-field label {
+  color: #3e3e3e;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.capture-field input, .capture-field textarea {
+  color: #111;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #d9d4cb;
+  border-radius: 16px;
+  outline: none;
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+
+.capture-field input {
+  min-height: 54px;
+}
+
+.capture-field textarea {
+  resize: vertical;
+  min-height: 160px;
+}
+
+.capture-field input::placeholder, .capture-field textarea::placeholder {
+  color: #8a8f9c;
+}
+
+.capture-field input:focus, .capture-field textarea:focus {
+  border-color: #ff5a14;
+  box-shadow: 0 0 0 4px #ff5a141f;
+}
+
+.capture-modal-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .capture-modal-shell {
+    border-radius: 20px;
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    padding: 20px;
+  }
+
+  .capture-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .capture-field-full {
+    grid-column: auto;
+  }
+
+  .capture-modal-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .capture-modal-actions .primary-btn, .capture-modal-actions .secondary-btn {
+    width: 100%;
+  }
+}
+
 :root {
   --altynx-orange: #ff4500;
   --altynx-orange-hover: #ff6b35;
