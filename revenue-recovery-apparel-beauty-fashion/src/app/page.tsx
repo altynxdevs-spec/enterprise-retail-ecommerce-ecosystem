@@ -8927,19 +8927,61 @@ function TodaysRecoveryQueue() {
   );
 }
 
-function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivity) => void }) {
+function InquiryInbox({
+  onActivity,
+  onNavigate,
+}: {
+  onActivity: (activity: NewRecoveryActivity) => void;
+  onNavigate: (page: string) => void;
+}) {
   const [inquiryRecords, setInquiryRecords] = useState<Inquiry[]>(inquiries);
   const [activeInquiryFilter, setActiveInquiryFilter] = useState<InquiryFilter>("All");
   const [selectedInquiryId, setSelectedInquiryId] = useState(inquiries[0].id);
+  const [inquiryMode, setInquiryMode] = useState<"list" | "detail">("list");
   const [detailNotice, setDetailNotice] = useState("Ready to triage captured buyer interest.");
+  const [showAllInquiries, setShowAllInquiries] = useState(false);
+
+  const [isAssignOwnerOpen, setIsAssignOwnerOpen] = useState(false);
+  const [selectedOwnerName, setSelectedOwnerName] = useState("");
+  const [isInternalNoteOpen, setIsInternalNoteOpen] = useState(false);
+  const [internalNoteDraft, setInternalNoteDraft] = useState("");
+
+  const [localInquiryNotes, setLocalInquiryNotes] = useState<Record<string, string[]>>({});
+  const [messageDrafts, setMessageDrafts] = useState<Record<string, string>>({});
+  const [templateUsedIds, setTemplateUsedIds] = useState<Record<string, boolean>>({});
+  const [aiDraftIds, setAiDraftIds] = useState<Record<string, boolean>>({});
+  const [copiedTemplateIds, setCopiedTemplateIds] = useState<Record<string, boolean>>({});
+  const [replySentIds, setReplySentIds] = useState<Record<string, boolean>>({});
+  const [caseCreatedIds, setCaseCreatedIds] = useState<Record<string, boolean>>({});
+  const [reviewedCaseIds, setReviewedCaseIds] = useState<Record<string, boolean>>({});
 
   const filteredInquiries = inquiryRecords.filter((inquiry) =>
     matchesInquiryFilter(inquiry, activeInquiryFilter),
   );
+
   const selectedInquiry =
     inquiryRecords.find((inquiry) => inquiry.id === selectedInquiryId) ??
     filteredInquiries[0] ??
     inquiryRecords[0];
+
+  const visibleInquiries = showAllInquiries ? filteredInquiries : filteredInquiries.slice(0, 25);
+  const hiddenInquiryCount = Math.max(filteredInquiries.length - visibleInquiries.length, 0);
+
+  const selectedMessage = messageDrafts[selectedInquiry.id] ?? selectedInquiry.templatePreview;
+  const selectedNotes = localInquiryNotes[selectedInquiry.id] ?? [];
+
+  const ownerOptions = [
+    ...teamUsers.map((member) => ({
+      id: member.id,
+      name: member.name,
+      role: member.role,
+    })),
+    {
+      id: "operations",
+      name: "Operations",
+      role: "Admin",
+    },
+  ];
 
   function recordInquiryActivity(
     inquiry: Inquiry,
@@ -8948,7 +8990,7 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
     nextAction = inquiry.recommendedAction,
     owner = inquiry.owner,
   ) {
-    onActivity?.({
+    onActivity({
       category: "Inquiries",
       title,
       description: `${inquiry.customer}'s ${inquiry.productInterest.toLowerCase()} was updated from ${inquiry.inquirySource}.`,
@@ -8961,67 +9003,151 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
     });
   }
 
-  function handleInquiryAction(action: "assign" | "reply" | "case" | "copy" | "note") {
-    const inquiry = selectedInquiry;
+  function openInquiryDetails(inquiry: Inquiry) {
+    setSelectedInquiryId(inquiry.id);
+    setSelectedOwnerName(inquiry.owner === "Unassigned" ? getDefaultOwnerForInquiry(inquiry) : inquiry.owner);
+    setInquiryMode("detail");
+    setIsAssignOwnerOpen(false);
+    setIsInternalNoteOpen(false);
+    setDetailNotice("Ready to triage captured buyer interest.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
-    if (action === "assign") {
-      const owner = inquiry.owner === "Unassigned" ? getDefaultOwnerForInquiry(inquiry) : inquiry.owner;
+  function backToInquiryList() {
+    setInquiryMode("list");
+    setIsAssignOwnerOpen(false);
+    setIsInternalNoteOpen(false);
+    setDetailNotice("Ready to triage captured buyer interest.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function assignSelectedOwner() {
+    const owner = selectedOwnerName || getDefaultOwnerForInquiry(selectedInquiry);
+
+    setInquiryRecords((records) =>
+      records.map((record) =>
+        record.id === selectedInquiry.id
+          ? {
+              ...record,
+              owner,
+              sourceStatus: record.sourceStatus === "Owner missing" ? "Owner assigned" : record.sourceStatus,
+              lastAction: `Assigned to ${owner}`,
+            }
+          : record,
+      ),
+    );
+
+    setIsAssignOwnerOpen(false);
+    setDetailNotice(`${selectedInquiry.customer} assigned to ${owner}.`);
+    recordInquiryActivity(selectedInquiry, "Inquiry owner assigned", "Owner assigned", selectedInquiry.recommendedAction, owner);
+  }
+
+  function markFirstReplySent() {
+    setInquiryRecords((records) =>
+      records.map((record) =>
+        record.id === selectedInquiry.id
+          ? {
+              ...record,
+              firstReplyStatus: "Replied",
+              lastAction: "First reply marked sent",
+            }
+          : record,
+      ),
+    );
+
+    setReplySentIds((current) => ({
+      ...current,
+      [selectedInquiry.id]: true,
+    }));
+
+    setDetailNotice(`First reply marked sent for ${selectedInquiry.customer}.`);
+    recordInquiryActivity(selectedInquiry, "First reply sent", "Sent", "Watch for response and conversion signal.");
+  }
+
+  function createRecoveryCase() {
+    setInquiryRecords((records) =>
+      records.map((record) =>
+        record.id === selectedInquiry.id
+          ? {
+              ...record,
+              recoveryCaseCreated: true,
+              lastAction: "Recovery case created",
+            }
+          : record,
+      ),
+    );
+
+    setCaseCreatedIds((current) => ({
+      ...current,
+      [selectedInquiry.id]: true,
+    }));
+
+    setDetailNotice(`Recovery case created for ${selectedInquiry.customer}.`);
+    recordInquiryActivity(selectedInquiry, "Recovery case created from inquiry", "Created");
+  }
+
+  function reviewRecoveryCase() {
+    setReviewedCaseIds((current) => ({
+      ...current,
+      [selectedInquiry.id]: true,
+    }));
+
+    setDetailNotice(`Opening Revenue Pipeline for ${selectedInquiry.customer}.`);
+
+    recordInquiryActivity(
+      selectedInquiry,
+      "Recovery case review opened",
+      "Review opened",
+      "Review the created recovery case inside Revenue Pipeline.",
+    );
+
+    onNavigate("Revenue Pipeline");
+  }
+
+  function useApprovedTemplate() {
+    setMessageDrafts((current) => ({
+      ...current,
+      [selectedInquiry.id]: selectedInquiry.templatePreview,
+    }));
+
+    setTemplateUsedIds((current) => ({
+      ...current,
+      [selectedInquiry.id]: true,
+    }));
+
+    setDetailNotice(`Approved template selected for ${selectedInquiry.customer}.`);
+    recordInquiryActivity(selectedInquiry, "Inquiry template selected", "Template selected");
+  }
+
+  function generateAiInquiryResponse() {
+    const draft = `Hi ${selectedInquiry.customer.split(" ")[0]}, thanks for reaching out about ${selectedInquiry.productInterest.toLowerCase()}. ${selectedInquiry.recommendedAction} I can help you with the next step and make sure you get the right details before this opportunity goes cold.`;
+
+    setMessageDrafts((current) => ({
+      ...current,
+      [selectedInquiry.id]: draft,
+    }));
+
+    setAiDraftIds((current) => ({
+      ...current,
+      [selectedInquiry.id]: true,
+    }));
+
+    setDetailNotice("AI response draft generated for review. Nothing was sent.");
+    recordInquiryActivity(selectedInquiry, "AI inquiry reply drafted", "Drafted", "Review the draft before sending.");
+  }
+
+  async function copyInquiryMessage() {
+    try {
+      await navigator.clipboard.writeText(selectedMessage);
+
+      setCopiedTemplateIds((current) => ({
+        ...current,
+        [selectedInquiry.id]: true,
+      }));
 
       setInquiryRecords((records) =>
         records.map((record) =>
-          record.id === inquiry.id
-            ? {
-                ...record,
-                owner,
-                sourceStatus: record.sourceStatus === "Owner missing" ? "Owner assigned" : record.sourceStatus,
-                lastAction: `Assigned to ${owner}`,
-              }
-            : record,
-        ),
-      );
-      setDetailNotice(`${inquiry.customer} assigned to ${owner}.`);
-      recordInquiryActivity(inquiry, "Inquiry owner assigned", "Owner assigned", inquiry.recommendedAction, owner);
-      return;
-    }
-
-    if (action === "reply") {
-      setInquiryRecords((records) =>
-        records.map((record) =>
-          record.id === inquiry.id
-            ? {
-                ...record,
-                firstReplyStatus: "Replied",
-                lastAction: "First reply marked sent",
-              }
-            : record,
-        ),
-      );
-      setDetailNotice(`First reply marked sent for ${inquiry.customer}.`);
-      recordInquiryActivity(inquiry, "First reply sent", "Sent", "Watch for response and conversion signal.");
-      return;
-    }
-
-    if (action === "case") {
-      setInquiryRecords((records) =>
-        records.map((record) =>
-          record.id === inquiry.id
-            ? {
-                ...record,
-                recoveryCaseCreated: true,
-                lastAction: "Recovery case created",
-              }
-            : record,
-        ),
-      );
-      setDetailNotice(`Recovery case created for ${inquiry.customer}.`);
-      recordInquiryActivity(inquiry, "Recovery case created from inquiry", "Created");
-      return;
-    }
-
-    if (action === "copy") {
-      setInquiryRecords((records) =>
-        records.map((record) =>
-          record.id === inquiry.id
+          record.id === selectedInquiry.id
             ? {
                 ...record,
                 templateCopied: true,
@@ -9030,14 +9156,43 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
             : record,
         ),
       );
-      setDetailNotice(`Template copied for ${inquiry.customer}.`);
-      recordInquiryActivity(inquiry, "Inquiry template copied", "Template copied");
+
+      setDetailNotice(`Message copied for ${selectedInquiry.customer}.`);
+      recordInquiryActivity(selectedInquiry, "Inquiry template copied", "Template copied");
+    } catch {
+      setDetailNotice("Copy failed. Please copy the message manually.");
+    }
+  }
+
+  function createNewTemplate() {
+    setDetailNotice("Opening Templates setup to create a reusable inquiry template.");
+
+    recordInquiryActivity(
+      selectedInquiry,
+      "Create new template opened",
+      "Template setup opened",
+      "Create or edit a reusable template for this inquiry type.",
+    );
+
+    onNavigate("Templates");
+  }
+
+  function addInternalNote() {
+    const note = internalNoteDraft.trim();
+
+    if (!note) {
+      setDetailNotice("Write an internal note before saving.");
       return;
     }
 
+    setLocalInquiryNotes((current) => ({
+      ...current,
+      [selectedInquiry.id]: [`${note} — Now`, ...(current[selectedInquiry.id] ?? [])],
+    }));
+
     setInquiryRecords((records) =>
       records.map((record) =>
-        record.id === inquiry.id
+        record.id === selectedInquiry.id
           ? {
               ...record,
               internalNotes: record.internalNotes + 1,
@@ -9046,179 +9201,386 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
           : record,
       ),
     );
-    setDetailNotice(`Internal note added for ${inquiry.customer}.`);
-    recordInquiryActivity(inquiry, "Internal inquiry note added", "Team note");
+
+    setInternalNoteDraft("");
+    setIsInternalNoteOpen(false);
+    setDetailNotice(`Internal note added for ${selectedInquiry.customer}.`);
+    recordInquiryActivity(selectedInquiry, "Internal inquiry note added", "Team note");
+  }
+
+  function getInquiryRiskReason(inquiry: Inquiry) {
+    if (inquiry.firstReplyStatus === "Not replied") {
+      return `${inquiry.estimatedValue} is at risk because this inquiry has not received a first reply yet. The source is ${inquiry.inquirySource}, and the recommended action is: ${inquiry.recommendedAction}`;
+    }
+
+    if (inquiry.owner === "Unassigned") {
+      return `${inquiry.estimatedValue} is at risk because the inquiry has no assigned owner. Assign the right owner before the buyer goes cold.`;
+    }
+
+    if (inquiry.firstReplyStatus === "Needs human review") {
+      return `${inquiry.estimatedValue} needs human review because automation captured the signal, but the reply or payment context needs manual confirmation.`;
+    }
+
+    return `${inquiry.estimatedValue} is attached to this inquiry. Keep the owner, first reply status, and recovery case updated until the buyer is resolved.`;
+  }
+
+  if (inquiryMode === "detail") {
+    return (
+      <div className="recovery-page">
+        <section className="queue-detail-page inquiry-detail-page">
+          <div className="queue-detail-topbar">
+            <button className="secondary-btn" onClick={backToInquiryList} type="button">
+              ← Back to Inquiry Inbox
+            </button>
+
+            <div className="queue-detail-status">
+              {selectedInquiry.recoveryCaseCreated || caseCreatedIds[selectedInquiry.id] ? (
+                <span className="queue-status-pill reviewed">Recovery case created</span>
+              ) : null}
+              {replySentIds[selectedInquiry.id] || selectedInquiry.firstReplyStatus === "Replied" ? (
+                <span className="queue-status-pill reviewed">First reply sent</span>
+              ) : null}
+              {templateUsedIds[selectedInquiry.id] ? <span className="queue-status-pill">Template used</span> : null}
+              {aiDraftIds[selectedInquiry.id] ? <span className="queue-status-pill">AI draft ready</span> : null}
+              {copiedTemplateIds[selectedInquiry.id] ? <span className="queue-status-pill">Copied</span> : null}
+            </div>
+          </div>
+
+          <article className="glass-card panel-card queue-detail-card">
+            <div className="detail-heading">
+              <div className="detail-person">
+                <Avatar name={selectedInquiry.customer} />
+                <div>
+                  <h2>{selectedInquiry.customer}</h2>
+                  <p>{selectedInquiry.productInterest}</p>
+                </div>
+              </div>
+              <strong>{selectedInquiry.estimatedValue}</strong>
+            </div>
+
+            <div className="customer-summary-box">
+              <span>Inquiry capture summary</span>
+              <p>
+                {selectedInquiry.intentLevel} intent from {selectedInquiry.inquirySource}. First reply:{" "}
+                {selectedInquiry.firstReplyStatus}. Owner: {selectedInquiry.owner}. Source status:{" "}
+                {selectedInquiry.sourceStatus}.
+              </p>
+            </div>
+
+            <div className="customer-summary-box">
+              <span>Risk reason</span>
+              <p>{getInquiryRiskReason(selectedInquiry)}</p>
+            </div>
+
+            <div className="detail-grid">
+              <div>
+                <span>Source</span>
+                <strong>{selectedInquiry.inquirySource}</strong>
+              </div>
+              <div>
+                <span>Time since inquiry</span>
+                <strong>{selectedInquiry.timeSinceInquiry}</strong>
+              </div>
+              <div>
+                <span>Intent level</span>
+                <strong>{selectedInquiry.intentLevel}</strong>
+              </div>
+              <div>
+                <span>Estimated value</span>
+                <strong>{selectedInquiry.estimatedValue}</strong>
+              </div>
+              <div>
+                <span>First reply</span>
+                <strong>{selectedInquiry.firstReplyStatus}</strong>
+              </div>
+              <div>
+                <span>Owner</span>
+                <strong>{selectedInquiry.owner}</strong>
+              </div>
+              <div>
+                <span>Capture status</span>
+                <strong>{selectedInquiry.sourceStatus}</strong>
+              </div>
+              <div>
+                <span>Recovery case</span>
+                <strong>{selectedInquiry.recoveryCaseCreated ? "Created" : "Not created"}</strong>
+              </div>
+              <div>
+                <span>Internal notes</span>
+                <strong>{selectedInquiry.internalNotes + selectedNotes.length}</strong>
+              </div>
+              <div>
+                <span>Last action</span>
+                <strong>{selectedInquiry.lastAction ?? "No manual update yet"}</strong>
+              </div>
+            </div>
+
+            <div className="detail-callout">
+              <span>Recommended next action</span>
+              <p>{selectedInquiry.recommendedAction}</p>
+            </div>
+
+            <div className="template-box message-recommendation-box">
+              <div>
+                <span>Message template</span>
+                <strong>{selectedInquiry.templateCopied ? "Copied before" : "Ready for use"}</strong>
+              </div>
+
+              <div className="template-match-grid">
+                <div>
+                  <span>Template type</span>
+                  <strong>{selectedInquiry.intentLevel} intent inquiry</strong>
+                </div>
+                <div>
+                  <span>Channel/source</span>
+                  <strong>{selectedInquiry.inquirySource}</strong>
+                </div>
+                <div className="template-match-full">
+                  <span>Why this template</span>
+                  <p>
+                    This template is matched to the buyer source, product interest, and first-reply status.
+                    It should be reviewed before sending, especially when human review is required.
+                  </p>
+                </div>
+              </div>
+
+              <div className="recommended-message-preview">
+                <span>Selected message</span>
+                <p>{selectedMessage}</p>
+              </div>
+
+              <div className="template-action-row">
+                <button type="button" onClick={useApprovedTemplate}>
+                  Use Approved Template
+                </button>
+                <button type="button" onClick={generateAiInquiryResponse}>
+                  Generate AI Response
+                </button>
+                <button type="button" onClick={copyInquiryMessage}>
+                  Copy Message
+                </button>
+                <button type="button" onClick={createNewTemplate}>
+                  Create New Template
+                </button>
+              </div>
+            </div>
+
+            <div className="thread-panel">
+              <div className="thread-header">
+                <div>
+                  <h3>Automation & Source Capture</h3>
+                  <p>Captured source signal, automation status, owner notes, and manual updates.</p>
+                </div>
+                <span>{selectedInquiry.lastAction ?? "No manual update yet"}</span>
+              </div>
+
+              <div className="thread-message">
+                <div>
+                  <strong>Automation</strong>
+                  <span>System - Captured</span>
+                </div>
+                <p>{selectedInquiry.automationStatus}</p>
+              </div>
+
+              <div className="thread-message">
+                <div>
+                  <strong>System</strong>
+                  <span>Recommended action</span>
+                </div>
+                <p>{selectedInquiry.recommendedAction}</p>
+              </div>
+
+              {selectedNotes.map((note, index) => (
+                <div className="thread-message" key={`${selectedInquiry.id}-note-${index}`}>
+                  <div>
+                    <strong>Internal Note</strong>
+                    <span>Team - Manual</span>
+                  </div>
+                  <p>{note}</p>
+                </div>
+              ))}
+            </div>
+
+            {isAssignOwnerOpen ? (
+              <div className="inline-action-panel">
+                <div>
+                  <span>Assign owner</span>
+                  <p>Select the team member who should own this inquiry follow-up.</p>
+                </div>
+
+                <select
+                  value={selectedOwnerName}
+                  onChange={(event) => setSelectedOwnerName(event.target.value)}
+                >
+                  {ownerOptions.map((owner) => (
+                    <option key={owner.id} value={owner.name}>
+                      {owner.name} - {owner.role}
+                    </option>
+                  ))}
+                </select>
+
+                <div className="template-action-row">
+                  <button type="button" onClick={assignSelectedOwner}>
+                    Confirm Assignment
+                  </button>
+                  <button type="button" onClick={() => setIsAssignOwnerOpen(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {isInternalNoteOpen ? (
+              <div className="inline-action-panel">
+                <div>
+                  <span>Add internal note</span>
+                  <p>Use this for owner context, automation issues, buyer preferences, or handoff notes.</p>
+                </div>
+
+                <textarea
+                  className="internal-note-textarea"
+                  value={internalNoteDraft}
+                  onChange={(event) => setInternalNoteDraft(event.target.value)}
+                  placeholder="Example: Buyer asked for size guidance. Mention exchange reassurance before sending link."
+                />
+
+                <div className="template-action-row">
+                  <button type="button" onClick={addInternalNote}>
+                    Save Note
+                  </button>
+                  <button type="button" onClick={() => setIsInternalNoteOpen(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <p className="detail-notice">{detailNotice}</p>
+
+            <div className="detail-actions">
+              <button type="button" className="primary-btn" onClick={() => setIsAssignOwnerOpen(true)}>
+                Assign Owner
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={markFirstReplySent}>
+                Mark First Reply Sent
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={createRecoveryCase}>
+                Create Recovery Case
+              </button>
+
+              {(selectedInquiry.recoveryCaseCreated || caseCreatedIds[selectedInquiry.id]) ? (
+                <button type="button" className="secondary-btn" onClick={reviewRecoveryCase}>
+                  Review Recovery Case
+                </button>
+              ) : null}
+
+              <button type="button" className="secondary-btn" onClick={() => setIsInternalNoteOpen(true)}>
+                Add Internal Note
+              </button>
+            </div>
+          </article>
+        </section>
+      </div>
+    );
   }
 
   return (
     <div className="recovery-page">
       <section className="queue-toolbar">
-        <div className="queue-tabs" aria-label="Inquiry intent filters">
+        <div className="queue-tabs" aria-label="Inquiry inbox filters">
           {inquiryFilters.map((filter) => (
             <button
               className={`queue-tab ${activeInquiryFilter === filter ? "active" : ""}`}
               key={filter}
-              onClick={() => setActiveInquiryFilter(filter)}
+              onClick={() => {
+                setActiveInquiryFilter(filter);
+                setShowAllInquiries(false);
+              }}
               type="button"
             >
               {filter}
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredInquiries.length} inquiries</Badge>
+        <Badge tone="amber">{filteredInquiries.length} captured inquiries</Badge>
       </section>
 
-      <section className="recovery-workspace capture-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Inquiry Inbox</h2>
-              <p>Captured buyer interest that needs a reply, owner, recovery action, or human review.</p>
-            </div>
-            <Badge tone="amber">First reply watch</Badge>
+      <section className="glass-card panel-card queue-list-page inquiry-list-page">
+        <div className="panel-header">
+          <div>
+            <h2>Inquiry Inbox</h2>
+            <p>
+              Captured buyer interest that needs a first reply, owner assignment, recovery case,
+              template, or human review.
+            </p>
           </div>
+          <Badge tone="amber">First reply watch</Badge>
+        </div>
 
-          <div className="inquiry-list">
-            {filteredInquiries.map((inquiry) => (
-              <button
-                className={`inquiry-card inquiry-button ${inquiry.tone} ${
-                  selectedInquiry.id === inquiry.id ? "selected" : ""
-                }`}
-                key={inquiry.id}
-                onClick={() => {
-                  setSelectedInquiryId(inquiry.id);
-                  setDetailNotice("Ready to triage captured buyer interest.");
-                }}
-                type="button"
-              >
-              <div className="inquiry-main">
+        <div className="recovery-list queue-full-list inquiry-full-list">
+          {visibleInquiries.map((inquiry) => (
+            <div className={`recovery-task-card ${inquiry.tone}`} key={inquiry.id}>
+              <div className="recovery-task-main">
                 <Avatar name={inquiry.customer} />
                 <div>
                   <div className="recovery-row-title">
                     <h3>{inquiry.customer}</h3>
                     <Badge tone={inquiry.tone}>{inquiry.intentLevel} intent</Badge>
+
+                    {inquiry.recoveryCaseCreated || caseCreatedIds[inquiry.id] ? (
+                      <span className="queue-status-pill reviewed">Case created</span>
+                    ) : null}
+
+                    {replySentIds[inquiry.id] || inquiry.firstReplyStatus === "Replied" ? (
+                      <span className="queue-status-pill reviewed">Reply sent</span>
+                    ) : null}
                   </div>
+
                   <p>{inquiry.productInterest}</p>
+
                   <div className="recovery-meta">
                     <span>{inquiry.inquirySource}</span>
                     <span>{inquiry.timeSinceInquiry} ago</span>
                     <span>{inquiry.firstReplyStatus}</span>
+                    <span>{inquiry.owner}</span>
                     <span>{inquiry.sourceStatus}</span>
+                  </div>
+
+                  <small className="queue-next-action">{inquiry.recommendedAction}</small>
+
+                  <div className="queue-action-status">
+                    {templateUsedIds[inquiry.id] ? <span className="queue-status-pill">Template used</span> : null}
+                    {aiDraftIds[inquiry.id] ? <span className="queue-status-pill">AI draft ready</span> : null}
+                    {copiedTemplateIds[inquiry.id] ? <span className="queue-status-pill">Copied</span> : null}
+                    {reviewedCaseIds[inquiry.id] ? <span className="queue-status-pill reviewed">Reviewed</span> : null}
                   </div>
                 </div>
               </div>
 
-              <div className="inquiry-value">
+              <div className="task-money queue-list-actions">
                 <strong>{inquiry.estimatedValue}</strong>
                 <span>{inquiry.owner}</span>
-              </div>
-
-              <div className="inquiry-action">
-                <span>Recommended action</span>
-                <p>{inquiry.recommendedAction}</p>
-                <small>{inquiry.automationStatus}</small>
-              </div>
-
-              <div className="inquiry-template">
-                <span>Template preview</span>
-                <p>{inquiry.templatePreview}</p>
-                <small>{inquiry.lastAction ?? `${inquiry.internalNotes} internal notes`}</small>
-              </div>
-              </button>
-            ))}
-          </div>
-        </article>
-
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedInquiry.customer} />
-              <div>
-                <h2>{selectedInquiry.customer}</h2>
-                <p>{selectedInquiry.productInterest}</p>
+                <button className="secondary-btn" onClick={() => openInquiryDetails(inquiry)} type="button">
+                  Show Details
+                </button>
               </div>
             </div>
-            <strong>{selectedInquiry.estimatedValue}</strong>
-          </div>
+          ))}
+        </div>
 
-          <div className="customer-summary-box">
-            <span>Capture summary</span>
-            <p>
-              {selectedInquiry.intentLevel} intent from {selectedInquiry.inquirySource}. First reply:{" "}
-              {selectedInquiry.firstReplyStatus}; owner: {selectedInquiry.owner}.
-            </p>
-          </div>
-
-          <div className="detail-grid">
-            <div>
-              <span>Source</span>
-              <strong>{selectedInquiry.inquirySource}</strong>
-            </div>
-            <div>
-              <span>Time since inquiry</span>
-              <strong>{selectedInquiry.timeSinceInquiry}</strong>
-            </div>
-            <div>
-              <span>First reply</span>
-              <strong>{selectedInquiry.firstReplyStatus}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedInquiry.owner}</strong>
-            </div>
-            <div>
-              <span>Capture status</span>
-              <strong>{selectedInquiry.sourceStatus}</strong>
-            </div>
-            <div>
-              <span>Recovery case</span>
-              <strong>{selectedInquiry.recoveryCaseCreated ? "Created" : "Not created"}</strong>
-            </div>
-          </div>
-
-          <div className="detail-callout">
-            <span>Recommended next action</span>
-            <p>{selectedInquiry.recommendedAction}</p>
-          </div>
-
-          <div className="template-box">
-            <div>
-              <span>Message template preview</span>
-              <button type="button" onClick={() => handleInquiryAction("copy")}>
-                Copy Template
-              </button>
-            </div>
-            <p>{selectedInquiry.templatePreview}</p>
-          </div>
-
-          <div className="thread-panel">
-            <div className="thread-header">
-              <h3>Automation & Source Capture</h3>
-              <span>{selectedInquiry.lastAction ?? "No manual update yet"}</span>
-            </div>
-            <div className="capture-status-line">
-              <span>{selectedInquiry.automationStatus}</span>
-              <small>{selectedInquiry.internalNotes} internal notes logged</small>
-            </div>
-          </div>
-
-          <p className="detail-notice">{detailNotice}</p>
-
-          <div className="detail-actions">
-            <button type="button" className="primary-btn" onClick={() => handleInquiryAction("assign")}>
-              Assign owner
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => handleInquiryAction("reply")}>
-              Mark first reply sent
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => handleInquiryAction("case")}>
-              Create recovery case
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => handleInquiryAction("note")}>
-              Add internal note
+        {hiddenInquiryCount > 0 ? (
+          <div className="queue-show-more-row">
+            <button
+              className="secondary-btn queue-show-more-btn"
+              onClick={() => setShowAllInquiries(true)}
+              type="button"
+            >
+              Show more {hiddenInquiryCount} inquiries
             </button>
           </div>
-                </aside>
+        ) : null}
       </section>
     </div>
   );
@@ -15344,7 +15706,7 @@ function closeExportReport() {
         ) : activePage === "Today's Recovery Queue" ? (
           <TodaysRecoveryQueue />
         ) : activePage === "Inquiry Inbox" ? (
-          <InquiryInbox onActivity={addRecoveryActivity} />
+          <InquiryInbox onActivity={addRecoveryActivity} onNavigate={navigateToPage} />
         ) : activePage === "Product Demand" ? (
           <ProductDemand onActivity={addRecoveryActivity} />
         ) : activePage === "Source Leak Tracking" ? (
