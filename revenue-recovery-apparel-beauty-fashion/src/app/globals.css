@@ -9776,3 +9776,934 @@ video {
   border-color: rgba(255, 69, 0, 0.18) !important;
   background: rgba(255, 69, 0, 0.025) !important;
 }
+
+/* =========================================================
+   PRODUCT CATALOG — LIST VIEW + DETAILS MODAL
+   Paste at the VERY END of globals.css
+========================================================= */
+
+.product-catalog-list-panel {
+  padding: 26px !important;
+}
+
+.product-list-view {
+  display: grid !important;
+  gap: 16px !important;
+}
+
+.product-list-card {
+  position: relative !important;
+  padding: 18px !important;
+  border: 1px solid #e8e8e5 !important;
+  border-radius: 22px !important;
+  background: #ffffff !important;
+  overflow: hidden !important;
+}
+
+.product-list-card.rose {
+  border-left: 4px solid #ef4444 !important;
+}
+
+.product-list-card.amber {
+  border-left: 4px solid #f59e0b !important;
+}
+
+.product-list-card.emerald {
+  border-left: 4px solid #10b981 !important;
+}
+
+.product-list-card.cyan {
+  border-left: 4px solid #06b6d4 !important;
+}
+
+.product-list-card.indigo {
+  border-left: 4px solid #6366f1 !important;
+}
+
+.product-list-main {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 18px !important;
+  align-items: start !important;
+}
+
+.product-list-main h3 {
+  margin: 0 !important;
+  color: #111111 !important;
+  font-size: 17px !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.product-list-main p,
+.product-list-footer p {
+  margin: 8px 0 0 !important;
+  color: #4b5563 !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+.product-list-stats {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-top: 16px !important;
+}
+
+.product-list-stats div {
+  padding: 13px !important;
+  border: 1px solid #e8e8e5 !important;
+  border-radius: 16px !important;
+  background: #f8f8f6 !important;
+}
+
+.product-list-stats span {
+  display: block !important;
+  margin-bottom: 8px !important;
+  color: #5f6368 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.product-list-stats strong {
+  display: block !important;
+  color: #111111 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  line-height: 1.35 !important;
+}
+
+.product-list-footer {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-top: 16px !important;
+  padding-top: 16px !important;
+  border-top: 1px solid #eeeeeb !important;
+}
+
+.product-view-detail-btn {
+  flex: 0 0 auto !important;
+  border-color: rgba(255, 69, 0, 0.28) !important;
+}
+
+.product-view-detail-btn:hover {
+  background: rgba(255, 69, 0, 0.06) !important;
+  border-color: rgba(255, 69, 0, 0.38) !important;
+}
+
+/* Modal */
+.product-detail-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  background: rgba(17, 17, 17, 0.46) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.product-detail-modal {
+  width: min(980px, 100%) !important;
+  max-height: calc(100vh - 40px) !important;
+  overflow-y: auto !important;
+  border-radius: 26px !important;
+  border: 1px solid #e8e8e5 !important;
+  background: #ffffff !important;
+  box-shadow: 0 28px 90px rgba(17, 17, 17, 0.22) !important;
+  padding: 24px !important;
+  color: #111111 !important;
+}
+
+.product-detail-modal-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  gap: 20px !important;
+  padding-bottom: 18px !important;
+  margin-bottom: 18px !important;
+  border-bottom: 1px solid #eeeeeb !important;
+}
+
+.product-detail-modal-header span {
+  display: block !important;
+  margin-bottom: 8px !important;
+  color: #ff4500 !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.product-detail-modal-header h2 {
+  margin: 0 !important;
+  color: #111111 !important;
+  font-size: clamp(28px, 4vw, 44px) !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.055em !important;
+}
+
+.product-detail-modal-header p {
+  max-width: 680px !important;
+  margin: 10px 0 0 !important;
+  color: #4b5563 !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+.product-modal-close {
+  width: 42px !important;
+  height: 42px !important;
+  flex: 0 0 42px !important;
+  border-radius: 999px !important;
+  border: 1px solid #e8e8e5 !important;
+  background: #f7f7f5 !important;
+  color: #111111 !important;
+  cursor: pointer !important;
+  font-size: 28px !important;
+  line-height: 1 !important;
+}
+
+.product-modal-value-strip {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-bottom: 16px !important;
+}
+
+.product-modal-value-strip div {
+  padding: 16px !important;
+  border: 1px solid #e8e8e5 !important;
+  border-radius: 18px !important;
+  background: #f8f8f6 !important;
+}
+
+.product-modal-value-strip span,
+.product-editor-grid label span,
+.product-tag-controls label span {
+  display: block !important;
+  margin-bottom: 7px !important;
+  color: #5f6368 !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+
+.product-modal-value-strip strong {
+  display: block !important;
+  color: #111111 !important;
+  font-size: 24px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.04em !important;
+}
+
+.product-modal-grid {
+  margin-bottom: 16px !important;
+}
+
+.product-why-card {
+  border-color: rgba(255, 69, 0, 0.16) !important;
+  background: rgba(255, 69, 0, 0.04) !important;
+}
+
+.product-modal-actions,
+.product-export-options {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-top: 18px !important;
+}
+
+.product-editor-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+.product-editor-grid label,
+.product-tag-controls label {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.product-editor-grid input,
+.product-editor-grid textarea,
+.product-tag-controls input,
+.product-tag-controls select {
+  width: 100% !important;
+  border: 1px solid #deded9 !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  font-size: 14px !important;
+  font-weight: 650 !important;
+  line-height: 1.5 !important;
+  outline: none !important;
+  padding: 13px 14px !important;
+}
+
+.product-editor-grid input:focus,
+.product-editor-grid textarea:focus,
+.product-tag-controls input:focus,
+.product-tag-controls select:focus {
+  border-color: #ff4500 !important;
+  box-shadow: 0 0 0 4px rgba(255, 69, 0, 0.1) !important;
+}
+
+.product-editor-wide {
+  grid-column: 1 / -1 !important;
+}
+
+.product-tag-manager {
+  display: grid !important;
+  gap: 16px !important;
+}
+
+.product-tag-list.detail-tag-list span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.product-tag-list.detail-tag-list span button {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(17, 17, 17, 0.12) !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+}
+
+.product-tag-controls {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 12px !important;
+  align-items: end !important;
+}
+
+/* SKU highlight from Product Catalog */
+.sku-sheet-row.is-sku-product-highlight {
+  position: relative !important;
+  border-color: rgba(255, 69, 0, 0.42) !important;
+  background: rgba(255, 69, 0, 0.06) !important;
+  box-shadow:
+    0 0 0 4px rgba(255, 69, 0, 0.08),
+    0 16px 34px rgba(255, 69, 0, 0.08) !important;
+}
+
+@media (max-width: 980px) {
+  .product-list-main,
+  .product-modal-value-strip,
+  .product-editor-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .product-list-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .product-detail-backdrop {
+    align-items: flex-end !important;
+    padding: 10px !important;
+  }
+
+  .product-detail-modal {
+    max-height: calc(100vh - 20px) !important;
+    border-radius: 22px !important;
+    padding: 18px !important;
+  }
+
+  .product-list-main,
+  .product-list-stats,
+  .product-list-footer,
+  .product-modal-value-strip,
+  .product-editor-grid,
+  .product-tag-controls {
+    grid-template-columns: 1fr !important;
+  }
+
+  .product-list-footer {
+    display: grid !important;
+  }
+
+  .product-view-detail-btn,
+  .product-modal-actions button,
+  .product-export-options button,
+  .product-tag-controls button {
+    width: 100% !important;
+  }
+}
+
+/* =========================================================
+   PRODUCT CATALOG — CLEANER CARD VISUALS
+   Paste at the VERY END of globals.css
+========================================================= */
+
+/* 1) Product cards ko neutral banao */
+.product-list-card {
+  border: 1px solid #e8e8e5 !important;
+  border-left: 1px solid #e8e8e5 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* Previous tone borders remove */
+.product-list-card.rose,
+.product-list-card.amber,
+.product-list-card.emerald,
+.product-list-card.cyan,
+.product-list-card.indigo {
+  border-left: 1px solid #e8e8e5 !important;
+}
+
+/* 2) Heading ka weight kam karo */
+.product-list-main h3 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1.25 !important;
+  color: #111111 !important;
+}
+
+/* Subtitle / description ko clean rakho */
+.product-list-main p,
+.product-list-footer p {
+  color: #5f6368 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.55 !important;
+}
+
+/* 3) Right side value ko bhi thora lighter karo */
+.product-list-card .capture-value-stack strong {
+  font-size: 17px !important;
+  font-weight: 750 !important;
+  letter-spacing: -0.02em !important;
+  color: #111111 !important;
+}
+
+.product-list-card .capture-value-stack span {
+  color: #6b7280 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+/* 4) Stats boxes ke andar bold text kam karo */
+.product-list-stats strong {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  color: #111111 !important;
+}
+
+.product-list-stats span {
+  color: #6b7280 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* 5) Product type badge ko neutral karo */
+.product-list-card .badge,
+.product-list-card .mini-status,
+.product-list-card .queue-status-pill {
+  background: #f7f7f5 !important;
+  border: 1px solid #e5e7eb !important;
+  color: #4b5563 !important;
+  box-shadow: none !important;
+}
+
+/* Agar badge tone classes lagi hui hain to unko bhi neutral kar do */
+.product-list-card .badge.rose,
+.product-list-card .badge.amber,
+.product-list-card .badge.emerald,
+.product-list-card .badge.cyan,
+.product-list-card .badge.indigo,
+.product-list-card .mini-status.rose,
+.product-list-card .mini-status.amber,
+.product-list-card .mini-status.emerald,
+.product-list-card .mini-status.cyan,
+.product-list-card .mini-status.indigo {
+  background: #f7f7f5 !important;
+  border-color: #e5e7eb !important;
+  color: #4b5563 !important;
+}
+
+/* 6) Meta pills aur tags ko bhi neutral karo */
+.product-list-card .recovery-meta span,
+.product-list-card .product-tag-list span {
+  background: #f8f8f6 !important;
+  border: 1px solid #e6e6e2 !important;
+  color: #5f6368 !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+/* 7) Footer section zyada clean feel de */
+.product-list-footer {
+  border-top: 1px solid #eeeeeb !important;
+}
+
+/* 8) View details button subtle rakho */
+.product-view-detail-btn {
+  border: 1px solid #d9d9d5 !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+}
+
+.product-view-detail-btn:hover {
+  border-color: #cfcfc9 !important;
+  background: #f8f8f6 !important;
+  color: #111111 !important;
+}
+
+/* 9) Product stats boxes ko over-bold feel se bachao */
+.product-list-stats div {
+  background: #fafaf8 !important;
+  border: 1px solid #ecece8 !important;
+}
+
+/* 10) Agar modal ke andar bhi yehi heavy feel ho rahi hai to thora soften */
+.product-detail-modal .detail-grid strong,
+.product-detail-modal .product-modal-value-strip strong {
+  font-weight: 750 !important;
+}
+
+.product-detail-modal .detail-grid span,
+.product-detail-modal .product-modal-value-strip span {
+  color: #6b7280 !important;
+}
+
+/* =========================================================
+   SKU / VARIANT SHEET — WORKING EDITABLE SHEET SYSTEM
+========================================================= */
+
+.sku-toolbar-upgraded {
+  align-items: center !important;
+}
+
+.sku-unsaved-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 38px !important;
+  padding: 8px 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 69, 0, 0.22) !important;
+  background: rgba(255, 69, 0, 0.06) !important;
+  color: #ff4500 !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+  white-space: nowrap !important;
+}
+
+.sku-panel-upgraded {
+  overflow: hidden !important;
+}
+
+.sku-scroll-note {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-bottom: 14px !important;
+  padding: 14px 16px !important;
+  border: 1px solid rgba(255, 69, 0, 0.14) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 69, 0, 0.035) !important;
+}
+
+.sku-scroll-note div {
+  display: grid !important;
+  gap: 3px !important;
+}
+
+.sku-scroll-note strong {
+  color: #111111 !important;
+  font-size: 14px !important;
+  font-weight: 750 !important;
+}
+
+.sku-scroll-note span {
+  color: #5f6368 !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.sku-sheet-wrap-upgraded {
+  width: 100% !important;
+  max-height: calc(100vh - 360px) !important;
+  min-height: 420px !important;
+  overflow: auto !important;
+  overscroll-behavior: contain !important;
+  border: 1px solid #e8e8e5 !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  scrollbar-gutter: stable both-edges !important;
+}
+
+.sku-sheet-wrap-upgraded::-webkit-scrollbar {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+.sku-sheet-wrap-upgraded::-webkit-scrollbar-track {
+  background: #f1f1ef !important;
+  border-radius: 999px !important;
+}
+
+.sku-sheet-wrap-upgraded::-webkit-scrollbar-thumb {
+  background: #cfcfca !important;
+  border-radius: 999px !important;
+  border: 3px solid #f1f1ef !important;
+}
+
+.sku-sheet-wrap-upgraded::-webkit-scrollbar-thumb:hover {
+  background: #b8b8b2 !important;
+}
+
+.sku-sheet-upgraded {
+  min-width: 2180px !important;
+}
+
+.sku-sheet-upgraded .sku-sheet-row {
+  display: grid !important;
+  grid-template-columns:
+    150px
+    270px
+    180px
+    110px
+    170px
+    200px
+    130px
+    185px
+    220px
+    160px
+    220px
+    320px
+    135px
+    150px
+    150px
+    150px !important;
+  gap: 10px !important;
+  align-items: center !important;
+  min-width: 2180px !important;
+}
+
+.sku-sheet-upgraded .sku-sheet-head {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e8e8e5 !important;
+  box-shadow: 0 8px 16px rgba(17, 17, 17, 0.04) !important;
+}
+
+.sku-head-cell {
+  min-width: 0 !important;
+}
+
+.sku-column-label-btn {
+  width: 100% !important;
+  padding: 8px 4px !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #4b5563 !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+
+.sku-column-label-btn:hover {
+  background: rgba(255, 69, 0, 0.055) !important;
+  color: #111111 !important;
+}
+
+.sku-column-edit-input {
+  width: 100% !important;
+  padding: 8px 9px !important;
+  border: 1px solid rgba(255, 69, 0, 0.35) !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(255, 69, 0, 0.08) !important;
+}
+
+.sku-sheet-upgraded .sku-sheet-row input,
+.sku-sheet-upgraded .sku-sheet-row select {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 44px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  border: 1px solid #deded9 !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  font-size: 13px !important;
+  font-weight: 550 !important;
+  outline: none !important;
+  color-scheme: light !important;
+}
+
+.sku-sheet-upgraded .sku-sheet-row input:focus,
+.sku-sheet-upgraded .sku-sheet-row select:focus {
+  border-color: #ff4500 !important;
+  box-shadow: 0 0 0 4px rgba(255, 69, 0, 0.1) !important;
+}
+
+.sku-sheet-upgraded .sku-readonly {
+  color: #4b5563 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.sku-row-actions {
+  display: flex !important;
+  gap: 7px !important;
+  flex-wrap: nowrap !important;
+}
+
+.sku-row-actions button {
+  min-height: 34px !important;
+  padding: 8px 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  white-space: nowrap !important;
+}
+
+.sku-row-actions button:hover {
+  border-color: rgba(255, 69, 0, 0.3) !important;
+  background: rgba(255, 69, 0, 0.055) !important;
+}
+
+.sku-sheet-row.is-sku-product-highlight {
+  border-color: rgba(255, 69, 0, 0.42) !important;
+  background: rgba(255, 69, 0, 0.06) !important;
+  box-shadow:
+    inset 4px 0 0 #ff4500,
+    0 0 0 4px rgba(255, 69, 0, 0.08) !important;
+}
+
+.sku-selling-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.sku-modal-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 20px !important;
+  background: rgba(17, 17, 17, 0.46) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.sku-modal-card {
+  width: min(720px, 100%) !important;
+  max-height: calc(100vh - 40px) !important;
+  overflow-y: auto !important;
+  padding: 24px !important;
+  border-radius: 24px !important;
+  border: 1px solid #e8e8e5 !important;
+  background: #ffffff !important;
+  box-shadow: 0 28px 90px rgba(17, 17, 17, 0.22) !important;
+  color: #111111 !important;
+}
+
+.sku-modal-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  padding-bottom: 18px !important;
+  margin-bottom: 18px !important;
+  border-bottom: 1px solid #eeeeeb !important;
+}
+
+.sku-modal-header span {
+  display: block !important;
+  margin-bottom: 7px !important;
+  color: #ff4500 !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.sku-modal-header h2 {
+  margin: 0 !important;
+  color: #111111 !important;
+  font-size: 28px !important;
+  line-height: 1.1 !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.04em !important;
+}
+
+.sku-modal-header p {
+  margin: 8px 0 0 !important;
+  color: #5f6368 !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+
+.sku-modal-header button {
+  width: 40px !important;
+  height: 40px !important;
+  flex: 0 0 40px !important;
+  border-radius: 999px !important;
+  border: 1px solid #e8e8e5 !important;
+  background: #f8f8f6 !important;
+  color: #111111 !important;
+  cursor: pointer !important;
+  font-size: 26px !important;
+  line-height: 1 !important;
+}
+
+.sku-modal-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+.sku-modal-grid label {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.sku-modal-grid label span {
+  color: #5f6368 !important;
+  font-size: 11px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+}
+
+.sku-modal-grid input,
+.sku-modal-grid select {
+  width: 100% !important;
+  min-height: 44px !important;
+  padding: 11px 13px !important;
+  border-radius: 14px !important;
+  border: 1px solid #deded9 !important;
+  background: #ffffff !important;
+  color: #111111 !important;
+  outline: none !important;
+}
+
+.sku-modal-wide {
+  grid-column: 1 / -1 !important;
+}
+
+.sku-modal-note,
+.sku-save-warning {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+  margin-top: 16px !important;
+  padding: 14px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 69, 0, 0.16) !important;
+  background: rgba(255, 69, 0, 0.045) !important;
+}
+
+.sku-modal-note strong,
+.sku-save-warning strong {
+  color: #111111 !important;
+  font-size: 26px !important;
+  font-weight: 850 !important;
+}
+
+.sku-modal-note span,
+.sku-save-warning span {
+  color: #5f6368 !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.sku-modal-actions,
+.sku-export-options {
+  display: flex !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-top: 20px !important;
+  padding-top: 18px !important;
+  border-top: 1px solid #eeeeeb !important;
+}
+
+.sku-export-options {
+  justify-content: flex-start !important;
+}
+
+@media (max-width: 900px) {
+  .sku-toolbar-upgraded {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .sku-selling-summary {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sku-scroll-note {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .sku-sheet-wrap-upgraded {
+    max-height: calc(100vh - 300px) !important;
+  }
+
+  .sku-modal-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .sku-modal-backdrop {
+    align-items: flex-end !important;
+    padding: 10px !important;
+  }
+
+  .sku-modal-card {
+    max-height: calc(100vh - 20px) !important;
+    border-radius: 20px !important;
+    padding: 18px !important;
+  }
+
+  .sku-modal-actions,
+  .sku-export-options {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .sku-modal-actions button,
+  .sku-export-options button {
+    width: 100% !important;
+  }
+}

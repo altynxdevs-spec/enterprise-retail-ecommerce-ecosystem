@@ -11428,17 +11428,50 @@ if (selectedDetailSource) {
   );
 }
 
-function ProductCatalog() {
+function ProductCatalog({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [products, setProducts] = useState<ProductItem[]>(productItems);
   const [activeProductFilter, setActiveProductFilter] = useState<ProductCatalogFilter>("All");
-  const [selectedProductId, setSelectedProductId] = useState(productItems[0].id);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [productModalMode, setProductModalMode] = useState<"details" | "edit" | "tags" | "export" | null>(null);
   const [notice, setNotice] = useState("Product catalog is ready for recovery data cleanup.");
+
+  const [editDraft, setEditDraft] = useState({
+    productName: "",
+    productType: "",
+    category: "",
+    productFolder: "",
+    priceRange: "",
+    stockRestockStatus: "",
+    refillCycle: "",
+    recommendedProductAction: "",
+  });
+
+  const [selectedExistingTag, setSelectedExistingTag] = useState("");
+  const [newTagDraft, setNewTagDraft] = useState("");
 
   const filteredProducts = products.filter((product) =>
     matchesProductCatalogFilter(product, activeProductFilter),
   );
+
   const selectedProduct =
     products.find((product) => product.id === selectedProductId) ?? filteredProducts[0] ?? products[0];
+
+  const availableProductTags = Array.from(
+    new Set([
+      ...productTags.map((tag) => tag.tagName),
+      "Recovery Tag",
+      "Restock Waiting",
+      "Refill Reminder",
+      "High Ticket",
+      "Size / Fit",
+      "Review Opportunity",
+      "UGC Candidate",
+      "VIP",
+      "Second-Purchase Prompt",
+      "Sensitive Skin",
+      "Appointment Follow-up",
+    ]),
+  );
 
   const catalogKpis = useMemo<KPI[]>(() => {
     const activeSkus = products.filter((product) => product.active).reduce((total, product) => total + product.skuCount, 0);
@@ -11457,31 +11490,214 @@ function ProductCatalog() {
     ];
   }, [products]);
 
+  function openProductDetails(product: ProductItem) {
+    setSelectedProductId(product.id);
+    setProductModalMode("details");
+    setNotice(`Viewing recovery details for ${product.productName}.`);
+  }
+
+  function closeProductModal() {
+    setProductModalMode(null);
+    setSelectedExistingTag("");
+    setNewTagDraft("");
+  }
+
   function updateSelectedProduct(updates: Partial<ProductItem>, message: string) {
     const current = selectedProduct;
-    setProducts((items) => items.map((item) => (item.id === current.id ? { ...item, ...updates } : item)));
+
+    setProducts((items) =>
+      items.map((item) => (item.id === current.id ? { ...item, ...updates } : item)),
+    );
+
     setNotice(`${message} for ${current.productName}.`);
   }
 
-  function addRecoveryTag() {
-    const nextTags = selectedProduct.productTags.includes("Recovery Tag")
+  function openEditProduct() {
+    setEditDraft({
+      productName: selectedProduct.productName,
+      productType: selectedProduct.productType,
+      category: selectedProduct.category,
+      productFolder: selectedProduct.productFolder,
+      priceRange: selectedProduct.priceRange,
+      stockRestockStatus: selectedProduct.stockRestockStatus,
+      refillCycle: selectedProduct.refillCycle,
+      recommendedProductAction: selectedProduct.recommendedProductAction,
+    });
+
+    setProductModalMode("edit");
+  }
+
+  function saveProductEdit() {
+    const cleanedName = editDraft.productName.trim();
+
+    if (!cleanedName) {
+      setNotice("Product name cannot be empty.");
+      return;
+    }
+
+    updateSelectedProduct(
+      {
+        productName: cleanedName,
+        productType: editDraft.productType.trim() || selectedProduct.productType,
+        category: editDraft.category.trim() || selectedProduct.category,
+        productFolder: editDraft.productFolder.trim() || selectedProduct.productFolder,
+        priceRange: editDraft.priceRange.trim() || selectedProduct.priceRange,
+        stockRestockStatus: editDraft.stockRestockStatus.trim() || selectedProduct.stockRestockStatus,
+        refillCycle: editDraft.refillCycle.trim() || selectedProduct.refillCycle,
+        recommendedProductAction:
+          editDraft.recommendedProductAction.trim() || selectedProduct.recommendedProductAction,
+      },
+      "Product recovery data updated",
+    );
+
+    setProductModalMode("details");
+  }
+
+  function openTagManager() {
+    setSelectedExistingTag(availableProductTags[0] ?? "");
+    setNewTagDraft("");
+    setProductModalMode("tags");
+  }
+
+  function applyProductTag(tagName: string) {
+    const cleanedTag = tagName.trim();
+
+    if (!cleanedTag) {
+      setNotice("Add or select a valid recovery tag.");
+      return;
+    }
+
+    const nextTags = selectedProduct.productTags.includes(cleanedTag)
       ? selectedProduct.productTags
-      : [...selectedProduct.productTags, "Recovery Tag"];
-    updateSelectedProduct({ productTags: nextTags }, "Recovery tag added");
+      : [...selectedProduct.productTags, cleanedTag];
+
+    updateSelectedProduct({ productTags: nextTags }, `${cleanedTag} tag added`);
+    setNewTagDraft("");
+    setSelectedExistingTag(cleanedTag);
+  }
+
+  function removeProductTag(tagName: string) {
+    const nextTags = selectedProduct.productTags.filter((tag) => tag !== tagName);
+
+    updateSelectedProduct({ productTags: nextTags }, `${tagName} tag removed`);
   }
 
   function addToRestockRefillQueue() {
-    const queueTag = selectedProduct.refillCycle === "Not refill-led" ? "Restock Waiting" : "Refill Reminder";
+    const isRefillProduct = selectedProduct.refillCycle !== "Not refill-led" && selectedProduct.refillCycle !== "N/A";
+    const queueTag = isRefillProduct ? "Refill Reminder" : "Restock Waiting";
     const nextTags = selectedProduct.productTags.includes(queueTag)
       ? selectedProduct.productTags
       : [...selectedProduct.productTags, queueTag];
+
     updateSelectedProduct(
       {
         productTags: nextTags,
-        stockRestockStatus: selectedProduct.refillCycle === "Not refill-led" ? "Restock queue active" : "Refill queue active",
+        stockRestockStatus: isRefillProduct ? "Refill queue active" : "Restock queue active",
       },
-      "Restock/refill queue updated",
+      isRefillProduct ? "Added to refill queue" : "Added to restock queue",
     );
+
+    setProductModalMode("details");
+  }
+
+  function toggleSelectedProductActiveStatus() {
+  const nextActiveStatus = !selectedProduct.active;
+
+  updateSelectedProduct(
+    { active: nextActiveStatus },
+    nextActiveStatus ? "Product marked active" : "Product marked inactive",
+  );
+
+  setProductModalMode("details");
+}
+
+  function openSkuSheetForProduct() {
+    window.sessionStorage.setItem("altynx-highlight-product-name", selectedProduct.productName);
+    setNotice(`Opening SKU / Variant Sheet for ${selectedProduct.productName}.`);
+    onNavigate("SKU / Variant Sheet");
+  }
+
+  function downloadProductExport(format: "csv" | "xls") {
+    const safeName = selectedProduct.productName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+    if (format === "csv") {
+      const rows = [
+        ["Field", "Value"],
+        ["Product Name", selectedProduct.productName],
+        ["Industry Type", selectedProduct.industryType],
+        ["Product Type", selectedProduct.productType],
+        ["Category", selectedProduct.category],
+        ["Product Folder", selectedProduct.productFolder],
+        ["SKU Count", String(selectedProduct.skuCount)],
+        ["Price Range", selectedProduct.priceRange],
+        ["Stock / Restock Status", selectedProduct.stockRestockStatus],
+        ["Refill Cycle", selectedProduct.refillCycle],
+        ["Linked Demand", String(selectedProduct.linkedDemandCount)],
+        ["Open Recovery Value", selectedProduct.openRecoveryValue],
+        ["Recovered Value", selectedProduct.recoveredValue],
+        ["Active", selectedProduct.active ? "Yes" : "No"],
+        ["Recovery Tags", selectedProduct.productTags.join(", ")],
+        ["Recommended Product Action", selectedProduct.recommendedProductAction],
+      ];
+
+      const csv = rows
+        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+
+      downloadTextFile(`${safeName || "product"}-recovery-record.csv`, csv, "text/csv;charset=utf-8;");
+      setNotice(`CSV export prepared for ${selectedProduct.productName}.`);
+      return;
+    }
+
+    const tableHtml = `
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Product Name</td><td>${selectedProduct.productName}</td></tr>
+        <tr><td>Industry Type</td><td>${selectedProduct.industryType}</td></tr>
+        <tr><td>Product Type</td><td>${selectedProduct.productType}</td></tr>
+        <tr><td>Category</td><td>${selectedProduct.category}</td></tr>
+        <tr><td>Product Folder</td><td>${selectedProduct.productFolder}</td></tr>
+        <tr><td>SKU Count</td><td>${selectedProduct.skuCount}</td></tr>
+        <tr><td>Price Range</td><td>${selectedProduct.priceRange}</td></tr>
+        <tr><td>Stock / Restock Status</td><td>${selectedProduct.stockRestockStatus}</td></tr>
+        <tr><td>Refill Cycle</td><td>${selectedProduct.refillCycle}</td></tr>
+        <tr><td>Linked Demand</td><td>${selectedProduct.linkedDemandCount}</td></tr>
+        <tr><td>Open Recovery Value</td><td>${selectedProduct.openRecoveryValue}</td></tr>
+        <tr><td>Recovered Value</td><td>${selectedProduct.recoveredValue}</td></tr>
+        <tr><td>Active</td><td>${selectedProduct.active ? "Yes" : "No"}</td></tr>
+        <tr><td>Recovery Tags</td><td>${selectedProduct.productTags.join(", ")}</td></tr>
+        <tr><td>Recommended Product Action</td><td>${selectedProduct.recommendedProductAction}</td></tr>
+      </table>
+    `;
+
+    downloadTextFile(
+      `${safeName || "product"}-recovery-record.xls`,
+      tableHtml,
+      "application/vnd.ms-excel;charset=utf-8;",
+    );
+
+    setNotice(`XLS export prepared for ${selectedProduct.productName}.`);
+  }
+
+  function downloadTextFile(filename: string, content: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function getProductRecoveryReason(product: ProductItem) {
+    if (product.industryType === "Beauty / Skincare") {
+      return "This product powers refill timing, routine follow-up, sensitive-skin questions, bundle recovery, and repeat revenue prompts.";
+    }
+
+    return "This product powers size/fit recovery, restock demand, new drop follow-up, appointment-led selling, and post-purchase actions.";
   }
 
   return (
@@ -11505,160 +11721,562 @@ function ProductCatalog() {
             </button>
           ))}
         </div>
+
         <Badge tone="cyan">{filteredProducts.length} products</Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Product Catalog</h2>
-              <p>Products connected to demand, restock interest, refill timing, recovery value, and recovered revenue.</p>
-            </div>
-            <Badge tone="emerald">Product data layer</Badge>
+      <section className="glass-card panel-card product-catalog-list-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Product Catalog</h2>
+            <p>
+              Product records connected to demand, restock interest, refill timing, recovery value, and recovered
+              revenue.
+            </p>
           </div>
+          <Badge tone="emerald">Product data layer</Badge>
+        </div>
 
-          <div className="capture-card-list">
-            {filteredProducts.map((product) => (
-              <button
-                className={`product-card inquiry-button ${product.tone} ${
-                  selectedProduct.id === product.id ? "selected" : ""
-                }`}
-                key={product.id}
-                onClick={() => setSelectedProductId(product.id)}
-                type="button"
-              >
-                <div className="capture-card-main buyer-card-main">
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{product.productName}</h3>
-                      <Badge tone={product.tone}>{product.industryType}</Badge>
-                    </div>
-                    <p>{product.productType} - {product.category} - {product.productFolder}</p>
-                    <div className="recovery-meta">
-                      <span>{product.skuCount} SKUs</span>
-                      <span>{product.priceRange}</span>
-                      <span>{product.stockRestockStatus}</span>
-                      <span>{product.refillCycle}</span>
-                    </div>
-                    <div className="product-tag-list">
-                      {product.productTags.slice(0, 4).map((tag) => (
-                        <span key={tag}>{tag}</span>
-                      ))}
-                    </div>
+        <div className="product-list-view">
+          {filteredProducts.map((product) => (
+            <article className={`product-list-card ${product.tone}`} key={product.id}>
+              <div className="product-list-main">
+                <div>
+                  <div className="recovery-row-title">
+                    <h3>{product.productName}</h3>
+                    <Badge tone={product.tone}>{product.industryType}</Badge>
+                    <span className="queue-status-pill">{product.active ? "Active" : "Inactive"}</span>
                   </div>
-                  <div className="capture-value-stack">
-                    <strong>{product.openRecoveryValue}</strong>
+
+                  <p>{product.productType} - {product.category} - {product.productFolder}</p>
+
+                  <div className="recovery-meta">
+                    <span>{product.skuCount} SKUs</span>
+                    <span>{product.priceRange}</span>
+                    <span>{product.stockRestockStatus}</span>
+                    <span>{product.refillCycle}</span>
                     <span>{product.linkedDemandCount} linked demand</span>
+                  </div>
+
+                  <div className="product-tag-list">
+                    {product.productTags.slice(0, 5).map((tag) => (
+                      <span key={tag}>{tag}</span>
+                    ))}
                   </div>
                 </div>
 
-                <div className="capture-stat-grid source-stat-grid">
+                <div className="capture-value-stack">
+                  <strong>{product.openRecoveryValue}</strong>
+                  <span>open recovery value</span>
+                </div>
+              </div>
+
+              <div className="product-list-stats">
+                <div>
+                  <span>Recovered value</span>
+                  <strong>{product.recoveredValue}</strong>
+                </div>
+                <div>
+                  <span>Stock / restock</span>
+                  <strong>{product.stockRestockStatus}</strong>
+                </div>
+                <div>
+                  <span>Refill cycle</span>
+                  <strong>{product.refillCycle}</strong>
+                </div>
+                <div>
+                  <span>Recovery use</span>
+                  <strong>{product.industryType === "Beauty / Skincare" ? "Repeat revenue" : "Demand recovery"}</strong>
+                </div>
+              </div>
+
+              <div className="product-list-footer">
+                <p>{getProductRecoveryReason(product)}</p>
+
+                <button type="button" className="secondary-btn product-view-detail-btn" onClick={() => openProductDetails(product)}>
+                  View Details
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <p className="detail-notice capture-page-notice">{notice}</p>
+      </section>
+
+      {productModalMode ? (
+        <div className="product-detail-backdrop" role="presentation" onClick={closeProductModal}>
+          <article
+            aria-labelledby="product-detail-title"
+            aria-modal="true"
+            className="product-detail-modal"
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="product-detail-modal-header">
+              <div>
+                <span>Product recovery record</span>
+                <h2 id="product-detail-title">{selectedProduct.productName}</h2>
+                <p>
+                  {selectedProduct.productType} connected to demand, SKU context, refill/restock logic, recovery value,
+                  and recovered revenue.
+                </p>
+              </div>
+
+              <button type="button" className="product-modal-close" onClick={closeProductModal}>
+                ×
+              </button>
+            </div>
+
+            {productModalMode === "details" ? (
+              <>
+                <div className="product-modal-value-strip">
+                  <div>
+                    <span>Open recovery value</span>
+                    <strong>{selectedProduct.openRecoveryValue}</strong>
+                  </div>
                   <div>
                     <span>Recovered value</span>
-                    <strong>{product.recoveredValue}</strong>
+                    <strong>{selectedProduct.recoveredValue}</strong>
+                  </div>
+                  <div>
+                    <span>Linked demand</span>
+                    <strong>{selectedProduct.linkedDemandCount}</strong>
+                  </div>
+                  <div>
+                    <span>SKU count</span>
+                    <strong>{selectedProduct.skuCount}</strong>
+                  </div>
+                </div>
+
+                <div className="detail-grid product-modal-grid">
+                  <div>
+                    <span>Category</span>
+                    <strong>{selectedProduct.category}</strong>
+                  </div>
+                  <div>
+                    <span>Product folder</span>
+                    <strong>{selectedProduct.productFolder}</strong>
+                  </div>
+                  <div>
+                    <span>Price range</span>
+                    <strong>{selectedProduct.priceRange}</strong>
                   </div>
                   <div>
                     <span>Stock / restock</span>
-                    <strong>{product.stockRestockStatus}</strong>
+                    <strong>{selectedProduct.stockRestockStatus}</strong>
                   </div>
                   <div>
                     <span>Refill cycle</span>
-                    <strong>{product.refillCycle}</strong>
+                    <strong>{selectedProduct.refillCycle}</strong>
                   </div>
                   <div>
                     <span>Status</span>
-                    <strong>{product.active ? "Active" : "Inactive"}</strong>
+                    <strong>{selectedProduct.active ? "Active" : "Inactive"}</strong>
                   </div>
                 </div>
-              </button>
-            ))}
-          </div>
-        </article>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div>
-              <h2>{selectedProduct.productName}</h2>
-              <p>{selectedProduct.productType}</p>
-            </div>
-            <strong>{selectedProduct.openRecoveryValue}</strong>
-          </div>
+                <div className="detail-callout">
+                  <span>Recommended product action</span>
+                  <p>{selectedProduct.recommendedProductAction}</p>
+                </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Category</span>
-              <strong>{selectedProduct.category}</strong>
-            </div>
-            <div>
-              <span>Product folder</span>
-              <strong>{selectedProduct.productFolder}</strong>
-            </div>
-            <div>
-              <span>SKU count</span>
-              <strong>{selectedProduct.skuCount}</strong>
-            </div>
-            <div>
-              <span>Price range</span>
-              <strong>{selectedProduct.priceRange}</strong>
-            </div>
-            <div>
-              <span>Linked demand</span>
-              <strong>{selectedProduct.linkedDemandCount}</strong>
-            </div>
-            <div>
-              <span>Recovered value</span>
-              <strong>{selectedProduct.recoveredValue}</strong>
-            </div>
-          </div>
+                <div className="detail-callout product-why-card">
+                  <span>Why this product record matters</span>
+                  <p>{getProductRecoveryReason(selectedProduct)}</p>
+                </div>
 
-          <div className="detail-callout">
-            <span>Recommended product action</span>
-            <p>{selectedProduct.recommendedProductAction}</p>
-          </div>
+                <div className="product-tag-list detail-tag-list">
+                  {selectedProduct.productTags.map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
 
-          <div className="product-tag-list detail-tag-list">
-            {selectedProduct.productTags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </div>
+                <p className="detail-notice">{notice}</p>
 
-          <p className="detail-notice">{notice}</p>
+                <div className="product-modal-actions">
+                  <button type="button" className="primary-btn" onClick={openSkuSheetForProduct}>
+                    Open SKU sheet
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={openEditProduct}>
+                    Edit product
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={openTagManager}>
+                    Add tag
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={addToRestockRefillQueue}>
+                    {selectedProduct.stockRestockStatus.toLowerCase().includes("queue")
+                      ? "Added to restock/refill queue"
+                      : "Add to restock/refill queue"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={toggleSelectedProductActiveStatus}>
+  {selectedProduct.active ? "Mark inactive" : "Mark active"}
+</button>
+                  <button type="button" className="secondary-btn" onClick={() => setProductModalMode("export")}>
+                    Export product
+                  </button>
+                </div>
+              </>
+            ) : null}
 
-          <div className="detail-actions">
-            <button type="button" className="primary-btn">Open SKU sheet</button>
-            <button type="button" className="secondary-btn">Edit product</button>
-            <button type="button" className="secondary-btn" onClick={addRecoveryTag}>Add tag</button>
-            <button type="button" className="secondary-btn" onClick={addToRestockRefillQueue}>
-              Add to restock/refill queue
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedProduct({ active: false }, "Product marked inactive")}
-            >
-              Mark inactive
-            </button>
-            <button type="button" className="secondary-btn">Export product</button>
-          </div>
-        </aside>
-      </section>
+            {productModalMode === "edit" ? (
+              <div className="product-edit-form">
+                <div className="product-editor-grid">
+                  <label>
+                    <span>Product name</span>
+                    <input
+                      value={editDraft.productName}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, productName: event.target.value }))}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Product type</span>
+                    <input
+                      value={editDraft.productType}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, productType: event.target.value }))}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Category</span>
+                    <input
+                      value={editDraft.category}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, category: event.target.value }))}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Product folder</span>
+                    <input
+                      value={editDraft.productFolder}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, productFolder: event.target.value }))}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Price range</span>
+                    <input
+                      value={editDraft.priceRange}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, priceRange: event.target.value }))}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Stock / restock status</span>
+                    <input
+                      value={editDraft.stockRestockStatus}
+                      onChange={(event) =>
+                        setEditDraft((draft) => ({ ...draft, stockRestockStatus: event.target.value }))
+                      }
+                    />
+                  </label>
+
+                  <label>
+                    <span>Refill cycle</span>
+                    <input
+                      value={editDraft.refillCycle}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, refillCycle: event.target.value }))}
+                    />
+                  </label>
+
+                  <label className="product-editor-wide">
+                    <span>Recommended product action</span>
+                    <textarea
+                      value={editDraft.recommendedProductAction}
+                      onChange={(event) =>
+                        setEditDraft((draft) => ({ ...draft, recommendedProductAction: event.target.value }))
+                      }
+                      rows={4}
+                    />
+                  </label>
+                </div>
+
+                <div className="product-modal-actions">
+                  <button type="button" className="secondary-btn" onClick={() => setProductModalMode("details")}>
+                    Cancel
+                  </button>
+                  <button type="button" className="primary-btn" onClick={saveProductEdit}>
+                    Save product
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {productModalMode === "tags" ? (
+              <div className="product-tag-manager">
+                <div className="detail-callout">
+                  <span>Current recovery tags</span>
+                  <p>
+                    Tags should support recovery logic, not generic organization. Use tags for refill, restock,
+                    size/fit, UGC, review, VIP, sensitive skin, and appointment-led recovery.
+                  </p>
+                </div>
+
+                <div className="product-tag-list detail-tag-list">
+                  {selectedProduct.productTags.map((tag) => (
+                    <span key={tag}>
+                      {tag}
+                      <button type="button" onClick={() => removeProductTag(tag)} aria-label={`Remove ${tag}`}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                <div className="product-tag-controls">
+                  <label>
+                    <span>Apply existing recovery tag</span>
+                    <select
+                      value={selectedExistingTag}
+                      onChange={(event) => setSelectedExistingTag(event.target.value)}
+                    >
+                      {availableProductTags.map((tag) => (
+                        <option key={tag}>{tag}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button type="button" className="primary-btn" onClick={() => applyProductTag(selectedExistingTag)}>
+                    Apply tag
+                  </button>
+                </div>
+
+                <div className="product-tag-controls">
+                  <label>
+                    <span>Create and apply new tag</span>
+                    <input
+                      value={newTagDraft}
+                      onChange={(event) => setNewTagDraft(event.target.value)}
+                      placeholder="Example: Bridal Follow-up"
+                    />
+                  </label>
+
+                  <button type="button" className="secondary-btn" onClick={() => applyProductTag(newTagDraft)}>
+                    Add new tag
+                  </button>
+                </div>
+
+                <div className="product-modal-actions">
+                  <button type="button" className="secondary-btn" onClick={() => setProductModalMode("details")}>
+                    Back to details
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {productModalMode === "export" ? (
+              <div className="product-export-panel">
+                <div className="detail-callout">
+                  <span>Export product recovery record</span>
+                  <p>
+                    Export this product with recovery fields: demand value, recovered value, SKU count, restock/refill
+                    status, product tags, and recommended recovery action.
+                  </p>
+                </div>
+
+                <div className="product-export-options">
+                  <button type="button" className="primary-btn" onClick={() => downloadProductExport("csv")}>
+                    Export as CSV
+                  </button>
+
+                  <button type="button" className="secondary-btn" onClick={() => downloadProductExport("xls")}>
+                    Export as XLSX
+                  </button>
+                </div>
+
+                <div className="product-modal-actions">
+                  <button type="button" className="secondary-btn" onClick={() => setProductModalMode("details")}>
+                    Back to details
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function SKUVariantSheet() {
+  type SkuColumnKey =
+    | "sku"
+    | "productName"
+    | "variant"
+    | "size"
+    | "colorShade"
+    | "category"
+    | "price"
+    | "stockStatus"
+    | "restockStatus"
+    | "refillCycle"
+    | "productFolder"
+    | "tags"
+    | "linkedDemand"
+    | "recoveryValue"
+    | "lastUpdated"
+    | "actions";
+
+  const draftStorageKey = "altynx-sku-sheet-draft";
+  const columnDraftStorageKey = "altynx-sku-column-label-draft";
+
+  const defaultColumnLabels: Record<SkuColumnKey, string> = {
+    sku: "SKU",
+    productName: "Product name",
+    variant: "Variant",
+    size: "Size",
+    colorShade: "Color/Shade",
+    category: "Category",
+    price: "Price",
+    stockStatus: "Stock status",
+    restockStatus: "Restock status",
+    refillCycle: "Refill cycle",
+    productFolder: "Product folder",
+    tags: "Tags",
+    linkedDemand: "Linked demand",
+    recoveryValue: "Recovery value",
+    lastUpdated: "Last updated",
+    actions: "Actions",
+  };
+
+  const skuColumnKeys: SkuColumnKey[] = [
+    "sku",
+    "productName",
+    "variant",
+    "size",
+    "colorShade",
+    "category",
+    "price",
+    "stockStatus",
+    "restockStatus",
+    "refillCycle",
+    "productFolder",
+    "tags",
+    "linkedDemand",
+    "recoveryValue",
+    "lastUpdated",
+    "actions",
+  ];
+
+  const recoveryTagOptions = [
+    "High Intent",
+    "Refill Product",
+    "Restock Product",
+    "Restock Waiting",
+    "Size / Fit",
+    "Sensitive Skin",
+    "Bridal / High Ticket",
+    "VIP",
+    "UGC Candidate",
+    "Review Candidate",
+    "Payment Pending",
+    "New Drop",
+    "Second-Purchase Prompt",
+  ];
+
   const [rows, setRows] = useState<SKUVariant[]>(skuVariants);
+  const [savedRows, setSavedRows] = useState<SKUVariant[]>(skuVariants);
   const [activeSkuFilter, setActiveSkuFilter] = useState<SKUVariantFilter>("All");
+  const [highlightedProductName, setHighlightedProductName] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [notice, setNotice] = useState(
+    "SKU sheet is ready. Clean product data powers refill, restock, demand, and recovery workflows.",
+  );
+
+  const [columnLabels, setColumnLabels] = useState<Record<SkuColumnKey, string>>(defaultColumnLabels);
+  const [editingColumnKey, setEditingColumnKey] = useState<SkuColumnKey | null>(null);
+  const [editingColumnDraft, setEditingColumnDraft] = useState("");
+
+  const [isBulkTagOpen, setIsBulkTagOpen] = useState(false);
+  const [bulkTagScope, setBulkTagScope] = useState<"filtered" | "all" | "missing">("filtered");
+  const [bulkTagValue, setBulkTagValue] = useState(recoveryTagOptions[0]);
+  const [bulkNewTagDraft, setBulkNewTagDraft] = useState("");
+
+  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const filteredRows = rows.filter((row) => matchesSKUVariantFilter(row, activeSkuFilter));
+
+  useEffect(() => {
+    const savedDraft = window.localStorage.getItem(draftStorageKey);
+    const savedColumnDraft = window.localStorage.getItem(columnDraftStorageKey);
+
+    if (savedColumnDraft) {
+      try {
+        setColumnLabels({
+          ...defaultColumnLabels,
+          ...JSON.parse(savedColumnDraft),
+        });
+      } catch {
+        window.localStorage.removeItem(columnDraftStorageKey);
+      }
+    }
+
+    if (savedDraft) {
+      const shouldRestore = window.confirm("You have an unsaved SKU sheet draft. Restore it?");
+
+      if (shouldRestore) {
+        try {
+          const parsedRows = JSON.parse(savedDraft) as SKUVariant[];
+          setRows(parsedRows);
+          setHasUnsavedChanges(true);
+          setNotice("Unsaved SKU draft restored. Review it, then save changes.");
+        } catch {
+          window.localStorage.removeItem(draftStorageKey);
+        }
+      }
+    }
+
+    const productNameToHighlight = window.sessionStorage.getItem("altynx-highlight-product-name");
+
+    if (productNameToHighlight) {
+      setHighlightedProductName(productNameToHighlight);
+      setActiveSkuFilter("All");
+      window.sessionStorage.removeItem("altynx-highlight-product-name");
+
+      window.setTimeout(() => {
+        const highlightedRow = document.querySelector(`[data-sku-product-name="${productNameToHighlight}"]`);
+
+        highlightedRow?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "center",
+        });
+      }, 120);
+
+      window.setTimeout(() => {
+        setHighlightedProductName("");
+      }, 2600);
+    }
+  }, []);
+
+  useEffect(() => {
+    function warnBeforeLeaving(event: BeforeUnloadEvent) {
+      if (!hasUnsavedChanges) return;
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+
+    return () => {
+      window.removeEventListener("beforeunload", warnBeforeLeaving);
+    };
+  }, [hasUnsavedChanges]);
 
   const skuKpis = useMemo<KPI[]>(() => {
     const missingData = rows.filter((row) => !row.sku || !row.category || !row.tags).length;
     const variantsNeedingTags = rows.filter((row) => !row.tags).length;
     const restockWaiting = rows.filter((row) => row.restockStatus.toLowerCase().includes("restock")).length;
-    const refillSkus = rows.filter((row) => row.refillCycle !== "N/A").length;
-    const recentlyUpdated = rows.filter((row) => row.lastUpdated.toLowerCase().includes("today")).length;
+    const refillSkus = rows.filter((row) => row.refillCycle !== "N/A" && row.refillCycle !== "Not refill-led").length;
+    const recentlyUpdated = rows.filter(
+      (row) =>
+        row.lastUpdated.toLowerCase().includes("today") ||
+        row.lastUpdated.toLowerCase().includes("now") ||
+        row.lastUpdated.toLowerCase().includes("saved"),
+    ).length;
 
     return [
       { label: "Total SKU Rows", value: `${rows.length}`, caption: "Editable SKU control", tone: "cyan" },
@@ -11670,70 +12288,328 @@ function SKUVariantSheet() {
     ];
   }, [rows]);
 
-  function updateSkuField(
-    id: string,
-    field: "productName" | "category" | "price" | "stockStatus" | "tags",
-    value: string,
-  ) {
-    setRows((items) =>
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              [field]: value,
-              lastUpdated: "Edited now",
-            }
-          : item,
-      ),
+  function saveDraft(rowsToSave: SKUVariant[], labelsToSave = columnLabels) {
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(rowsToSave));
+    window.localStorage.setItem(columnDraftStorageKey, JSON.stringify(labelsToSave));
+  }
+
+  function updateRowsWithDraft(updater: (current: SKUVariant[]) => SKUVariant[], message: string) {
+    setRows((current) => {
+      const nextRows = updater(current);
+      saveDraft(nextRows);
+      return nextRows;
+    });
+
+    setHasUnsavedChanges(true);
+    setNotice(message);
+  }
+
+  function updateSkuField<K extends keyof SKUVariant>(id: string, field: K, value: SKUVariant[K]) {
+    updateRowsWithDraft(
+      (items) =>
+        items.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                [field]: value,
+                lastUpdated: "Edited now",
+              }
+            : item,
+        ),
+      "SKU row edited. Unsaved changes are stored as a draft.",
     );
   }
 
+  function updateSkuStockStatus(id: string, value: string) {
+    updateRowsWithDraft(
+      (items) =>
+        items.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                stockStatus: value,
+                active: value !== "Inactive",
+                lastUpdated: "Edited now",
+              }
+            : item,
+        ),
+      "Stock status updated. Recovery filters will use this status.",
+    );
+  }
+
+  function changeSkuFilter(filter: SKUVariantFilter) {
+    if (hasUnsavedChanges) {
+      const shouldContinue = window.confirm(
+        "You have unsaved SKU changes. Continue changing filters? Your draft will stay saved.",
+      );
+
+      if (!shouldContinue) return;
+    }
+
+    setActiveSkuFilter(filter);
+  }
+
   function addSkuRow() {
-    setRows((items) => [
-      {
-        id: `SKU-${1700 + items.length}`,
-        sku: "",
-        productName: "New product row",
-        variant: "New variant",
-        size: "",
-        colorShade: "",
-        category: "",
-        price: "",
-        stockStatus: "Active",
-        restockStatus: "Needs review",
-        refillCycle: "N/A",
-        productFolder: "New Arrivals",
-        tags: "",
-        linkedDemand: 0,
-        recoveryValue: "$0",
-        lastUpdated: "Added now",
-        industryType: "Fashion / Apparel",
-        fitType: "",
-        skinConcern: "",
-        routineStep: "",
-        bundleEligibility: "",
-        sensitiveSkinFlag: "",
-        active: true,
-        tone: "cyan",
-      },
-      ...items,
-    ]);
+    updateRowsWithDraft(
+      (items) => [
+        {
+          id: `SKU-${1700 + items.length}`,
+          sku: "",
+          productName: "New product row",
+          variant: "New variant",
+          size: "",
+          colorShade: "",
+          category: "",
+          price: "",
+          stockStatus: "Active",
+          restockStatus: "Needs review",
+          refillCycle: "N/A",
+          productFolder: "New Arrivals",
+          tags: "",
+          linkedDemand: 0,
+          recoveryValue: "$0",
+          lastUpdated: "Added now",
+          industryType: "Fashion / Apparel",
+          fitType: "",
+          skinConcern: "",
+          routineStep: "",
+          bundleEligibility: "",
+          sensitiveSkinFlag: "",
+          active: true,
+          tone: "cyan",
+        },
+        ...items,
+      ],
+      "New SKU row added. Fill category, price, tags, and recovery value before saving.",
+    );
   }
 
   function duplicateSkuRow(row: SKUVariant) {
-    setRows((items) => [
-      {
-        ...row,
-        id: `${row.id}-copy-${items.length}`,
-        sku: `${row.sku || "NEW-SKU"}-COPY`,
-        lastUpdated: "Duplicated now",
-      },
-      ...items,
-    ]);
+    updateRowsWithDraft(
+      (items) => [
+        {
+          ...row,
+          id: `${row.id}-copy-${items.length}`,
+          sku: `${row.sku || "NEW-SKU"}-COPY`,
+          lastUpdated: "Duplicated now",
+        },
+        ...items,
+      ],
+      `${row.productName} duplicated for SKU cleanup.`,
+    );
   }
 
   function deleteSkuRow(id: string) {
-    setRows((items) => items.filter((item) => item.id !== id));
+    const shouldDelete = window.confirm("Delete this SKU row from the editable draft?");
+
+    if (!shouldDelete) return;
+
+    updateRowsWithDraft((items) => items.filter((item) => item.id !== id), "SKU row deleted from draft.");
+  }
+
+  function startEditingColumn(key: SkuColumnKey) {
+    if (key === "actions") return;
+
+    setEditingColumnKey(key);
+    setEditingColumnDraft(columnLabels[key]);
+  }
+
+  function saveColumnLabel() {
+    if (!editingColumnKey) return;
+
+    const cleanedLabel = editingColumnDraft.trim();
+
+    if (!cleanedLabel) {
+      setEditingColumnKey(null);
+      setEditingColumnDraft("");
+      return;
+    }
+
+    setColumnLabels((current) => {
+      const nextLabels = {
+        ...current,
+        [editingColumnKey]: cleanedLabel,
+      };
+
+      saveDraft(rows, nextLabels);
+      return nextLabels;
+    });
+
+    setHasUnsavedChanges(true);
+    setNotice("Column label renamed. Save changes when ready.");
+    setEditingColumnKey(null);
+    setEditingColumnDraft("");
+  }
+
+  function appendTag(currentTags: string, tag: string) {
+    const existingTags = currentTags
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (existingTags.includes(tag)) return existingTags.join(", ");
+
+    return [...existingTags, tag].join(", ");
+  }
+
+  function getBulkTargetRows() {
+    if (bulkTagScope === "all") return rows;
+    if (bulkTagScope === "missing") return rows.filter((row) => !row.tags.trim());
+
+    return filteredRows;
+  }
+
+  function applyBulkTag() {
+    const cleanedTag = (bulkNewTagDraft.trim() || bulkTagValue.trim()).trim();
+
+    if (!cleanedTag) {
+      setNotice("Choose or create a recovery tag before applying bulk tag.");
+      return;
+    }
+
+    const targetRowIds = new Set(getBulkTargetRows().map((row) => row.id));
+
+    updateRowsWithDraft(
+      (items) =>
+        items.map((item) =>
+          targetRowIds.has(item.id)
+            ? {
+                ...item,
+                tags: appendTag(item.tags, cleanedTag),
+                restockStatus: cleanedTag.toLowerCase().includes("restock")
+                  ? "Restock waiting"
+                  : item.restockStatus,
+                refillCycle:
+                  cleanedTag.toLowerCase().includes("refill") && item.refillCycle === "N/A"
+                    ? "60 days"
+                    : item.refillCycle,
+                lastUpdated: "Bulk tagged now",
+              }
+            : item,
+        ),
+      `${cleanedTag} applied to ${targetRowIds.size} SKU rows.`,
+    );
+
+    setBulkNewTagDraft("");
+    setIsBulkTagOpen(false);
+  }
+
+  function saveConfirmedChanges() {
+    const savedNow = rows.map((row) => ({
+      ...row,
+      lastUpdated: row.lastUpdated.toLowerCase().includes("now") ? "Saved now" : row.lastUpdated,
+    }));
+
+    setRows(savedNow);
+    setSavedRows(savedNow);
+    setHasUnsavedChanges(false);
+    setIsSaveConfirmOpen(false);
+    window.localStorage.removeItem(draftStorageKey);
+    window.localStorage.removeItem(columnDraftStorageKey);
+    setNotice("SKU changes saved. Product recovery data is ready for refill, restock, and demand workflows.");
+  }
+
+  function keepDraftOnly() {
+    saveDraft(rows);
+    setIsSaveConfirmOpen(false);
+    setNotice("Draft saved locally. Changes are not finalized yet.");
+  }
+
+  function discardDraftChanges() {
+    const shouldDiscard = window.confirm("Discard unsaved SKU changes? Your current draft will be removed.");
+
+    if (!shouldDiscard) return;
+
+    setRows(savedRows);
+    setHasUnsavedChanges(false);
+    setIsSaveConfirmOpen(false);
+    window.localStorage.removeItem(draftStorageKey);
+    setNotice("Unsaved SKU draft discarded.");
+  }
+
+  function escapeCsv(value: string | number | boolean) {
+    return `"${String(value).replace(/"/g, '""')}"`;
+  }
+
+  function escapeHtml(value: string | number | boolean) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function downloadTextFile(filename: string, content: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadSkuSheetExport(format: "csv" | "xlsx") {
+    const rowsToExport = filteredRows;
+    const exportColumns = skuColumnKeys.filter((key) => key !== "actions");
+
+    if (format === "csv") {
+      const csv = [
+        exportColumns.map((key) => escapeCsv(columnLabels[key])).join(","),
+        ...rowsToExport.map((row) =>
+          exportColumns
+            .map((key) => escapeCsv(row[key as keyof SKUVariant] ?? ""))
+            .join(","),
+        ),
+      ].join("\n");
+
+      downloadTextFile("altynx-sku-variant-recovery-sheet.csv", csv, "text/csv;charset=utf-8;");
+      setNotice("CSV export downloaded for visible SKU recovery rows.");
+      setIsExportOpen(false);
+      return;
+    }
+
+    const tableRows = rowsToExport
+      .map(
+        (row) => `
+          <tr>
+            ${exportColumns
+              .map((key) => `<td>${escapeHtml(row[key as keyof SKUVariant] ?? "")}</td>`)
+              .join("")}
+          </tr>
+        `,
+      )
+      .join("");
+
+    const workbookHtml = `
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+        </head>
+        <body>
+          <h2>Altynx SKU / Variant Recovery Sheet</h2>
+          <p>Exported fields support product demand, restock, refill, recovery tags, and revenue reporting.</p>
+          <table border="1">
+            <thead>
+              <tr>${exportColumns.map((key) => `<th>${escapeHtml(columnLabels[key])}</th>`).join("")}</tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    downloadTextFile(
+      "altynx-sku-variant-recovery-sheet.xlsx",
+      workbookHtml,
+      "application/vnd.ms-excel;charset=utf-8;",
+    );
+
+    setNotice("XLSX export downloaded for visible SKU recovery rows.");
+    setIsExportOpen(false);
   }
 
   return (
@@ -11744,60 +12620,117 @@ function SKUVariantSheet() {
         ))}
       </section>
 
-      <section className="queue-toolbar">
+      <section className="queue-toolbar sku-toolbar-upgraded">
         <div className="queue-tabs" aria-label="SKU sheet filters">
           {skuVariantFilters.map((filter) => (
             <button
               className={`queue-tab ${activeSkuFilter === filter ? "active" : ""}`}
               key={filter}
-              onClick={() => setActiveSkuFilter(filter)}
+              onClick={() => changeSkuFilter(filter)}
               type="button"
             >
               {filter}
             </button>
           ))}
         </div>
+
         <div className="capture-actions sheet-actions">
-          <button type="button" className="primary-btn" onClick={addSkuRow}>Add row</button>
-          <button type="button" className="secondary-btn">Bulk tag</button>
-          <button type="button" className="secondary-btn">Save changes</button>
-          <button type="button" className="secondary-btn">Export sheet</button>
+          {hasUnsavedChanges ? <span className="sku-unsaved-chip">Draft saved locally</span> : null}
+
+          <button type="button" className="primary-btn" onClick={addSkuRow}>
+            Add row
+          </button>
+
+          <button type="button" className="secondary-btn" onClick={() => setIsBulkTagOpen(true)}>
+            Bulk tag
+          </button>
+
+          <button type="button" className="secondary-btn" onClick={() => setIsSaveConfirmOpen(true)}>
+            Save changes
+          </button>
+
+          <button type="button" className="secondary-btn" onClick={() => setIsExportOpen(true)}>
+            Export sheet
+          </button>
         </div>
       </section>
 
-      <section className="glass-card panel-card">
+      <section className="glass-card panel-card sku-panel-upgraded">
         <div className="panel-header">
           <div>
             <h2>SKU / Variant Sheet</h2>
-            <p>Spreadsheet-like SKU control for product names, variants, categories, pricing, status, and recovery tags.</p>
+            <p>
+              Spreadsheet-like SKU control for product names, variants, categories, pricing, status, recovery tags,
+              restock timing, refill timing, and revenue recovery values.
+            </p>
           </div>
+
           <Badge tone="cyan">{filteredRows.length} visible rows</Badge>
         </div>
 
-        <div className="sku-sheet-wrap">
-          <div className="sku-sheet">
+        <div className="sku-scroll-note">
+          <div>
+            <strong>Recovery data quality layer</strong>
+            <span>
+              Scroll inside the sheet. These fields power Product Demand, Restock Waitlist, Refill Opportunities,
+              Order Risk, and Revenue Reports.
+            </span>
+          </div>
+
+          <span>{hasUnsavedChanges ? "Unsaved changes are stored as draft" : "All changes saved"}</span>
+        </div>
+
+        <div className="sku-sheet-wrap sku-sheet-wrap-upgraded">
+          <div className="sku-sheet sku-sheet-upgraded">
             <div className="sku-sheet-row sku-sheet-head">
-              <span>SKU</span>
-              <span>Product name</span>
-              <span>Variant</span>
-              <span>Size</span>
-              <span>Color/Shade</span>
-              <span>Category</span>
-              <span>Price</span>
-              <span>Stock status</span>
-              <span>Restock status</span>
-              <span>Refill cycle</span>
-              <span>Product folder</span>
-              <span>Tags</span>
-              <span>Linked demand</span>
-              <span>Recovery value</span>
-              <span>Last updated</span>
-              <span>Actions</span>
+              {skuColumnKeys.map((key) => (
+                <span className="sku-head-cell" key={key}>
+                  {editingColumnKey === key ? (
+                    <input
+                      autoFocus
+                      className="sku-column-edit-input"
+                      value={editingColumnDraft}
+                      onBlur={saveColumnLabel}
+                      onChange={(event) => setEditingColumnDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") saveColumnLabel();
+
+                        if (event.key === "Escape") {
+                          setEditingColumnKey(null);
+                          setEditingColumnDraft("");
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="sku-column-label-btn"
+                      onClick={() => startEditingColumn(key)}
+                    >
+                      {columnLabels[key]}
+                    </button>
+                  )}
+                </span>
+              ))}
             </div>
 
             {filteredRows.map((row) => (
-              <div className={`sku-sheet-row ${row.tone}`} key={row.id}>
-                <span className="sku-readonly">{row.sku || "Missing SKU"}</span>
+              <div
+                className={`sku-sheet-row ${row.tone} ${
+                  highlightedProductName === row.productName ? "is-sku-product-highlight" : ""
+                }`}
+                data-sku-product-name={row.productName}
+                key={row.id}
+              >
+                <label>
+                  <span className="sr-only">SKU</span>
+                  <input
+                    value={row.sku}
+                    onChange={(event) => updateSkuField(row.id, "sku", event.target.value)}
+                    placeholder="Missing SKU"
+                  />
+                </label>
+
                 <label>
                   <span className="sr-only">Product name</span>
                   <input
@@ -11805,9 +12738,34 @@ function SKUVariantSheet() {
                     onChange={(event) => updateSkuField(row.id, "productName", event.target.value)}
                   />
                 </label>
-                <span>{row.variant}</span>
-                <span>{row.size || "-"}</span>
-                <span>{row.colorShade || "-"}</span>
+
+                <label>
+                  <span className="sr-only">Variant</span>
+                  <input
+                    value={row.variant}
+                    onChange={(event) => updateSkuField(row.id, "variant", event.target.value)}
+                    placeholder="Variant"
+                  />
+                </label>
+
+                <label>
+                  <span className="sr-only">Size</span>
+                  <input
+                    value={row.size}
+                    onChange={(event) => updateSkuField(row.id, "size", event.target.value)}
+                    placeholder="Size"
+                  />
+                </label>
+
+                <label>
+                  <span className="sr-only">Color or shade</span>
+                  <input
+                    value={row.colorShade}
+                    onChange={(event) => updateSkuField(row.id, "colorShade", event.target.value)}
+                    placeholder="Color/Shade"
+                  />
+                </label>
+
                 <label>
                   <span className="sr-only">Category</span>
                   <input
@@ -11816,6 +12774,7 @@ function SKUVariantSheet() {
                     placeholder="Map category"
                   />
                 </label>
+
                 <label>
                   <span className="sr-only">Price</span>
                   <input
@@ -11824,12 +12783,10 @@ function SKUVariantSheet() {
                     placeholder="$0"
                   />
                 </label>
+
                 <label>
                   <span className="sr-only">Stock status</span>
-                  <select
-                    value={row.stockStatus}
-                    onChange={(event) => updateSkuField(row.id, "stockStatus", event.target.value)}
-                  >
+                  <select value={row.stockStatus} onChange={(event) => updateSkuStockStatus(row.id, event.target.value)}>
                     <option>Active</option>
                     <option>Low stock</option>
                     <option>Out of stock</option>
@@ -11839,9 +12796,52 @@ function SKUVariantSheet() {
                     <option>Inactive</option>
                   </select>
                 </label>
-                <span>{row.restockStatus}</span>
-                <span>{row.refillCycle}</span>
-                <span>{row.productFolder}</span>
+
+                <label>
+                  <span className="sr-only">Restock status</span>
+                  <select
+                    value={row.restockStatus}
+                    onChange={(event) => updateSkuField(row.id, "restockStatus", event.target.value)}
+                  >
+                    <option>N/A</option>
+                    <option>Needs review</option>
+                    <option>Restock waiting</option>
+                    <option>Restock interest building</option>
+                    <option>Low stock, size questions active</option>
+                    <option>VIP early access open</option>
+                    <option>Appointment-led, limited sizes</option>
+                    <option>Notify buyers</option>
+                    <option>Consultation needed</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="sr-only">Refill cycle</span>
+                  <select
+                    value={row.refillCycle}
+                    onChange={(event) => updateSkuField(row.id, "refillCycle", event.target.value)}
+                  >
+                    <option>N/A</option>
+                    <option>Not refill-led</option>
+                    <option>30 days</option>
+                    <option>45 days</option>
+                    <option>60 days</option>
+                    <option>75 days</option>
+                    <option>90 days</option>
+                    <option>120 days</option>
+                    <option>Formula update</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span className="sr-only">Product folder</span>
+                  <input
+                    value={row.productFolder}
+                    onChange={(event) => updateSkuField(row.id, "productFolder", event.target.value)}
+                    placeholder="Product folder"
+                  />
+                </label>
+
                 <label>
                   <span className="sr-only">Tags</span>
                   <input
@@ -11850,29 +12850,204 @@ function SKUVariantSheet() {
                     placeholder="Add recovery tags"
                   />
                 </label>
-                <span>{row.linkedDemand}</span>
-                <span>{row.recoveryValue}</span>
-                <span>{row.lastUpdated}</span>
+
+                <label>
+                  <span className="sr-only">Linked demand</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={row.linkedDemand}
+                    onChange={(event) =>
+                      updateSkuField(row.id, "linkedDemand", Number(event.target.value || 0))
+                    }
+                  />
+                </label>
+
+                <label>
+                  <span className="sr-only">Recovery value</span>
+                  <input
+                    value={row.recoveryValue}
+                    onChange={(event) => updateSkuField(row.id, "recoveryValue", event.target.value)}
+                    placeholder="$0"
+                  />
+                </label>
+
+                <span className="sku-readonly">{row.lastUpdated}</span>
+
                 <span className="sku-row-actions">
-                  <button type="button" onClick={() => duplicateSkuRow(row)}>Duplicate</button>
-                  <button type="button" onClick={() => deleteSkuRow(row.id)}>Delete</button>
+                  <button type="button" onClick={() => duplicateSkuRow(row)}>
+                    Duplicate
+                  </button>
+                  <button type="button" onClick={() => deleteSkuRow(row.id)}>
+                    Delete
+                  </button>
                 </span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="sheet-field-summary">
+        <div className="sheet-field-summary sku-selling-summary">
           <div>
-            <span>Fashion-specific fields</span>
-            <p>Size, color, collection, fit type, restock status, and new drop status stay visible on each apparel row.</p>
+            <span>Fashion-specific recovery fields</span>
+            <p>
+              Size, color, collection, fit type, restock status, and new drop tags help recover size/fit questions,
+              bridal appointments, VIP early access, and restock demand.
+            </p>
           </div>
+
           <div>
-            <span>Beauty-specific fields</span>
-            <p>Shade, skin concern, routine step, refill cycle, bundle eligibility, and sensitive-skin flag stay attached to SKU rows.</p>
+            <span>Beauty-specific recovery fields</span>
+            <p>
+              Shade, skin concern, routine step, refill cycle, bundle eligibility, and sensitive-skin tags support
+              refill reminders, routine follow-ups, and product education.
+            </p>
+          </div>
+
+          <div>
+            <span>Why this sells Altynx</span>
+            <p>
+              Clean SKU data makes product signals traceable to demand, revenue at risk, recovered value, owner
+              action, and monthly proof-of-value reporting.
+            </p>
           </div>
         </div>
+
+        <p className="detail-notice capture-page-notice">{notice}</p>
       </section>
+
+      {isBulkTagOpen ? (
+        <div className="sku-modal-backdrop" role="presentation" onClick={() => setIsBulkTagOpen(false)}>
+          <article className="sku-modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="sku-modal-header">
+              <div>
+                <span>Bulk recovery tagging</span>
+                <h2>Apply tag to SKU rows</h2>
+                <p>
+                  Tags should support recovery logic such as refill reminders, restock notices, size/fit follow-up,
+                  sensitive-skin handling, UGC, VIP, and payment recovery.
+                </p>
+              </div>
+
+              <button type="button" onClick={() => setIsBulkTagOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="sku-modal-grid">
+              <label>
+                <span>Apply to</span>
+                <select value={bulkTagScope} onChange={(event) => setBulkTagScope(event.target.value as "filtered" | "all" | "missing")}>
+                  <option value="filtered">Current filtered rows</option>
+                  <option value="all">All SKU rows</option>
+                  <option value="missing">Rows missing tags</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Existing recovery tag</span>
+                <select value={bulkTagValue} onChange={(event) => setBulkTagValue(event.target.value)}>
+                  {recoveryTagOptions.map((tag) => (
+                    <option key={tag}>{tag}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="sku-modal-wide">
+                <span>Create new tag instead</span>
+                <input
+                  value={bulkNewTagDraft}
+                  onChange={(event) => setBulkNewTagDraft(event.target.value)}
+                  placeholder="Example: Bridal Consultation Follow-up"
+                />
+              </label>
+            </div>
+
+            <div className="sku-modal-note">
+              <strong>{getBulkTargetRows().length}</strong>
+              <span>SKU rows will be updated. Draft will remain unsaved until you click Save changes.</span>
+            </div>
+
+            <div className="sku-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setIsBulkTagOpen(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary-btn" onClick={applyBulkTag}>
+                Apply bulk tag
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {isSaveConfirmOpen ? (
+        <div className="sku-modal-backdrop" role="presentation" onClick={() => setIsSaveConfirmOpen(false)}>
+          <article className="sku-modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="sku-modal-header">
+              <div>
+                <span>Save SKU changes</span>
+                <h2>Confirm recovery data changes</h2>
+                <p>
+                  These changes affect product demand, refill timing, restock waitlists, recovery tags, and reporting
+                  values. Continue only after checking category, price, tags, and recovery value fields.
+                </p>
+              </div>
+
+              <button type="button" onClick={() => setIsSaveConfirmOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="sku-save-warning">
+              <strong>{rows.length}</strong>
+              <span>SKU rows in the current editable sheet</span>
+            </div>
+
+            <div className="sku-modal-actions">
+              <button type="button" className="secondary-btn" onClick={discardDraftChanges}>
+                Discard draft
+              </button>
+              <button type="button" className="secondary-btn" onClick={keepDraftOnly}>
+                Keep as draft
+              </button>
+              <button type="button" className="primary-btn" onClick={saveConfirmedChanges}>
+                Yes, save changes
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {isExportOpen ? (
+        <div className="sku-modal-backdrop" role="presentation" onClick={() => setIsExportOpen(false)}>
+          <article className="sku-modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="sku-modal-header">
+              <div>
+                <span>Export SKU sheet</span>
+                <h2>Choose export format</h2>
+                <p>
+                  Export visible SKU rows with product, variant, category, price, stock/restock status, refill cycle,
+                  recovery tags, linked demand, and recovery value.
+                </p>
+              </div>
+
+              <button type="button" onClick={() => setIsExportOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="sku-export-options">
+              <button type="button" className="primary-btn" onClick={() => downloadSkuSheetExport("csv")}>
+                Export CSV
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={() => downloadSkuSheetExport("xlsx")}>
+                Export XLSX
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -17156,7 +18331,7 @@ function closeExportReport() {
         ) : activePage === "Source Leak Tracking" ? (
           <SourceLeakTracking onActivity={addRecoveryActivity} onNavigate={navigateToPage} />
         ) : activePage === "Product Catalog" ? (
-          <ProductCatalog />
+          <ProductCatalog onNavigate={navigateToPage} />
         ) : activePage === "SKU / Variant Sheet" ? (
           <SKUVariantSheet />
         ) : activePage === "Categories & Tags" ? (
