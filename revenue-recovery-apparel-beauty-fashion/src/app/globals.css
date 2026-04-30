@@ -7906,3 +7906,119 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem * {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   Today's Recovery Queue single-list + detail page
+========================================================= */
+
+.queue-list-page {
+  width: 100%;
+}
+
+.queue-full-list {
+  display: grid;
+  gap: 14px;
+}
+
+.queue-full-list .recovery-task-card {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  text-align: left;
+}
+
+.queue-full-list .recovery-task-card.reviewed-card {
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(5, 150, 105, 0.035);
+}
+
+.queue-list-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  min-width: 170px;
+}
+
+.queue-list-actions .secondary-btn {
+  min-height: 38px;
+  padding: 10px 14px;
+}
+
+.queue-show-more-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.queue-show-more-btn {
+  min-width: 180px;
+}
+
+.queue-action-status,
+.queue-detail-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.queue-detail-status {
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.queue-status-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e8e8e5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b5563;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.queue-status-pill.reviewed {
+  border-color: rgba(5, 150, 105, 0.28);
+  background: rgba(5, 150, 105, 0.08);
+  color: #047857;
+}
+
+.queue-detail-page {
+  display: grid;
+  gap: 16px;
+}
+
+.queue-detail-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.queue-detail-card {
+  display: grid;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .queue-full-list .recovery-task-card {
+    grid-template-columns: 1fr;
+  }
+
+  .queue-list-actions {
+    justify-items: start;
+  }
+
+  .queue-detail-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .queue-detail-status {
+    justify-content: flex-start;
+  }
+}

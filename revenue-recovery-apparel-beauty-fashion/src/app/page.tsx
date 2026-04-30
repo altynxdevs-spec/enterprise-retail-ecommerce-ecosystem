@@ -8483,14 +8483,16 @@ function buildAiResponseDraft(task: RecoveryTask) {
 function TodaysRecoveryQueue() {
   const [activeTab, setActiveTab] = useState<QueueTab>("All");
   const [selectedTaskId, setSelectedTaskId] = useState(recoveryTasks[0].id);
+  const [queueMode, setQueueMode] = useState<"list" | "detail">("list");
   const [detailNotice, setDetailNotice] = useState("Ready for recovery action.");
   const [taskMessageDrafts, setTaskMessageDrafts] = useState<Record<string, string>>({});
-  const [isFullQueueOpen, setIsFullQueueOpen] = useState(false);
-const [templateUsedTaskIds, setTemplateUsedTaskIds] = useState<Record<string, boolean>>({});
-const [aiGeneratedTaskIds, setAiGeneratedTaskIds] = useState<Record<string, boolean>>({});
-const [copiedTaskIds, setCopiedTaskIds] = useState<Record<string, boolean>>({});
-const [followUpTaskIds, setFollowUpTaskIds] = useState<Record<string, boolean>>({});
-const [reviewedTaskIds, setReviewedTaskIds] = useState<Record<string, boolean>>({});
+  const [showAllQueueItems, setShowAllQueueItems] = useState(false);
+
+  const [templateUsedTaskIds, setTemplateUsedTaskIds] = useState<Record<string, boolean>>({});
+  const [aiGeneratedTaskIds, setAiGeneratedTaskIds] = useState<Record<string, boolean>>({});
+  const [copiedTaskIds, setCopiedTaskIds] = useState<Record<string, boolean>>({});
+  const [followUpTaskIds, setFollowUpTaskIds] = useState<Record<string, boolean>>({});
+  const [reviewedTaskIds, setReviewedTaskIds] = useState<Record<string, boolean>>({});
 
   const filteredTasks = useMemo(() => {
     return recoveryTasks.filter((task) => matchesQueueTab(task, activeTab));
@@ -8498,100 +8500,328 @@ const [reviewedTaskIds, setReviewedTaskIds] = useState<Record<string, boolean>>(
 
   const selectedTask =
     filteredTasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? recoveryTasks[0];
-    const visibleQueueTasks = filteredTasks.slice(0, 25);
-const hiddenQueueCount = Math.max(filteredTasks.length - visibleQueueTasks.length, 0);
+
+  const visibleQueueTasks = showAllQueueItems ? filteredTasks : filteredTasks.slice(0, 25);
+  const hiddenQueueCount = Math.max(filteredTasks.length - visibleQueueTasks.length, 0);
+
   const primaryActionLabel = getPrimaryRecoveryAction(selectedTask);
   const recommendedTemplate = getRecommendedTemplateForTask(selectedTask);
-const riskReason = buildRiskReason(selectedTask);
-const currentMessageBody = taskMessageDrafts[selectedTask.id] ?? recommendedTemplate.body;
+  const riskReason = buildRiskReason(selectedTask);
+  const currentMessageBody = taskMessageDrafts[selectedTask.id] ?? recommendedTemplate.body;
 
-const systemThreadMessages: RecoveryThreadMessage[] = [
-  {
-    id: `${selectedTask.id}-system-template`,
-    author: "System",
-    role: "System",
-    message: `Matched "${recommendedTemplate.name}" because ${recommendedTemplate.matchReason}`,
-    time: "Now",
-  },
-  ...(selectedTask.dueStatus === "Overdue"
-    ? [
-        {
-          id: `${selectedTask.id}-system-overdue`,
-          author: "System",
-          role: "System" as const,
-          message: `This recovery case is overdue. Last event: ${selectedTask.lastEvent}`,
-          time: "Now",
-        },
-      ]
-    : []),
-];
+  const systemThreadMessages: RecoveryThreadMessage[] = [
+    {
+      id: `${selectedTask.id}-system-template`,
+      author: "System",
+      role: "System",
+      message: `Matched "${recommendedTemplate.name}" because ${recommendedTemplate.matchReason}`,
+      time: "Now",
+    },
+    ...(selectedTask.dueStatus === "Overdue"
+      ? [
+          {
+            id: `${selectedTask.id}-system-overdue`,
+            author: "System",
+            role: "System" as const,
+            message: `This recovery case is overdue. Last event: ${selectedTask.lastEvent}`,
+            time: "Now",
+          },
+        ]
+      : []),
+  ];
+
+  function openTaskDetails(taskId: string) {
+    setSelectedTaskId(taskId);
+    setQueueMode("detail");
+    setDetailNotice("Ready for recovery action.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function backToQueueList() {
+    setQueueMode("list");
+    setDetailNotice("Ready for recovery action.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   function createFollowUpForSelectedTask() {
-  setFollowUpTaskIds((current) => ({
-    ...current,
-    [selectedTask.id]: true,
-  }));
-
-  setDetailNotice(`Follow-up created for ${selectedTask.customer}.`);
-}
-
-function markSelectedTaskReviewed() {
-  setReviewedTaskIds((current) => ({
-    ...current,
-    [selectedTask.id]: true,
-  }));
-
-  setDetailNotice(`${selectedTask.customer} marked reviewed.`);
-}
-
-async function copyCurrentRecoveryMessage() {
-  try {
-    await navigator.clipboard.writeText(currentMessageBody);
-
-    setCopiedTaskIds((current) => ({
+    setFollowUpTaskIds((current) => ({
       ...current,
       [selectedTask.id]: true,
     }));
 
-    setDetailNotice(`Message copied for ${selectedTask.customer}.`);
-  } catch {
-    setDetailNotice("Copy failed. Please copy the message manually.");
+    setDetailNotice(`Follow-up created for ${selectedTask.customer}.`);
   }
-}
 
-function useApprovedTemplate() {
-  setTaskMessageDrafts((current) => ({
-    ...current,
-    [selectedTask.id]: recommendedTemplate.body,
-  }));
+  function markSelectedTaskReviewed() {
+    setReviewedTaskIds((current) => ({
+      ...current,
+      [selectedTask.id]: true,
+    }));
 
-  setTemplateUsedTaskIds((current) => ({
-    ...current,
-    [selectedTask.id]: true,
-  }));
+    setDetailNotice(`${selectedTask.customer} marked reviewed.`);
+  }
 
-  setDetailNotice(`Approved template selected: ${recommendedTemplate.name}.`);
-}
+  async function copyCurrentRecoveryMessage() {
+    try {
+      await navigator.clipboard.writeText(currentMessageBody);
 
-function generateAiResponseDraft() {
-  const draft = buildAiResponseDraft(selectedTask);
+      setCopiedTaskIds((current) => ({
+        ...current,
+        [selectedTask.id]: true,
+      }));
 
-  setTaskMessageDrafts((current) => ({
-    ...current,
-    [selectedTask.id]: draft,
-  }));
+      setDetailNotice(`Message copied for ${selectedTask.customer}.`);
+    } catch {
+      setDetailNotice("Copy failed. Please copy the message manually.");
+    }
+  }
 
-  setAiGeneratedTaskIds((current) => ({
-    ...current,
-    [selectedTask.id]: true,
-  }));
+  function useApprovedTemplate() {
+    setTaskMessageDrafts((current) => ({
+      ...current,
+      [selectedTask.id]: recommendedTemplate.body,
+    }));
 
-  setDetailNotice("AI response draft generated for review. Nothing was sent.");
-}
+    setTemplateUsedTaskIds((current) => ({
+      ...current,
+      [selectedTask.id]: true,
+    }));
 
-function openTemplateSetup() {
-  setDetailNotice("Open Setup > Templates to edit this template.");
-}
+    setDetailNotice(`Approved template selected: ${recommendedTemplate.name}.`);
+  }
+
+  function generateAiResponseDraft() {
+    const draft = buildAiResponseDraft(selectedTask);
+
+    setTaskMessageDrafts((current) => ({
+      ...current,
+      [selectedTask.id]: draft,
+    }));
+
+    setAiGeneratedTaskIds((current) => ({
+      ...current,
+      [selectedTask.id]: true,
+    }));
+
+    setDetailNotice("AI response draft generated for review. Nothing was sent.");
+  }
+
+  function openTemplateSetup() {
+    setDetailNotice("Open Setup > Templates to edit this template.");
+  }
+
+  if (queueMode === "detail") {
+    return (
+      <div className="recovery-page">
+        <section className="queue-detail-page">
+          <div className="queue-detail-topbar">
+            <button className="secondary-btn" onClick={backToQueueList} type="button">
+              ← Back to Recovery Queue
+            </button>
+
+            <div className="queue-detail-status">
+              {reviewedTaskIds[selectedTask.id] ? (
+                <span className="queue-status-pill reviewed">✓ Reviewed</span>
+              ) : null}
+              {followUpTaskIds[selectedTask.id] ? (
+                <span className="queue-status-pill">Follow-up created</span>
+              ) : null}
+              {templateUsedTaskIds[selectedTask.id] ? (
+                <span className="queue-status-pill">Template used</span>
+              ) : null}
+              {aiGeneratedTaskIds[selectedTask.id] ? (
+                <span className="queue-status-pill">AI draft ready</span>
+              ) : null}
+              {copiedTaskIds[selectedTask.id] ? (
+                <span className="queue-status-pill">Copied</span>
+              ) : null}
+            </div>
+          </div>
+
+          <article className="glass-card panel-card queue-detail-card">
+            <div className="detail-heading">
+              <div className="detail-person">
+                <Avatar name={selectedTask.customer} />
+                <div>
+                  <h2>{selectedTask.customer}</h2>
+                  <p>
+                    {selectedTask.brandContext} - {selectedTask.productInterest}
+                  </p>
+                </div>
+              </div>
+              <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
+            </div>
+
+            <div className="customer-summary-box">
+              <span>Buyer recovery summary</span>
+              <p>
+                {selectedTask.customer} has {selectedTask.estimatedRevenueAtRisk} at risk from{" "}
+                {selectedTask.leakType.toLowerCase()} through {selectedTask.source}. Owner:{" "}
+                {selectedTask.assignedOwner}. Due status: {selectedTask.dueStatus}.
+              </p>
+            </div>
+
+            <div className="customer-summary-box">
+              <span>Risk reason</span>
+              <p>{riskReason}</p>
+            </div>
+
+            <div className="detail-grid">
+              <div>
+                <span>Revenue at risk</span>
+                <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
+              </div>
+              <div>
+                <span>Priority</span>
+                <strong>{selectedTask.priority}</strong>
+              </div>
+              <div>
+                <span>Due status</span>
+                <strong>{selectedTask.dueStatus}</strong>
+              </div>
+              <div>
+                <span>Assigned owner</span>
+                <strong>{selectedTask.assignedOwner}</strong>
+              </div>
+              <div>
+                <span>Brand context</span>
+                <strong>{selectedTask.brandContext}</strong>
+              </div>
+              <div>
+                <span>Product interest</span>
+                <strong>{selectedTask.productInterest}</strong>
+              </div>
+              <div>
+                <span>Leak type</span>
+                <strong>{selectedTask.leakType}</strong>
+              </div>
+              <div>
+                <span>Source</span>
+                <strong>{selectedTask.source}</strong>
+              </div>
+              <div>
+                <span>Category</span>
+                <strong>{selectedTask.category}</strong>
+              </div>
+              <div>
+                <span>Attempt count</span>
+                <strong>{selectedTask.attemptCount}</strong>
+              </div>
+              <div>
+                <span>Automation status</span>
+                <strong>{selectedTask.automationStatus}</strong>
+              </div>
+              <div>
+                <span>Source status</span>
+                <strong>{selectedTask.sourceStatus}</strong>
+              </div>
+              <div>
+                <span>Last contact</span>
+                <strong>{selectedTask.lastContact}</strong>
+              </div>
+              <div>
+                <span>Last event</span>
+                <strong>{selectedTask.lastEvent}</strong>
+              </div>
+            </div>
+
+            <div className="detail-callout">
+              <span>Recommended next action</span>
+              <p>{selectedTask.recommendedNextAction}</p>
+            </div>
+
+            <div className="template-box message-recommendation-box">
+              <div>
+                <span>Message recommendation</span>
+                <strong>{recommendedTemplate.status}</strong>
+              </div>
+
+              <div className="template-match-grid">
+                <div>
+                  <span>Template match</span>
+                  <strong>{recommendedTemplate.name}</strong>
+                </div>
+                <div>
+                  <span>Template type</span>
+                  <strong>{recommendedTemplate.type}</strong>
+                </div>
+                <div className="template-match-full">
+                  <span>Match reason</span>
+                  <p>{recommendedTemplate.matchReason}</p>
+                </div>
+              </div>
+
+              <div className="recommended-message-preview">
+                <span>Selected message</span>
+                <p>{currentMessageBody}</p>
+              </div>
+
+              <div className="template-action-row">
+                <button type="button" onClick={useApprovedTemplate}>
+                  Use Approved Template
+                </button>
+                <button type="button" onClick={generateAiResponseDraft}>
+                  Generate AI Response
+                </button>
+                <button type="button" onClick={openTemplateSetup}>
+                  Edit Template
+                </button>
+                <button type="button" onClick={copyCurrentRecoveryMessage}>
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            <div className="thread-panel">
+              <div className="thread-header">
+                <div>
+                  <h3>Internal Recovery Thread</h3>
+                  <p>Automation events, owner notes, and recovery decisions for this leak.</p>
+                </div>
+                <span>{selectedTask.internalRecoveryThread.length + systemThreadMessages.length} updates</span>
+              </div>
+
+              {[...systemThreadMessages, ...selectedTask.internalRecoveryThread].map((message) => (
+                <div className="thread-message" key={message.id}>
+                  <div>
+                    <strong>{message.author}</strong>
+                    <span>
+                      {message.role} - {message.time}
+                    </span>
+                  </div>
+                  <p>{message.message}</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="detail-notice">{detailNotice}</p>
+
+            <div className="detail-actions">
+              <button type="button" className="primary-btn" onClick={useApprovedTemplate}>
+                Use Template
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={generateAiResponseDraft}>
+                Generate AI Response
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={copyCurrentRecoveryMessage}>
+                Copy Message
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={createFollowUpForSelectedTask}>
+                Create Follow-up
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={markSelectedTaskReviewed}>
+                {reviewedTaskIds[selectedTask.id] ? "Reviewed ✓" : "Mark Reviewed"}
+              </button>
+            </div>
+          </article>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="recovery-page">
@@ -8601,7 +8831,10 @@ function openTemplateSetup() {
             <button
               className={`queue-tab ${activeTab === tab ? "active" : ""}`}
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                setShowAllQueueItems(false);
+              }}
               type="button"
             >
               {tab}
@@ -8611,347 +8844,85 @@ function openTemplateSetup() {
         <Badge tone="cyan">{filteredTasks.length} recovery actions</Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Recovery Queue</h2>
-              <p>Prioritized buyer actions with revenue at risk, ownership, last recovery touch, and next-best message.</p>
-            </div>
-            <Badge tone="rose">Actionable today</Badge>
+      <section className="glass-card panel-card queue-list-page">
+        <div className="panel-header">
+          <div>
+            <h2>Recovery Queue</h2>
+            <p>Prioritized buyer actions with revenue at risk, ownership, last recovery touch, and next-best message.</p>
           </div>
-
-          <div className="recovery-list">
-            {visibleQueueTasks.map((task) => (
-              <button
-                className={`recovery-task-card ${task.tone} ${
-                  selectedTask.id === task.id ? "selected" : ""
-                }`}
-                key={task.id}
-                onClick={() => {
-                  setSelectedTaskId(task.id);
-                  setDetailNotice("Ready for recovery action.");
-                }}
-                type="button"
-              >
-                <div className="recovery-task-main">
-                  <Avatar name={task.customer} />
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{task.customer}</h3>
-                      <Badge tone={task.tone}>{task.priority}</Badge>
-                    </div>
-                    <p>{task.brandContext} - {task.productInterest}</p>
-                    <div className="queue-action-status">
-  {reviewedTaskIds[task.id] ? <span className="queue-status-pill reviewed">✓ Reviewed</span> : null}
-  {followUpTaskIds[task.id] ? <span className="queue-status-pill">Follow-up created</span> : null}
-  {templateUsedTaskIds[task.id] ? <span className="queue-status-pill">Template used</span> : null}
-  {aiGeneratedTaskIds[task.id] ? <span className="queue-status-pill">AI draft ready</span> : null}
-  {copiedTaskIds[task.id] ? <span className="queue-status-pill">Copied</span> : null}
-</div>
-                    <small className="queue-next-action">{task.recommendedNextAction}</small>
-                  </div>
-                </div>
-                <div className="task-money">
-                  <strong>{task.estimatedRevenueAtRisk}</strong>
-                  <span>{task.priority}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-
-{hiddenQueueCount > 0 ? (
-  <div className="queue-show-more-row">
-    <button
-      className="secondary-btn queue-show-more-btn"
-      onClick={() => setIsFullQueueOpen(true)}
-      type="button"
-    >
-      Show more {hiddenQueueCount} actions
-    </button>
-  </div>
-) : null}
-
-        </article>
-
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedTask.customer} />
-              <div>
-                <h2>{selectedTask.customer}</h2>
-                <p>{selectedTask.brandContext} - {selectedTask.productInterest}</p>
-              </div>
-            </div>
-            <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
-          </div>
-
-          <div className="customer-summary-box">
-  <span>Buyer recovery summary</span>
-  <p>
-    {selectedTask.customer} has {selectedTask.estimatedRevenueAtRisk} at risk from{" "}
-    {selectedTask.leakType.toLowerCase()} through {selectedTask.source}. Owner:{" "}
-    {selectedTask.assignedOwner}. Due status: {selectedTask.dueStatus}.
-  </p>
-</div>
-
-<div className="detail-callout">
-  <span>Risk reason</span>
-  <p>{riskReason}</p>
-</div>
-
-<div className="detail-grid recovery-primary-grid">
-  <div>
-    <span>Revenue at risk</span>
-    <strong>{selectedTask.estimatedRevenueAtRisk}</strong>
-  </div>
-  <div>
-    <span>Priority</span>
-    <strong>{selectedTask.priority}</strong>
-  </div>
-  <div>
-    <span>Due status</span>
-    <strong>{selectedTask.dueStatus}</strong>
-  </div>
-  <div>
-    <span>Assigned owner</span>
-    <strong>{selectedTask.assignedOwner}</strong>
-  </div>
-</div>
-
-<div className="detail-grid">
-  <div>
-    <span>Brand context</span>
-    <strong>{selectedTask.brandContext}</strong>
-  </div>
-  <div>
-    <span>Product interest</span>
-    <strong>{selectedTask.productInterest}</strong>
-  </div>
-  <div>
-    <span>Leak type</span>
-    <strong>{selectedTask.leakType}</strong>
-  </div>
-  <div>
-    <span>Source</span>
-    <strong>{selectedTask.source}</strong>
-  </div>
-  <div>
-    <span>Category</span>
-    <strong>{selectedTask.category}</strong>
-  </div>
-  <div>
-    <span>Attempt count</span>
-    <strong>{selectedTask.attemptCount}</strong>
-  </div>
-</div>
-
-<div className="detail-grid">
-  <div>
-    <span>Automation status</span>
-    <strong>{selectedTask.automationStatus}</strong>
-  </div>
-  <div>
-    <span>Source status</span>
-    <strong>{selectedTask.sourceStatus}</strong>
-  </div>
-  <div>
-    <span>Last contact</span>
-    <strong>{selectedTask.lastContact}</strong>
-  </div>
-  <div>
-    <span>Last event</span>
-    <strong>{selectedTask.lastEvent}</strong>
-  </div>
-</div>
-
-<div className="detail-callout">
-  <span>Recommended next action</span>
-  <p>{selectedTask.recommendedNextAction}</p>
-</div>
-
-<div className="template-box message-recommendation-box">
-  <div>
-    <span>Message recommendation</span>
-    <strong>{recommendedTemplate.status}</strong>
-  </div>
-
-  <div className="template-match-grid">
-    <div>
-      <span>Template match</span>
-      <strong>{recommendedTemplate.name}</strong>
-    </div>
-    <div>
-      <span>Template type</span>
-      <strong>{recommendedTemplate.type}</strong>
-    </div>
-    <div className="template-match-full">
-      <span>Match reason</span>
-      <p>{recommendedTemplate.matchReason}</p>
-    </div>
-  </div>
-
-  <div className="recommended-message-preview">
-    <span>Selected message</span>
-    <p>{currentMessageBody}</p>
-  </div>
-
-  <div className="template-action-row">
-    <button type="button" onClick={useApprovedTemplate}>
-      Use Approved Template
-    </button>
-    <button type="button" onClick={generateAiResponseDraft}>
-      Generate AI Response
-    </button>
-    <button type="button" onClick={openTemplateSetup}>
-      Edit Template
-    </button>
-    <button type="button" onClick={copyCurrentRecoveryMessage}>
-      Copy
-    </button>
-  </div>
-</div>
-
-<div className="thread-panel">
-  <div className="thread-header">
-    <div>
-      <h3>Internal Recovery Thread</h3>
-      <p>Automation events, owner notes, and recovery decisions for this leak.</p>
-    </div>
-    <span>{selectedTask.internalRecoveryThread.length + systemThreadMessages.length} updates</span>
-  </div>
-
-  {[...systemThreadMessages, ...selectedTask.internalRecoveryThread].map((message) => (
-    <div className="thread-message" key={message.id}>
-      <div>
-        <strong>{message.author}</strong>
-        <span>{message.role} - {message.time}</span>
-      </div>
-      <p>{message.message}</p>
-    </div>
-  ))}
-</div>
-
-          <p className="detail-notice">{detailNotice}</p>
-
-                    <div className="detail-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={useApprovedTemplate}
-            >
-              Use Template
-            </button>
-
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={generateAiResponseDraft}
-            >
-              Generate AI Response
-            </button>
-
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={copyCurrentRecoveryMessage}
-            >
-              Copy Message
-            </button>
-
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={createFollowUpForSelectedTask}
-            >
-              Create Follow-up
-            </button>
-
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={markSelectedTaskReviewed}
-            >
-              {reviewedTaskIds[selectedTask.id] ? "Reviewed ✓" : "Mark Reviewed"}
-            </button>
-          </div>
-        </aside>
-      </section>
-
-      {isFullQueueOpen ? (
-        <div className="queue-modal-backdrop" role="dialog" aria-modal="true">
-          <div className="queue-modal-card">
-            <div className="queue-modal-header">
-              <div>
-                <h2>Full Recovery Queue</h2>
-                <p>Select any recovery action. The detail panel will update on the main screen.</p>
-              </div>
-
-              <button
-                className="secondary-btn"
-                onClick={() => setIsFullQueueOpen(false)}
-                type="button"
-              >
-                Back
-              </button>
-            </div>
-
-            <div className="queue-modal-list">
-              {filteredTasks.map((task) => (
-                <button
-                  className={`queue-modal-row ${selectedTask.id === task.id ? "selected" : ""}`}
-                  key={`full-${task.id}`}
-                  onClick={() => {
-                    setSelectedTaskId(task.id);
-                    setDetailNotice("Ready for recovery action.");
-                    setIsFullQueueOpen(false);
-                  }}
-                  type="button"
-                >
-                  <div>
-                    <strong>{task.customer}</strong>
-                    <p>
-                      {task.brandContext} - {task.productInterest}
-                    </p>
-
-                    <div className="recovery-meta">
-                      <span>{task.leakType}</span>
-                      <span>{task.source}</span>
-                      <span>{task.assignedOwner}</span>
-                      <span>{task.dueStatus}</span>
-                      <span>{task.lastContact}</span>
-                      <span>{task.attemptCount} attempts</span>
-                    </div>
-
-                    <div className="queue-action-status">
-                      {reviewedTaskIds[task.id] ? (
-                        <span className="queue-status-pill reviewed">✓ Reviewed</span>
-                      ) : null}
-                      {followUpTaskIds[task.id] ? (
-                        <span className="queue-status-pill">Follow-up created</span>
-                      ) : null}
-                      {templateUsedTaskIds[task.id] ? (
-                        <span className="queue-status-pill">Template used</span>
-                      ) : null}
-                      {aiGeneratedTaskIds[task.id] ? (
-                        <span className="queue-status-pill">AI draft ready</span>
-                      ) : null}
-                      {copiedTaskIds[task.id] ? (
-                        <span className="queue-status-pill">Copied</span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="queue-modal-value">
-                    <strong>{task.estimatedRevenueAtRisk}</strong>
-                    <span>{task.priority}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <Badge tone="rose">Actionable today</Badge>
         </div>
-      ) : null}
+
+        <div className="recovery-list queue-full-list">
+          {visibleQueueTasks.map((task) => (
+            <div
+              className={`recovery-task-card ${task.tone} ${reviewedTaskIds[task.id] ? "reviewed-card" : ""}`}
+              key={task.id}
+            >
+              <div className="recovery-task-main">
+                <Avatar name={task.customer} />
+                <div>
+                  <div className="recovery-row-title">
+                    <h3>{task.customer}</h3>
+                    <Badge tone={task.tone}>{task.priority}</Badge>
+                    {reviewedTaskIds[task.id] ? (
+                      <span className="queue-status-pill reviewed">✓ Reviewed</span>
+                    ) : null}
+                  </div>
+
+                  <p>
+                    {task.brandContext} - {task.productInterest}
+                  </p>
+
+                  <div className="recovery-meta">
+                    <span>{task.leakType}</span>
+                    <span>{task.source}</span>
+                    <span>{task.assignedOwner}</span>
+                    <span>{task.dueStatus}</span>
+                    <span>{task.lastContact}</span>
+                    <span>{task.attemptCount} attempts</span>
+                  </div>
+
+                  <small className="queue-next-action">{task.recommendedNextAction}</small>
+
+                  <div className="queue-action-status">
+                    {followUpTaskIds[task.id] ? (
+                      <span className="queue-status-pill">Follow-up created</span>
+                    ) : null}
+                    {templateUsedTaskIds[task.id] ? (
+                      <span className="queue-status-pill">Template used</span>
+                    ) : null}
+                    {aiGeneratedTaskIds[task.id] ? (
+                      <span className="queue-status-pill">AI draft ready</span>
+                    ) : null}
+                    {copiedTaskIds[task.id] ? <span className="queue-status-pill">Copied</span> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="task-money queue-list-actions">
+                <strong>{task.estimatedRevenueAtRisk}</strong>
+                <span>{task.priority}</span>
+                <button className="secondary-btn" onClick={() => openTaskDetails(task.id)} type="button">
+                  Show Details
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {hiddenQueueCount > 0 ? (
+          <div className="queue-show-more-row">
+            <button
+              className="secondary-btn queue-show-more-btn"
+              onClick={() => setShowAllQueueItems(true)}
+              type="button"
+            >
+              Show more {hiddenQueueCount} actions
+            </button>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
