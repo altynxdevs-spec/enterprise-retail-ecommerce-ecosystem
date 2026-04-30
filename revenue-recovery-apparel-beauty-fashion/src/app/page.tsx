@@ -8485,6 +8485,12 @@ function TodaysRecoveryQueue() {
   const [selectedTaskId, setSelectedTaskId] = useState(recoveryTasks[0].id);
   const [detailNotice, setDetailNotice] = useState("Ready for recovery action.");
   const [taskMessageDrafts, setTaskMessageDrafts] = useState<Record<string, string>>({});
+  const [isFullQueueOpen, setIsFullQueueOpen] = useState(false);
+const [templateUsedTaskIds, setTemplateUsedTaskIds] = useState<Record<string, boolean>>({});
+const [aiGeneratedTaskIds, setAiGeneratedTaskIds] = useState<Record<string, boolean>>({});
+const [copiedTaskIds, setCopiedTaskIds] = useState<Record<string, boolean>>({});
+const [followUpTaskIds, setFollowUpTaskIds] = useState<Record<string, boolean>>({});
+const [reviewedTaskIds, setReviewedTaskIds] = useState<Record<string, boolean>>({});
 
   const filteredTasks = useMemo(() => {
     return recoveryTasks.filter((task) => matchesQueueTab(task, activeTab));
@@ -8492,6 +8498,8 @@ function TodaysRecoveryQueue() {
 
   const selectedTask =
     filteredTasks.find((task) => task.id === selectedTaskId) ?? filteredTasks[0] ?? recoveryTasks[0];
+    const visibleQueueTasks = filteredTasks.slice(0, 25);
+const hiddenQueueCount = Math.max(filteredTasks.length - visibleQueueTasks.length, 0);
   const primaryActionLabel = getPrimaryRecoveryAction(selectedTask);
   const recommendedTemplate = getRecommendedTemplateForTask(selectedTask);
 const riskReason = buildRiskReason(selectedTask);
@@ -8518,14 +8526,34 @@ const systemThreadMessages: RecoveryThreadMessage[] = [
     : []),
 ];
 
-  function handleTaskAction(action: string) {
-  setDetailNotice(`${action} noted for ${selectedTask.customer}.`);
+  function createFollowUpForSelectedTask() {
+  setFollowUpTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: true,
+  }));
+
+  setDetailNotice(`Follow-up created for ${selectedTask.customer}.`);
+}
+
+function markSelectedTaskReviewed() {
+  setReviewedTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: true,
+  }));
+
+  setDetailNotice(`${selectedTask.customer} marked reviewed.`);
 }
 
 async function copyCurrentRecoveryMessage() {
   try {
     await navigator.clipboard.writeText(currentMessageBody);
-    setDetailNotice(`Template copied for ${selectedTask.customer}.`);
+
+    setCopiedTaskIds((current) => ({
+      ...current,
+      [selectedTask.id]: true,
+    }));
+
+    setDetailNotice(`Message copied for ${selectedTask.customer}.`);
   } catch {
     setDetailNotice("Copy failed. Please copy the message manually.");
   }
@@ -8537,6 +8565,11 @@ function useApprovedTemplate() {
     [selectedTask.id]: recommendedTemplate.body,
   }));
 
+  setTemplateUsedTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: true,
+  }));
+
   setDetailNotice(`Approved template selected: ${recommendedTemplate.name}.`);
 }
 
@@ -8546,6 +8579,11 @@ function generateAiResponseDraft() {
   setTaskMessageDrafts((current) => ({
     ...current,
     [selectedTask.id]: draft,
+  }));
+
+  setAiGeneratedTaskIds((current) => ({
+    ...current,
+    [selectedTask.id]: true,
   }));
 
   setDetailNotice("AI response draft generated for review. Nothing was sent.");
@@ -8584,7 +8622,7 @@ function openTemplateSetup() {
           </div>
 
           <div className="recovery-list">
-            {filteredTasks.map((task) => (
+            {visibleQueueTasks.map((task) => (
               <button
                 className={`recovery-task-card ${task.tone} ${
                   selectedTask.id === task.id ? "selected" : ""
@@ -8604,14 +8642,13 @@ function openTemplateSetup() {
                       <Badge tone={task.tone}>{task.priority}</Badge>
                     </div>
                     <p>{task.brandContext} - {task.productInterest}</p>
-                    <div className="recovery-meta">
-                      <span>{task.leakType}</span>
-                      <span>{task.source}</span>
-                      <span>{task.assignedOwner}</span>
-                      <span>{task.dueStatus}</span>
-                      <span>{task.lastContact}</span>
-                      <span>{task.attemptCount} attempts</span>
-                    </div>
+                    <div className="queue-action-status">
+  {reviewedTaskIds[task.id] ? <span className="queue-status-pill reviewed">✓ Reviewed</span> : null}
+  {followUpTaskIds[task.id] ? <span className="queue-status-pill">Follow-up created</span> : null}
+  {templateUsedTaskIds[task.id] ? <span className="queue-status-pill">Template used</span> : null}
+  {aiGeneratedTaskIds[task.id] ? <span className="queue-status-pill">AI draft ready</span> : null}
+  {copiedTaskIds[task.id] ? <span className="queue-status-pill">Copied</span> : null}
+</div>
                     <small className="queue-next-action">{task.recommendedNextAction}</small>
                   </div>
                 </div>
@@ -8622,6 +8659,19 @@ function openTemplateSetup() {
               </button>
             ))}
           </div>
+
+{hiddenQueueCount > 0 ? (
+  <div className="queue-show-more-row">
+    <button
+      className="secondary-btn queue-show-more-btn"
+      onClick={() => setIsFullQueueOpen(true)}
+      type="button"
+    >
+      Show more {hiddenQueueCount} actions
+    </button>
+  </div>
+) : null}
+
         </article>
 
         <aside className="glass-card panel-card recovery-detail-panel">
@@ -8784,49 +8834,124 @@ function openTemplateSetup() {
 
           <p className="detail-notice">{detailNotice}</p>
 
-          <div className="detail-actions">
-  <button
-    type="button"
-    className="primary-btn"
-    onClick={useApprovedTemplate}
-  >
-    Use Template
-  </button>
+                    <div className="detail-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={useApprovedTemplate}
+            >
+              Use Template
+            </button>
 
-  <button
-    type="button"
-    className="secondary-btn"
-    onClick={generateAiResponseDraft}
-  >
-    Generate AI Response
-  </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={generateAiResponseDraft}
+            >
+              Generate AI Response
+            </button>
 
-  <button
-    type="button"
-    className="secondary-btn"
-    onClick={copyCurrentRecoveryMessage}
-  >
-    Copy Message
-  </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={copyCurrentRecoveryMessage}
+            >
+              Copy Message
+            </button>
 
-  <button
-    type="button"
-    className="secondary-btn"
-    onClick={() => handleTaskAction("Follow-up created")}
-  >
-    Create Follow-up
-  </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={createFollowUpForSelectedTask}
+            >
+              Create Follow-up
+            </button>
 
-  <button
-    type="button"
-    className="secondary-btn"
-    onClick={() => handleTaskAction("Reviewed")}
-  >
-    Mark Reviewed
-  </button>
-</div>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={markSelectedTaskReviewed}
+            >
+              {reviewedTaskIds[selectedTask.id] ? "Reviewed ✓" : "Mark Reviewed"}
+            </button>
+          </div>
         </aside>
       </section>
+
+      {isFullQueueOpen ? (
+        <div className="queue-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="queue-modal-card">
+            <div className="queue-modal-header">
+              <div>
+                <h2>Full Recovery Queue</h2>
+                <p>Select any recovery action. The detail panel will update on the main screen.</p>
+              </div>
+
+              <button
+                className="secondary-btn"
+                onClick={() => setIsFullQueueOpen(false)}
+                type="button"
+              >
+                Back
+              </button>
+            </div>
+
+            <div className="queue-modal-list">
+              {filteredTasks.map((task) => (
+                <button
+                  className={`queue-modal-row ${selectedTask.id === task.id ? "selected" : ""}`}
+                  key={`full-${task.id}`}
+                  onClick={() => {
+                    setSelectedTaskId(task.id);
+                    setDetailNotice("Ready for recovery action.");
+                    setIsFullQueueOpen(false);
+                  }}
+                  type="button"
+                >
+                  <div>
+                    <strong>{task.customer}</strong>
+                    <p>
+                      {task.brandContext} - {task.productInterest}
+                    </p>
+
+                    <div className="recovery-meta">
+                      <span>{task.leakType}</span>
+                      <span>{task.source}</span>
+                      <span>{task.assignedOwner}</span>
+                      <span>{task.dueStatus}</span>
+                      <span>{task.lastContact}</span>
+                      <span>{task.attemptCount} attempts</span>
+                    </div>
+
+                    <div className="queue-action-status">
+                      {reviewedTaskIds[task.id] ? (
+                        <span className="queue-status-pill reviewed">✓ Reviewed</span>
+                      ) : null}
+                      {followUpTaskIds[task.id] ? (
+                        <span className="queue-status-pill">Follow-up created</span>
+                      ) : null}
+                      {templateUsedTaskIds[task.id] ? (
+                        <span className="queue-status-pill">Template used</span>
+                      ) : null}
+                      {aiGeneratedTaskIds[task.id] ? (
+                        <span className="queue-status-pill">AI draft ready</span>
+                      ) : null}
+                      {copiedTaskIds[task.id] ? (
+                        <span className="queue-status-pill">Copied</span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="queue-modal-value">
+                    <strong>{task.estimatedRevenueAtRisk}</strong>
+                    <span>{task.priority}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -9122,7 +9247,7 @@ function InquiryInbox({ onActivity }: { onActivity: (activity: NewRecoveryActivi
               Add internal note
             </button>
           </div>
-        </aside>
+                </aside>
       </section>
     </div>
   );
