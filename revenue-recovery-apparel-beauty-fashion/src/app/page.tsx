@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, ChangeEvent, FormEvent, ReactNode } from "react";
 import { jsPDF } from "jspdf";
 
@@ -9969,16 +9969,40 @@ function handleDemandAction(signal: ProductDemandSignal, action: "tasks" | "revi
   );
 }
 
-function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecoveryActivity) => void }) {
+function SourceLeakTracking({
+  onActivity,
+  onNavigate,
+}: {
+  onActivity: (activity: NewRecoveryActivity) => void;
+  onNavigate: (page: string) => void;
+}) {
   const [sourceRecords, setSourceRecords] = useState<SourceLeakRecord[]>(sourceLeakRecords);
   const [activeSourceFilter, setActiveSourceFilter] = useState<SourceLeakFilter>("All");
   const [notice, setNotice] = useState("Source leakage is ready for recovery review.");
+  const [activeOwnerSourceId, setActiveOwnerSourceId] = useState<string | null>(null);
+  const [selectedSourceOwner, setSelectedSourceOwner] = useState("");
+  const [casePreviewSourceId, setCasePreviewSourceId] = useState<string | null>(null);
 
   const filteredSources = sourceRecords.filter((source) =>
     matchesSourceLeakFilter(source, activeSourceFilter),
   );
 
-  const sourceKpis = useMemo<KPI[]>(() => {
+  const selectedCaseSource = sourceRecords.find((source) => source.id === casePreviewSourceId);
+
+  const sourceOwnerOptions = [
+    ...teamUsers.map((member) => ({
+      id: member.id,
+      name: member.name,
+      role: member.role,
+    })),
+    {
+      id: "operations",
+      name: "Operations",
+      role: "Admin",
+    },
+  ];
+
+  const sourceKpis = useMemo<KPI[]>((() => {
     const captured = sourceRecords.reduce((total, source) => total + source.totalCaptured, 0);
     const highIntent = sourceRecords.reduce((total, source) => total + source.highIntentInquiries, 0);
     const missingReplies = sourceRecords.reduce((total, source) => total + source.firstRepliesMissing, 0);
@@ -9996,9 +10020,14 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
       { label: "Source Sync Issues", value: `${syncIssues}`, caption: "Needs source cleanup", tone: "amber" },
       { label: "Recovered by Source", value: formatCompactMoney(recovered), caption: "Recovered value", tone: "emerald" },
     ];
-  }, [sourceRecords]);
+  }), [sourceRecords]);
 
-  function recordSourceActivity(source: SourceLeakRecord, title: string, status: string, nextAction = source.recommendedFix) {
+  function recordSourceActivity(
+    source: SourceLeakRecord,
+    title: string,
+    status: string,
+    nextAction = source.recommendedFix,
+  ) {
     onActivity?.({
       category: source.syncIssues > 0 ? "Sync Issues" : "Team Actions",
       title,
@@ -10011,64 +10040,106 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
     });
   }
 
-  function handleSourceAction(
-    source: SourceLeakRecord,
-    action: "owners" | "tasks" | "reviewed" | "cases",
-  ) {
-    if (action === "owners") {
-      setSourceRecords((records) =>
-        records.map((record) =>
-          record.id === source.id
-            ? {
-                ...record,
-                ownersAssigned: true,
-                unassignedRecords: 0,
-                lastAction: "Missing owners assigned",
-              }
-            : record,
-        ),
-      );
-      setNotice(`Missing owners assigned for ${source.sourceName}.`);
-      recordSourceActivity(source, "Missing source owners assigned", "Owner assigned");
-      return;
+  function getDefaultOwnerForSource(source: SourceLeakRecord) {
+    if (
+      source.sourceName.includes("Shopify") ||
+      source.sourceName.includes("Back-in-stock") ||
+      source.sourceName.includes("Ecommerce")
+    ) {
+      return "Mina Cole";
     }
 
-    if (action === "tasks") {
-      setSourceRecords((records) =>
-        records.map((record) =>
-          record.id === source.id
-            ? {
-                ...record,
-                followUpTasksCreated: true,
-                overdueFollowUps: Math.max(0, record.overdueFollowUps - 2),
-                lastAction: "Follow-up recovery tasks created",
-              }
-            : record,
-        ),
-      );
-      setNotice(`Follow-up recovery tasks created for ${source.sourceName}.`);
-      recordSourceActivity(source, "Source follow-up recovery tasks created", "Created");
-      return;
+    if (source.sourceName.includes("WhatsApp")) {
+      return "Tessa Nguyen";
     }
 
-    if (action === "reviewed") {
-      setSourceRecords((records) =>
-        records.map((record) =>
-          record.id === source.id
-            ? {
-                ...record,
-                reviewed: true,
-                syncIssues: Math.max(0, record.syncIssues - 1),
-                lastAction: "Source issue reviewed",
-              }
-            : record,
-        ),
-      );
-      setNotice(`${source.sourceName} issue marked reviewed.`);
-      recordSourceActivity(source, "Source issue reviewed", "Reviewed");
-      return;
+    if (source.sourceName.includes("Referral") || source.sourceName.includes("Campaign")) {
+      return "Luis Park";
     }
 
+    if (source.sourceName.includes("Event") || source.sourceName.includes("CSV")) {
+      return "Operations";
+    }
+
+    return "Amara Shah";
+  }
+
+  function openSourceOwnerPanel(source: SourceLeakRecord) {
+    setActiveOwnerSourceId(source.id);
+    setSelectedSourceOwner(getDefaultOwnerForSource(source));
+    setNotice(`Select owner coverage for ${source.sourceName}.`);
+  }
+
+  function cancelSourceOwnerPanel() {
+    setActiveOwnerSourceId(null);
+    setSelectedSourceOwner("");
+    setNotice("Source leakage is ready for recovery review.");
+  }
+
+  function confirmSourceOwner(source: SourceLeakRecord) {
+    const owner = selectedSourceOwner || getDefaultOwnerForSource(source);
+
+    setSourceRecords((records) =>
+      records.map((record) =>
+        record.id === source.id
+          ? {
+              ...record,
+              ownersAssigned: true,
+              unassignedRecords: 0,
+              lastAction: `Missing owners assigned to ${owner}`,
+            }
+          : record,
+      ),
+    );
+
+    setActiveOwnerSourceId(null);
+    setSelectedSourceOwner("");
+    setNotice(`${source.sourceName} missing owners assigned to ${owner}.`);
+    recordSourceActivity(source, "Missing source owners assigned", "Owner assigned");
+  }
+
+  function createSourceFollowUpTasks(source: SourceLeakRecord) {
+    setSourceRecords((records) =>
+      records.map((record) =>
+        record.id === source.id
+          ? {
+              ...record,
+              followUpTasksCreated: true,
+              overdueFollowUps: Math.max(0, record.overdueFollowUps - 2),
+              lastAction: "Follow-up recovery tasks created",
+            }
+          : record,
+      ),
+    );
+
+    setNotice(`Follow-up recovery tasks created for ${source.sourceName}.`);
+    recordSourceActivity(source, "Source follow-up recovery tasks created", "Created");
+  }
+
+  function viewSourceFollowUpTasks(source: SourceLeakRecord) {
+    setNotice(`Opening Follow-up Recovery for ${source.sourceName}.`);
+    onNavigate("Follow-up Recovery");
+  }
+
+  function markSourceReviewed(source: SourceLeakRecord) {
+    setSourceRecords((records) =>
+      records.map((record) =>
+        record.id === source.id
+          ? {
+              ...record,
+              reviewed: true,
+              syncIssues: Math.max(0, record.syncIssues - 1),
+              lastAction: "Source issue reviewed",
+            }
+          : record,
+      ),
+    );
+
+    setNotice(`${source.sourceName} issue marked reviewed.`);
+    recordSourceActivity(source, "Source issue reviewed", "Reviewed");
+  }
+
+  function openRelatedCasesPreview(source: SourceLeakRecord) {
     setSourceRecords((records) =>
       records.map((record) =>
         record.id === source.id
@@ -10080,8 +10151,15 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
           : record,
       ),
     );
+
+    setCasePreviewSourceId(source.id);
     setNotice(`Related recovery cases opened for ${source.sourceName}.`);
     recordSourceActivity(source, "Related recovery cases opened", "Opened");
+  }
+
+  function goToRelatedRecoveryCases() {
+    setCasePreviewSourceId(null);
+    onNavigate("Revenue Pipeline");
   }
 
   return (
@@ -10125,8 +10203,26 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
                   <div className="recovery-row-title">
                     <h3>{source.sourceName}</h3>
                     <Badge tone={source.tone}>{source.sourceQualityScore}/100</Badge>
+
+                    {source.ownersAssigned ? (
+                      <span className="queue-status-pill reviewed">Owners assigned</span>
+                    ) : null}
+
+                    {source.followUpTasksCreated ? (
+                      <span className="queue-status-pill">Tasks created</span>
+                    ) : null}
+
+                    {source.relatedCasesOpened ? (
+                      <span className="queue-status-pill">Cases opened</span>
+                    ) : null}
+
+                    {source.reviewed ? (
+                      <span className="queue-status-pill reviewed">Reviewed</span>
+                    ) : null}
                   </div>
+
                   <p>{source.sourceQuality}</p>
+
                   <div className="recovery-meta">
                     <span>{source.totalCaptured} captured</span>
                     <span>{source.highIntentInquiries} high intent</span>
@@ -10135,6 +10231,7 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
                     <span>{source.syncIssues} sync issues</span>
                   </div>
                 </div>
+
                 <div className="capture-value-stack">
                   <strong>{source.paymentPendingValue}</strong>
                   <span>payment pending</span>
@@ -10165,26 +10262,159 @@ function SourceLeakTracking({ onActivity }: { onActivity: (activity: NewRecovery
                 <p>{source.recommendedFix}</p>
               </div>
 
-              <div className="capture-actions">
-                <button type="button" className="primary-btn" onClick={() => handleSourceAction(source, "owners")}>
-                  Assign missing owners
+              <div className="capture-actions source-actions-row">
+                <button type="button" className="primary-btn" onClick={() => openSourceOwnerPanel(source)}>
+                  {source.ownersAssigned ? "Reassign owners" : "Assign missing owners"}
                 </button>
-                <button type="button" className="secondary-btn" onClick={() => handleSourceAction(source, "tasks")}>
-                  Create follow-up recovery tasks
+
+                {source.followUpTasksCreated ? (
+                  <button type="button" className="secondary-btn" onClick={() => viewSourceFollowUpTasks(source)}>
+                    View follow-up tasks
+                  </button>
+                ) : (
+                  <button type="button" className="secondary-btn" onClick={() => createSourceFollowUpTasks(source)}>
+                    Create follow-up recovery tasks
+                  </button>
+                )}
+
+                <button type="button" className="secondary-btn" onClick={() => markSourceReviewed(source)}>
+                  {source.reviewed ? "Reviewed ✓" : "Mark source issue reviewed"}
                 </button>
-                <button type="button" className="secondary-btn" onClick={() => handleSourceAction(source, "reviewed")}>
-                  Mark source issue reviewed
-                </button>
-                <button type="button" className="secondary-btn" onClick={() => handleSourceAction(source, "cases")}>
-                  Open related recovery cases
+
+                <button type="button" className="secondary-btn" onClick={() => openRelatedCasesPreview(source)}>
+                  {source.relatedCasesOpened ? "View related recovery cases" : "Open related recovery cases"}
                 </button>
               </div>
+
+              {activeOwnerSourceId === source.id ? (
+                <div className="source-owner-panel">
+                  <div>
+                    <h4>Assign source owners</h4>
+                    <p>Select who should own this source leakage and clear missing owner coverage.</p>
+                  </div>
+
+                  <div className="source-owner-row">
+                    <select
+                      value={selectedSourceOwner}
+                      onChange={(event) => setSelectedSourceOwner(event.target.value)}
+                    >
+                      {sourceOwnerOptions.map((owner) => (
+                        <option key={owner.id} value={owner.name}>
+                          {owner.name} - {owner.role}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="source-owner-actions">
+                      <button type="button" className="primary-btn" onClick={() => confirmSourceOwner(source)}>
+                        Confirm Assignment
+                      </button>
+
+                      <button type="button" className="secondary-btn" onClick={cancelSourceOwnerPanel}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>
 
         <p className="detail-notice capture-page-notice">{notice}</p>
       </section>
+
+      {selectedCaseSource ? (
+        <div className="source-case-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="source-case-modal-card">
+            <div className="source-case-modal-header">
+              <div>
+                <h2>Related Recovery Cases</h2>
+                <p>
+                  Source-level recovery cases connected to {selectedCaseSource.sourceName}. Review the case content here
+                  or open the full Revenue Pipeline.
+                </p>
+              </div>
+
+              <button className="secondary-btn" onClick={() => setCasePreviewSourceId(null)} type="button">
+                Close
+              </button>
+            </div>
+
+            <div className="source-case-grid">
+              <div>
+                <span>Source</span>
+                <strong>{selectedCaseSource.sourceName}</strong>
+              </div>
+              <div>
+                <span>Payment pending</span>
+                <strong>{selectedCaseSource.paymentPendingValue}</strong>
+              </div>
+              <div>
+                <span>Missing first replies</span>
+                <strong>{selectedCaseSource.firstRepliesMissing}</strong>
+              </div>
+              <div>
+                <span>Overdue follow-ups</span>
+                <strong>{selectedCaseSource.overdueFollowUps}</strong>
+              </div>
+              <div>
+                <span>Unassigned records</span>
+                <strong>{selectedCaseSource.unassignedRecords}</strong>
+              </div>
+              <div>
+                <span>Sync issues</span>
+                <strong>{selectedCaseSource.syncIssues}</strong>
+              </div>
+            </div>
+
+            <div className="source-case-list">
+              <article>
+                <h3>First reply leakage case</h3>
+                <p>
+                  {selectedCaseSource.firstRepliesMissing} captured inquiries still need first replies from{" "}
+                  {selectedCaseSource.sourceName}.
+                </p>
+                <span>Recommended action: create follow-up recovery tasks and assign owners.</span>
+              </article>
+
+              <article>
+                <h3>Payment pending source case</h3>
+                <p>
+                  {selectedCaseSource.paymentPendingValue} is pending from this source and should be reviewed inside
+                  the recovery pipeline.
+                </p>
+                <span>Recommended action: open payment or follow-up recovery cases.</span>
+              </article>
+
+              {selectedCaseSource.syncIssues > 0 ? (
+                <article>
+                  <h3>Source sync issue case</h3>
+                  <p>
+                    {selectedCaseSource.syncIssues} sync issue needs cleanup before recovered value can be tracked
+                    cleanly.
+                  </p>
+                  <span>Recommended action: review Automation Health and source mapping.</span>
+                </article>
+              ) : null}
+            </div>
+
+            <div className="source-case-actions">
+              <button className="primary-btn" type="button" onClick={goToRelatedRecoveryCases}>
+                Go to Revenue Pipeline
+              </button>
+
+              <button className="secondary-btn" type="button" onClick={() => onNavigate("Follow-up Recovery")}>
+                Open Follow-up Recovery
+              </button>
+
+              <button className="secondary-btn" type="button" onClick={() => onNavigate("Automation Health")}>
+                Open Automation Health
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -15094,6 +15324,28 @@ export default function Home() {
   const [exportMessage, setExportMessage] = useState("");
   const [quickModal, setQuickModal] = useState<"export" | "capture" | null>(null);
   const [quickToast, setQuickToast] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  useEffect(() => {
+  function handleEscape(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      setIsSidebarOpen(false);
+    }
+  }
+
+  window.addEventListener("keydown", handleEscape);
+
+  return () => {
+    window.removeEventListener("keydown", handleEscape);
+  };
+}, []);
+
+useEffect(() => {
+  document.body.classList.toggle("sidebar-open", isSidebarOpen);
+
+  return () => {
+    document.body.classList.remove("sidebar-open");
+  };
+}, [isSidebarOpen]);
   const canManageTeamMembers = true;
   const initialCaptureAssigneeId = teamUsers[0]?.id ?? fallbackCaptureAssignees[0]?.id ?? "amara-shah";
 const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =>
@@ -15152,13 +15404,15 @@ const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =
   }
 
   function navigateToPage(page: string) {
-    const targetGroup = getGroupForPage(page);
-    setActivePage(page);
+  const targetGroup = getGroupForPage(page);
+  setActivePage(page);
 
-    if (targetGroup) {
-      setOpenGroup(targetGroup);
-    }
+  if (targetGroup) {
+    setOpenGroup(targetGroup);
   }
+
+  setIsSidebarOpen(false);
+}
 
   function addRecoveryActivity(activity: NewRecoveryActivity) {
     setActivityFeed((current) => [
@@ -15743,9 +15997,10 @@ function closeExportReport() {
   setExportMessage("");
 }
 
-  return (
-    <main className="app-shell">
-      <aside className="sidebar">
+ return (
+  <main className={`app-shell ${isSidebarOpen ? "is-sidebar-open" : ""}`}>
+    <aside className="sidebar" id="app-sidebar">
+      <div className="sidebar-top">
         <div className="brand">
           <img
             className="brand-logo"
@@ -15753,6 +16008,16 @@ function closeExportReport() {
             alt="Altynx"
           />
         </div>
+
+        <button
+          aria-label="Close navigation"
+          className="mobile-sidebar-close"
+          onClick={() => setIsSidebarOpen(false)}
+          type="button"
+        >
+          ×
+        </button>
+      </div>
 
         <nav className="sidebar-menu" aria-label="Altynx navigation">
           {sidebarGroups.map((group) => {
@@ -15802,9 +16067,36 @@ function closeExportReport() {
             );
           })}
         </nav>
-      </aside>
+            </aside>
+
+      <button
+        aria-label="Close navigation"
+        className="mobile-sidebar-backdrop"
+        onClick={() => setIsSidebarOpen(false)}
+        type="button"
+      />
 
       <section className="content">
+        <div className="mobile-topbar">
+          <button
+            aria-controls="app-sidebar"
+            aria-expanded={isSidebarOpen}
+            aria-label="Open navigation"
+            className="mobile-menu-btn"
+            onClick={() => setIsSidebarOpen(true)}
+            type="button"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <img
+            className="mobile-topbar-logo"
+            src="https://res.cloudinary.com/dojm1aiw2/image/upload/v1777510190/LOGO_Altynx_for_Developers_Black_cwc31f.png"
+            alt="Altynx"
+          />
+        </div>
         <header className="dashboard-header">
           <div className="header-copy">
             <div className="title-row">
@@ -15853,7 +16145,7 @@ function closeExportReport() {
         ) : activePage === "Product Demand" ? (
           <ProductDemand onActivity={addRecoveryActivity} onNavigate={navigateToPage} />
         ) : activePage === "Source Leak Tracking" ? (
-          <SourceLeakTracking onActivity={addRecoveryActivity} />
+          <SourceLeakTracking onActivity={addRecoveryActivity} onNavigate={navigateToPage} />
         ) : activePage === "Product Catalog" ? (
           <ProductCatalog />
         ) : activePage === "SKU / Variant Sheet" ? (
