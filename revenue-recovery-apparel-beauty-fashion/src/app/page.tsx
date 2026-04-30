@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { CSSProperties, ChangeEvent, FormEvent, ReactNode } from "react";
 
 type Tone = "cyan" | "rose" | "amber" | "emerald" | "indigo" | "gray";
 
@@ -29,6 +29,23 @@ type TeamUser = {
   recoveredThisMonth: string;
   tone: Tone;
 };
+
+type CaptureAssignee = {
+  id: string;
+  name: string;
+  role: string;
+  email?: string;
+};
+
+const assignmentRoles = ["Owner", "Support", "Reviewer", "Watcher"] as const;
+
+const fallbackCaptureAssignees: CaptureAssignee[] = [
+  { id: "amara-shah", name: "Amara Shah", role: "Recovery owner" },
+  { id: "mina-cole", name: "Mina Cole", role: "Beauty specialist" },
+  { id: "tessa-nguyen", name: "Tessa Nguyen", role: "Order recovery" },
+  { id: "luis-park", name: "Luis Park", role: "Post-purchase" },
+  { id: "operations", name: "Operations", role: "Admin" },
+];
 
 type RecoveryThreadMessage = {
   id: string;
@@ -13522,10 +13539,26 @@ export default function Home() {
   const [exportMessage, setExportMessage] = useState("");
   const [quickModal, setQuickModal] = useState<"export" | "capture" | null>(null);
   const [quickToast, setQuickToast] = useState("");
+  const canManageTeamMembers = true;
+  const initialCaptureAssigneeId = teamUsers[0]?.id ?? fallbackCaptureAssignees[0]?.id ?? "amara-shah";
+  const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =>
+    (teamUsers.length > 0 ? teamUsers : fallbackCaptureAssignees).map((member) => ({
+      id: member.id,
+      name: member.name,
+      role: member.role,
+    })),
+  );
+  const [isAddTeamMemberOpen, setIsAddTeamMemberOpen] = useState(false);
+  const [newTeamMember, setNewTeamMember] = useState({
+    email: "",
+    name: "",
+    role: "",
+  });
   const [captureForm, setCaptureForm] = useState({
+    assignedTo: initialCaptureAssigneeId,
+    assignmentRole: "Owner",
     buyerName: "",
     estimatedValue: "",
-    owner: "",
     recoveryNote: "",
     source: "",
   });
@@ -13589,21 +13622,75 @@ export default function Home() {
     });
   }
 
+  function handleCaptureInputChange(
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) {
+    const { name, value } = event.target;
+
+    setCaptureForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  function handleNewTeamMemberInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const { name, value } = event.target;
+
+    setNewTeamMember((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  function handleAddTeamMember() {
+    const name = newTeamMember.name.trim();
+
+    if (!name) {
+      setQuickToast("Enter a team member name");
+      return;
+    }
+
+    const role = newTeamMember.role.trim() || "Recovery owner";
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const member: CaptureAssignee = {
+      email: newTeamMember.email.trim() || undefined,
+      id: `${slug || "team-member"}-${Date.now()}`,
+      name,
+      role,
+    };
+
+    setCaptureAssignees((current) => [...current, member]);
+    setCaptureForm((current) => ({
+      ...current,
+      assignedTo: member.id,
+    }));
+    setNewTeamMember({
+      email: "",
+      name: "",
+      role: "",
+    });
+    setIsAddTeamMemberOpen(false);
+    setQuickToast(`${name} added locally`);
+  }
+
   function handleCaptureSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const buyerName = captureForm.buyerName.trim() || "New buyer";
     const source = captureForm.source.trim() || "Manual capture";
     const estimatedValue = captureForm.estimatedValue.trim() || "Value pending";
-    const owner = captureForm.owner.trim() || "Unassigned";
+    const selectedTeamMember =
+      captureAssignees.find((member) => member.id === captureForm.assignedTo) ?? captureAssignees[0];
+    const assignedOwner = selectedTeamMember?.name ?? "Unassigned";
+    const assignmentRole = captureForm.assignmentRole || "Owner";
     const note = captureForm.recoveryNote.trim() || "Review inquiry and assign the next recovery action.";
 
     addRecoveryActivity({
       category: "Inquiries",
       title: "Missed inquiry captured",
-      description: `${buyerName} was captured from ${source}.`,
+      description: `${buyerName} from ${source} was assigned to ${assignedOwner} as ${assignmentRole}.`,
       impactBadge: estimatedValue,
       relatedRecord: "Manual capture - Recovery Overview",
-      owner,
+      owner: assignedOwner,
       status: "Captured",
       nextAction: note,
       tone: "cyan",
@@ -13611,12 +13698,14 @@ export default function Home() {
 
     setQuickToast("Missed inquiry captured locally");
     setCaptureForm({
+      assignedTo: captureAssignees[0]?.id ?? initialCaptureAssigneeId,
+      assignmentRole: "Owner",
       buyerName: "",
       estimatedValue: "",
-      owner: "",
       recoveryNote: "",
       source: "",
     });
+    setIsAddTeamMemberOpen(false);
     setQuickModal(null);
   }
 const overviewReportTaskIds = [
@@ -14009,7 +14098,14 @@ function closeExportReport() {
                 <div>
                   <h2>Capture Missed Inquiry</h2>
                 </div>
-                <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
+                <button
+                  className="secondary-btn"
+                  onClick={() => {
+                    setIsAddTeamMemberOpen(false);
+                    setQuickModal(null);
+                  }}
+                  type="button"
+                >
                   Close
                 </button>
               </div>
@@ -14020,7 +14116,8 @@ function closeExportReport() {
                       <label htmlFor="capture-buyer-name">Buyer name</label>
                       <input
                         id="capture-buyer-name"
-                        onChange={(event) => setCaptureForm((current) => ({ ...current, buyerName: event.target.value }))}
+                        name="buyerName"
+                        onChange={handleCaptureInputChange}
                         placeholder="Sophia Bennett"
                         type="text"
                         value={captureForm.buyerName}
@@ -14030,7 +14127,8 @@ function closeExportReport() {
                       <label htmlFor="capture-source">Source</label>
                       <input
                         id="capture-source"
-                        onChange={(event) => setCaptureForm((current) => ({ ...current, source: event.target.value }))}
+                        name="source"
+                        onChange={handleCaptureInputChange}
                         placeholder="Instagram DM"
                         type="text"
                         value={captureForm.source}
@@ -14040,27 +14138,120 @@ function closeExportReport() {
                       <label htmlFor="capture-estimated-value">Estimated value</label>
                       <input
                         id="capture-estimated-value"
-                        onChange={(event) => setCaptureForm((current) => ({ ...current, estimatedValue: event.target.value }))}
+                        name="estimatedValue"
+                        onChange={handleCaptureInputChange}
                         placeholder="$850"
                         type="text"
                         value={captureForm.estimatedValue}
                       />
                     </div>
                     <div className="capture-field">
-                      <label htmlFor="capture-owner">Owner</label>
-                      <input
-                        id="capture-owner"
-                        onChange={(event) => setCaptureForm((current) => ({ ...current, owner: event.target.value }))}
-                        placeholder="Amara Shah"
-                        type="text"
-                        value={captureForm.owner}
-                      />
+                      <label htmlFor="capture-assigned-to">Assigned to</label>
+                      <select
+                        id="capture-assigned-to"
+                        name="assignedTo"
+                        onChange={handleCaptureInputChange}
+                        value={captureForm.assignedTo}
+                      >
+                        {captureAssignees.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.name} - {member.role}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+                    <div className="capture-field">
+                      <label htmlFor="capture-assignment-role">Assignment role</label>
+                      <select
+                        id="capture-assignment-role"
+                        name="assignmentRole"
+                        onChange={handleCaptureInputChange}
+                        value={captureForm.assignmentRole}
+                      >
+                        {assignmentRoles.map((role) => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="capture-field assignment-row">
+                      <span className="capture-field-label">Team controls</span>
+                      {canManageTeamMembers ? (
+                        <button
+                          className="add-team-member-button"
+                          onClick={() => setIsAddTeamMemberOpen((current) => !current)}
+                          type="button"
+                        >
+                          + Add team member
+                        </button>
+                      ) : null}
+                    </div>
+                    {isAddTeamMemberOpen ? (
+                      <div
+                        className="team-member-panel capture-field-full"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            handleAddTeamMember();
+                          }
+                        }}
+                      >
+                        <div className="capture-modal-grid team-member-panel-grid">
+                          <div className="capture-field">
+                            <label htmlFor="new-team-member-name">Name</label>
+                            <input
+                              id="new-team-member-name"
+                              name="name"
+                              onChange={handleNewTeamMemberInputChange}
+                              placeholder="Team member name"
+                              type="text"
+                              value={newTeamMember.name}
+                            />
+                          </div>
+                          <div className="capture-field">
+                            <label htmlFor="new-team-member-role">Role</label>
+                            <input
+                              id="new-team-member-role"
+                              name="role"
+                              onChange={handleNewTeamMemberInputChange}
+                              placeholder="Recovery owner"
+                              type="text"
+                              value={newTeamMember.role}
+                            />
+                          </div>
+                          <div className="capture-field">
+                            <label htmlFor="new-team-member-email">Email optional</label>
+                            <input
+                              id="new-team-member-email"
+                              name="email"
+                              onChange={handleNewTeamMemberInputChange}
+                              placeholder="name@altynx.com"
+                              type="email"
+                              value={newTeamMember.email}
+                            />
+                          </div>
+                        </div>
+                        <div className="capture-modal-actions team-member-panel-actions">
+                          <button className="primary-btn" onClick={handleAddTeamMember} type="button">
+                            Add member
+                          </button>
+                          <button
+                            className="secondary-btn"
+                            onClick={() => setIsAddTeamMemberOpen(false)}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="capture-field capture-field-full">
                       <label htmlFor="capture-recovery-note">Recovery note</label>
                       <textarea
                         id="capture-recovery-note"
-                        onChange={(event) => setCaptureForm((current) => ({ ...current, recoveryNote: event.target.value }))}
+                        name="recoveryNote"
+                        onChange={handleCaptureInputChange}
                         placeholder="Add context, next action, or message reminder."
                         value={captureForm.recoveryNote}
                       />
@@ -14070,7 +14261,14 @@ function closeExportReport() {
                     <button className="primary-btn" type="submit">
                       Capture inquiry
                     </button>
-                    <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
+                    <button
+                      className="secondary-btn"
+                      onClick={() => {
+                        setIsAddTeamMemberOpen(false);
+                        setQuickModal(null);
+                      }}
+                      type="button"
+                    >
                       Close
                     </button>
                   </div>

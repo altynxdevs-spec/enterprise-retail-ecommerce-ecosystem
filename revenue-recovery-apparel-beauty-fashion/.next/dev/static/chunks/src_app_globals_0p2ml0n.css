@@ -5535,4 +5535,96 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem * {
   color: inherit !important;
 }
 
+.capture-field select {
+  color: #111;
+  box-sizing: border-box;
+  appearance: none;
+  background-color: #fff;
+  background-image: linear-gradient(45deg, #0000 50%, #6b7280 50%), linear-gradient(135deg, #6b7280 50%, #0000 50%);
+  background-position: calc(100% - 22px), calc(100% - 16px);
+  background-repeat: no-repeat;
+  background-size: 6px 6px, 6px 6px;
+  background-attachment: scroll;
+  background-origin: padding-box;
+  background-clip: border-box;
+  border: 1px solid #d9d4cb;
+  border-radius: 16px;
+  outline: none;
+  width: 100%;
+  min-height: 54px;
+  padding: 14px 42px 14px 16px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+
+.capture-field select:focus {
+  border-color: #ff5a14;
+  box-shadow: 0 0 0 4px #ff5a141f;
+}
+
+.capture-field-label {
+  color: #3e3e3e;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.assignment-row {
+  justify-content: flex-end;
+}
+
+.add-team-member-button {
+  color: #111;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #ded9d1;
+  border-radius: 999px;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  min-height: 42px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  transition: border-color .18s, background .18s, color .18s;
+  display: inline-flex;
+}
+
+.add-team-member-button:hover {
+  background: #fff7f3;
+  border-color: #ff5a14;
+}
+
+.team-member-panel {
+  background: #fbfaf8;
+  border: 1px solid #e7e3dc;
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.team-member-panel-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.team-member-panel-actions {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .assignment-row {
+    align-items: stretch;
+  }
+
+  .add-team-member-button {
+    width: 100%;
+  }
+
+  .team-member-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /*# sourceMappingURL=src_app_globals_0p2ml0n.css.map*/

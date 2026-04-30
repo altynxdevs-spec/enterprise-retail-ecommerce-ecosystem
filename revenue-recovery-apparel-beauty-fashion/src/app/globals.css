@@ -7403,3 +7403,99 @@ body .sidebar .side-group.is-open .side-submenu .side-subitem.is-active::before 
 body .sidebar .side-group.is-open .side-submenu .side-subitem * {
   color: inherit !important;
 }
+
+/* Capture modal assignment controls */
+.capture-field select {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid #d9d4cb;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 500;
+  padding: 14px 42px 14px 16px;
+  outline: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  box-sizing: border-box;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6b7280 50%),
+    linear-gradient(135deg, #6b7280 50%, transparent 50%);
+  background-position:
+    calc(100% - 22px) 50%,
+    calc(100% - 16px) 50%;
+  background-size:
+    6px 6px,
+    6px 6px;
+  background-repeat: no-repeat;
+}
+
+.capture-field select:focus {
+  border-color: #ff5a14;
+  box-shadow: 0 0 0 4px rgba(255, 90, 20, 0.12);
+}
+
+.capture-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #3e3e3e;
+}
+
+.assignment-row {
+  justify-content: flex-end;
+}
+
+.add-team-member-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 42px;
+  border: 1px solid #ded9d1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0 14px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.add-team-member-button:hover {
+  border-color: #ff5a14;
+  background: #fff7f3;
+}
+
+.team-member-panel {
+  border: 1px solid #e7e3dc;
+  border-radius: 20px;
+  background: #fbfaf8;
+  padding: 18px;
+}
+
+.team-member-panel-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.team-member-panel-actions {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .assignment-row {
+    align-items: stretch;
+  }
+
+  .add-team-member-button {
+    width: 100%;
+  }
+
+  .team-member-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
