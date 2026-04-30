@@ -7106,6 +7106,15 @@ function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOvervi
   const issueCount = automationSourceItems.filter((item) =>
     ["Needs review", "Owner missing", "Payment watch"].includes(item.status),
   ).length;
+  const kpiNavigation: Record<string, string> = {
+    "Revenue at Risk": "Revenue Pipeline",
+    "Recovered This Month": "Recovered Revenue",
+    "Pending Payment Value": "Payment Recovery",
+    "Overdue Recovery Actions": "Today's Recovery Queue",
+    "Refill / Restock Opportunities": "Refill Opportunities",
+    "Automation Sync Issues": "Automation Health",
+    "Open Recovery Tasks": "Assigned Recovery Actions",
+  };
 
   function closeModal() {
     setActiveModal(null);
@@ -7146,16 +7155,11 @@ function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOvervi
   }
 
   function handleKpiClick(label: string) {
-    if (label === "Revenue at Risk") {
-      setActiveModal("revenue");
-      return;
+    const targetPage = kpiNavigation[label];
+
+    if (targetPage) {
+      onNavigate(targetPage);
     }
-    if (label === "Recovered This Month") onNavigate("Recovered Revenue");
-    if (label === "Pending Payment Value") onNavigate("Payment Recovery");
-    if (label === "Overdue Recovery Actions") onNavigate("Today's Recovery Queue");
-    if (label === "Refill / Restock Opportunities") onNavigate("Refill Opportunities");
-    if (label === "Automation Sync Issues") onNavigate("Automation Health");
-    if (label === "Open Recovery Tasks") onNavigate("Assigned Recovery Actions");
   }
 
   function createTaskActivity(task: RecoveryTask, title: string, status: string) {
@@ -13576,6 +13580,28 @@ export default function Home() {
     setOpenGroup((current) => (current === title ? "" : title));
   }
 
+  function getGroupForPage(page: string) {
+    const currentOpenGroup = sidebarGroups.find(
+      (group) => group.title === openGroup && group.items.includes(page),
+    );
+
+    if (currentOpenGroup) {
+      return currentOpenGroup.title;
+    }
+
+    const matchingGroup = sidebarGroups.find((group) => group.items.includes(page));
+    return matchingGroup?.title ?? openGroup;
+  }
+
+  function navigateToPage(page: string) {
+    const targetGroup = getGroupForPage(page);
+    setActivePage(page);
+
+    if (targetGroup) {
+      setOpenGroup(targetGroup);
+    }
+  }
+
   function addRecoveryActivity(activity: NewRecoveryActivity) {
     setActivityFeed((current) => [
       {
@@ -13828,7 +13854,7 @@ function closeExportReport() {
                       <button
                         key={item}
                         type="button"
-                        onClick={() => setActivePage(item)}
+                        onClick={() => navigateToPage(item)}
                         className={`side-subitem ${activePage === item ? "is-active" : ""}`}
                       >
                         {item}
@@ -13861,7 +13887,7 @@ function closeExportReport() {
             </button>
             <button
               className="secondary-btn"
-              onClick={() => setActivePage("Today's Recovery Queue")}
+              onClick={() => navigateToPage("Today's Recovery Queue")}
               type="button"
             >
               Open Recovery Queue
@@ -13987,7 +14013,7 @@ function closeExportReport() {
           <RecoveryOverview
             activities={activityFeed}
             onActivity={addRecoveryActivity}
-            onNavigate={setActivePage}
+            onNavigate={navigateToPage}
           />
         ) : activePage === "Today's Recovery Queue" ? (
           <TodaysRecoveryQueue />
