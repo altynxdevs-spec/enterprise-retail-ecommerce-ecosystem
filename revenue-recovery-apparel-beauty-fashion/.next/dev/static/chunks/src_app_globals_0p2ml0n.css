@@ -5374,4 +5374,39 @@ body .sidebar .side-title, body .sidebar .side-subitem {
   font-family: Inter, Geist, Manrope, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Arial, sans-serif !important;
 }
 
+body .sidebar .side-group.is-open > .side-group-trigger, body .sidebar .side-group.is-open > .side-group-trigger *, body .sidebar .side-group.is-open > .side-group-trigger .side-title, body .sidebar .side-group.is-open > .side-group-trigger .side-arrow {
+  color: #fff !important;
+}
+
+body .sidebar .side-group.is-open .side-submenu .side-subitem {
+  color: #8b8f97 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  background: none !important;
+  border-left: 2px solid #0000 !important;
+  font-weight: 450 !important;
+}
+
+body .sidebar .side-group.is-open .side-submenu .side-subitem:hover {
+  color: #111 !important;
+  background: #f7f7f5 !important;
+  border-left-color: #0000 !important;
+}
+
+body .sidebar .side-group.is-open .side-submenu .side-subitem.is-active, body .sidebar .side-group.is-open .side-submenu .side-subitem.is-active:hover {
+  color: #111 !important;
+  background: #f1f1ef !important;
+  border-left-color: #ff4500 !important;
+  font-weight: 550 !important;
+}
+
+body .sidebar .side-group.is-open .side-submenu .side-subitem.is-active:before {
+  content: none !important;
+  display: none !important;
+}
+
+body .sidebar .side-group.is-open .side-submenu .side-subitem * {
+  color: inherit !important;
+}
+
 /*# sourceMappingURL=src_app_globals_0p2ml0n.css.map*/

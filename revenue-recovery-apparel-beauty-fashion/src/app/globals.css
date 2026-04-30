@@ -7223,3 +7223,53 @@ body .sidebar .side-subitem {
     Arial,
     sans-serif !important;
 }
+
+/* =========================================================
+   FINAL SUBMENU VISIBILITY FIX
+   Paste at the absolute END of globals.css
+========================================================= */
+
+/* Keep main opened tab white text */
+body .sidebar .side-group.is-open > .side-group-trigger,
+body .sidebar .side-group.is-open > .side-group-trigger *,
+body .sidebar .side-group.is-open > .side-group-trigger .side-title,
+body .sidebar .side-group.is-open > .side-group-trigger .side-arrow {
+  color: #ffffff !important;
+}
+
+/* But submenu items must NOT inherit white */
+body .sidebar .side-group.is-open .side-submenu .side-subitem {
+  color: #8b8f97 !important;
+  background: transparent !important;
+  border-left: 2px solid transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  font-weight: 450 !important;
+}
+
+/* Submenu hover */
+body .sidebar .side-group.is-open .side-submenu .side-subitem:hover {
+  color: #111111 !important;
+  background: #f7f7f5 !important;
+  border-left-color: transparent !important;
+}
+
+/* Active submenu item */
+body .sidebar .side-group.is-open .side-submenu .side-subitem.is-active,
+body .sidebar .side-group.is-open .side-submenu .side-subitem.is-active:hover {
+  color: #111111 !important;
+  background: #f1f1ef !important;
+  border-left-color: #ff4500 !important;
+  font-weight: 550 !important;
+}
+
+/* Remove old glowing cyan active line */
+body .sidebar .side-group.is-open .side-submenu .side-subitem.is-active::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* Make sure submenu text inside buttons also follows this */
+body .sidebar .side-group.is-open .side-submenu .side-subitem * {
+  color: inherit !important;
+}
