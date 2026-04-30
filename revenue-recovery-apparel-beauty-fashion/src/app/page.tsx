@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 
 type Tone = "cyan" | "rose" | "amber" | "emerald" | "indigo" | "gray";
 
@@ -6559,13 +6560,24 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-function Badge({ children, tone }: { children: React.ReactNode; tone: Tone }) {
+function Badge({ children, tone }: { children: ReactNode; tone: Tone }) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
 
-function KpiCard({ item }: { item: KPI }) {
+function KpiCard({ item, onClick }: { item: KPI; onClick?: () => void }) {
   return (
-    <article className={`glass-card kpi-card recovery-kpi-card ${item.tone}`}>
+    <article
+      className={`glass-card kpi-card recovery-kpi-card ${item.tone}`}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        onClick();
+      }}
+      role={onClick ? "button" : undefined}
+      style={onClick ? { cursor: "pointer" } : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="kpi-top">
         <span>{item.label}</span>
         <span className={`tiny-dot ${item.tone}`} />
@@ -6961,7 +6973,106 @@ function getNextRevenueStage(stage: RevenueStage) {
   return revenueStages[currentIndex + 1];
 }
 
-function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
+const modalOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 100,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 24,
+  background: "rgba(17, 17, 17, 0.22)",
+};
+
+const modalPanelStyle: CSSProperties = {
+  width: "min(720px, 100%)",
+  maxHeight: "min(82vh, 860px)",
+  overflowY: "auto",
+};
+
+const modalWidePanelStyle: CSSProperties = {
+  ...modalPanelStyle,
+  width: "min(920px, 100%)",
+};
+
+const modalGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: 10,
+};
+
+const modalStackStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 12,
+};
+
+function ModalShell({
+  children,
+  footer,
+  onClose,
+  title,
+  wide = false,
+}: {
+  children: ReactNode;
+  footer?: ReactNode;
+  onClose: () => void;
+  title: string;
+  wide?: boolean;
+}) {
+  return (
+    <div style={modalOverlayStyle} role="presentation">
+      <article
+        aria-modal="true"
+        className="glass-card panel-card"
+        role="dialog"
+        style={wide ? modalWidePanelStyle : modalPanelStyle}
+      >
+        <div className="panel-header">
+          <div>
+            <h2>{title}</h2>
+          </div>
+          <button className="secondary-btn" onClick={onClose} type="button">
+            Close
+          </button>
+        </div>
+        <div style={modalStackStyle}>{children}</div>
+        {footer ? (
+          <div className="capture-actions" style={{ marginTop: 18 }}>
+            {footer}
+          </div>
+        ) : null}
+      </article>
+    </div>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value?: ReactNode }) {
+  return (
+    <div className="detail-callout">
+      <span>{label}</span>
+      <strong>{value ?? "Not assigned"}</strong>
+    </div>
+  );
+}
+
+type OverviewSourceEvent = (typeof automationSourceItems)[number];
+type OverviewModalType = "task" | "team" | "source" | "activity" | "revenue" | null;
+
+type RecoveryOverviewProps = {
+  activities: RecoveryActivity[];
+  onActivity: (activity: NewRecoveryActivity) => void;
+  onNavigate: (pageName: string) => void;
+};
+
+function RecoveryOverview({ activities, onActivity, onNavigate }: RecoveryOverviewProps) {
+  const [selectedTask, setSelectedTask] = useState<RecoveryTask | null>(null);
+  const [selectedTeamMember, setSelectedTeamMember] = useState<TeamUser | null>(null);
+  const [selectedSourceEvent, setSelectedSourceEvent] = useState<OverviewSourceEvent | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<RecoveryActivity | null>(null);
+  const [activeModal, setActiveModal] = useState<OverviewModalType>(null);
+  const [toastMessage, setToastMessage] = useState("");
+
   const overviewLeakIds = [
     "RR-1041",
     "RR-1043",
@@ -6979,11 +7090,117 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
     ["Needs review", "Owner missing", "Payment watch"].includes(item.status),
   ).length;
 
+  function closeModal() {
+    setActiveModal(null);
+  }
+
+  async function copyText(text: string, successMessage = "Copied to clipboard") {
+    try {
+      await navigator.clipboard.writeText(text);
+      setToastMessage(successMessage);
+    } catch {
+      setToastMessage("Copy failed. Please copy manually.");
+    }
+  }
+
+  function addOverviewActivity(activity: NewRecoveryActivity, message: string) {
+    onActivity(activity);
+    setToastMessage(message);
+  }
+
+  function openTask(task: RecoveryTask) {
+    setSelectedTask(task);
+    setActiveModal("task");
+  }
+
+  function openTeamMember(member: TeamUser) {
+    setSelectedTeamMember(member);
+    setActiveModal("team");
+  }
+
+  function openSourceEvent(item: OverviewSourceEvent) {
+    setSelectedSourceEvent(item);
+    setActiveModal("source");
+  }
+
+  function openActivity(activity: RecoveryActivity) {
+    setSelectedActivity(activity);
+    setActiveModal("activity");
+  }
+
+  function handleKpiClick(label: string) {
+    if (label === "Revenue at Risk") {
+      setActiveModal("revenue");
+      return;
+    }
+    if (label === "Recovered This Month") onNavigate("Recovered Revenue");
+    if (label === "Pending Payment Value") onNavigate("Payment Recovery");
+    if (label === "Overdue Recovery Actions") onNavigate("Today's Recovery Queue");
+    if (label === "Refill / Restock Opportunities") onNavigate("Refill Opportunities");
+    if (label === "Automation Sync Issues") onNavigate("Automation Health");
+    if (label === "Open Recovery Tasks") onNavigate("Assigned Recovery Actions");
+  }
+
+  function createTaskActivity(task: RecoveryTask, title: string, status: string) {
+    addOverviewActivity(
+      {
+        category: "Team Actions",
+        title,
+        description: `Reviewed ${task.customer}'s ${task.productInterest}.`,
+        impactBadge: task.estimatedRevenueAtRisk,
+        relatedRecord: task.id,
+        owner: task.assignedOwner,
+        status,
+        nextAction: task.recommendedNextAction,
+        tone: task.tone,
+      },
+      status === "Created" ? "Follow-up recovery action created" : "Recovery action reviewed",
+    );
+  }
+
+  function getSourceRelatedRecord(item: OverviewSourceEvent) {
+    return `${item.source} - ${item.id}`;
+  }
+
+  function createSourceActivity(item: OverviewSourceEvent, title: string, status: string) {
+    addOverviewActivity(
+      {
+        category: "Sync Issues",
+        title,
+        description: `${item.title}: ${item.description}`,
+        impactBadge: item.revenueAtRisk,
+        relatedRecord: getSourceRelatedRecord(item),
+        owner: item.owner,
+        status,
+        nextAction: item.nextAction,
+        tone: item.tone,
+      },
+      status === "Created" ? "Source fix task created" : "Source event reviewed",
+    );
+  }
+
+  const activityTargets: Record<RecoveryActivity["category"], string> = {
+    Automation: "Automation Health",
+    "Team Actions": "Assigned Recovery Actions",
+    "Sync Issues": "Automation Health",
+    Payments: "Payment Recovery",
+    Inquiries: "Inquiry Inbox",
+    "Repeat Revenue": "Refill Opportunities",
+    "Post-Purchase": "Reviews / Referrals / UGC",
+    Reports: "Revenue Leak Reports",
+  };
+
   return (
     <div className="recovery-page">
+      {toastMessage ? (
+        <div className="glass-card panel-card" role="status">
+          <p>{toastMessage}</p>
+        </div>
+      ) : null}
+
       <section className="recovery-kpi-grid">
         {kpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
+          <KpiCard key={item.label} item={item} onClick={() => handleKpiClick(item.label)} />
         ))}
       </section>
 
@@ -6999,7 +7216,19 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
 
           <div className="recovery-list">
             {overviewLeaks.map((task) => (
-              <div className="recovery-row leak-action-row" key={task.id}>
+              <div
+                className="recovery-row leak-action-row"
+                key={task.id}
+                onClick={() => openTask(task)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  openTask(task);
+                }}
+                role="button"
+                style={{ cursor: "pointer" }}
+                tabIndex={0}
+              >
                 <div className="recovery-row-main">
                   <Avatar name={task.customer} />
                   <div>
@@ -7034,7 +7263,19 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
 
           <div className="team-load-grid">
             {teamUsers.map((member) => (
-              <div className="team-load-card" key={member.id}>
+              <div
+                className="team-load-card"
+                key={member.id}
+                onClick={() => openTeamMember(member)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  openTeamMember(member);
+                }}
+                role="button"
+                style={{ cursor: "pointer" }}
+                tabIndex={0}
+              >
                 <div>
                   <h3>{member.name}</h3>
                   <p>{member.role}</p>
@@ -7067,7 +7308,19 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
 
           <div className="recovery-list">
             {automationSourceItems.map((item) => (
-              <div className="source-health-row" key={item.id}>
+              <div
+                className="source-health-row"
+                key={item.id}
+                onClick={() => openSourceEvent(item)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  openSourceEvent(item);
+                }}
+                role="button"
+                style={{ cursor: "pointer" }}
+                tabIndex={0}
+              >
                 <span className={`tiny-dot ${item.tone}`} />
                 <div>
                   <h3>{item.title}</h3>
@@ -7096,7 +7349,19 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
 
           <div className="recovery-activity-list">
             {activities.map((activity) => (
-              <div className="activity-row" key={activity.id}>
+              <div
+                className="activity-row"
+                key={activity.id}
+                onClick={() => openActivity(activity)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  openActivity(activity);
+                }}
+                role="button"
+                style={{ cursor: "pointer" }}
+                tabIndex={0}
+              >
                 <span className={`activity-node ${activity.tone}`} />
                 <div>
                   <div className="activity-row-top">
@@ -7116,6 +7381,282 @@ function RecoveryOverview({ activities }: { activities: RecoveryActivity[] }) {
           </div>
         </article>
       </section>
+
+      {activeModal === "revenue" ? (
+        <ModalShell
+          footer={
+            <>
+              <button className="primary-btn" onClick={() => onNavigate("Today's Recovery Queue")} type="button">
+                Open Recovery Queue
+              </button>
+              <button className="secondary-btn" onClick={closeModal} type="button">
+                Close
+              </button>
+            </>
+          }
+          onClose={closeModal}
+          title="Revenue at Risk Breakdown"
+          wide
+        >
+          <div className="capture-card-list">
+            {overviewLeaks.slice(0, 5).map((task) => (
+              <article className={`product-card ${task.tone}`} key={`risk-${task.id}`}>
+                <div className="recovery-row-title">
+                  <h3>{task.customer}</h3>
+                  <Badge tone={task.tone}>{task.estimatedRevenueAtRisk}</Badge>
+                </div>
+                <p>{task.productInterest}</p>
+                <div className="recovery-meta">
+                  <span>{task.leakType}</span>
+                  <span>{task.assignedOwner}</span>
+                  <span>{task.dueStatus}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {activeModal === "task" && selectedTask ? (
+        <ModalShell
+          footer={
+            <>
+              <button
+                className="primary-btn"
+                onClick={() => {
+                  void copyText(selectedTask.messageTemplate, "Template copied");
+                  onActivity({
+                    category: "Team Actions",
+                    title: "Recovery template copied",
+                    description: `Copied recovery message template for ${selectedTask.customer}.`,
+                    impactBadge: selectedTask.estimatedRevenueAtRisk,
+                    relatedRecord: selectedTask.id,
+                    owner: selectedTask.assignedOwner,
+                    status: "Copied",
+                    nextAction: selectedTask.recommendedNextAction,
+                    tone: selectedTask.tone,
+                  });
+                }}
+                type="button"
+              >
+                Copy Template
+              </button>
+              <button className="secondary-btn" onClick={() => onNavigate("Today's Recovery Queue")} type="button">
+                Open Recovery Queue
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={() => {
+                  onNavigate("Follow-up Recovery");
+                  createTaskActivity(selectedTask, "Follow-up recovery action created", "Created");
+                }}
+                type="button"
+              >
+                Create Follow-up
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={() => createTaskActivity(selectedTask, "Recovery leak reviewed", "Reviewed")}
+                type="button"
+              >
+                Mark Reviewed
+              </button>
+            </>
+          }
+          onClose={closeModal}
+          title={selectedTask.customer}
+          wide
+        >
+          <div style={modalGridStyle}>
+            <DetailField label="Brand context" value={selectedTask.brandContext} />
+            <DetailField label="Product interest" value={selectedTask.productInterest} />
+            <DetailField label="Revenue at risk" value={selectedTask.estimatedRevenueAtRisk} />
+            <DetailField label="Leak type" value={selectedTask.leakType} />
+            <DetailField label="Category" value={selectedTask.category} />
+            <DetailField label="Source" value={selectedTask.source} />
+            <DetailField label="Assigned owner" value={selectedTask.assignedOwner} />
+            <DetailField label="Due status" value={selectedTask.dueStatus} />
+            <DetailField label="Priority" value={selectedTask.priority} />
+            <DetailField label="Automation status" value={selectedTask.automationStatus} />
+            <DetailField label="Source status" value={selectedTask.sourceStatus} />
+            <DetailField label="Last event" value={selectedTask.lastEvent} />
+            <DetailField label="Last contact" value={selectedTask.lastContact} />
+            <DetailField label="Attempt count" value={selectedTask.attemptCount} />
+          </div>
+          <div className="detail-callout">
+            <span>Recommended next action</span>
+            <p>{selectedTask.recommendedNextAction}</p>
+          </div>
+          <div className="template-box">
+            <span>Message template</span>
+            <p>{selectedTask.messageTemplate}</p>
+          </div>
+          <div className="thread-panel">
+            <div className="thread-header">
+              <h3>Internal Recovery Thread</h3>
+              <span>{selectedTask.internalRecoveryThread.length} updates</span>
+            </div>
+            {selectedTask.internalRecoveryThread.map((message) => (
+              <div className="thread-message" key={message.id}>
+                <div>
+                  <strong>{message.author}</strong>
+                  <span>{message.role} - {message.time}</span>
+                </div>
+                <p>{message.message}</p>
+                {message.outcome ? <small>{message.outcome}</small> : null}
+              </div>
+            ))}
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {activeModal === "team" && selectedTeamMember ? (
+        <ModalShell
+          footer={
+            <>
+              <button className="primary-btn" onClick={() => onNavigate("Team Load")} type="button">
+                Open Team Load
+              </button>
+              <button className="secondary-btn" onClick={() => onNavigate("Assigned Recovery Actions")} type="button">
+                Open Assigned Actions
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={() =>
+                  addOverviewActivity(
+                    {
+                      category: "Team Actions",
+                      title: "Team workload reviewed",
+                      description: `Reviewed ${selectedTeamMember.name}'s recovery workload.`,
+                      impactBadge: selectedTeamMember.revenueAtRisk,
+                      relatedRecord: selectedTeamMember.id,
+                      owner: selectedTeamMember.name,
+                      status: "Reviewed",
+                      nextAction: selectedTeamMember.nextAction,
+                      tone: selectedTeamMember.tone,
+                    },
+                    "Team workload reviewed",
+                  )
+                }
+                type="button"
+              >
+                Mark Workload Reviewed
+              </button>
+            </>
+          }
+          onClose={closeModal}
+          title={selectedTeamMember.name}
+        >
+          <div style={modalGridStyle}>
+            <DetailField label="Role" value={selectedTeamMember.role} />
+            <DetailField label="Active tasks" value={selectedTeamMember.activeTasks} />
+            <DetailField label="Overdue tasks" value={selectedTeamMember.overdueTasks} />
+            <DetailField label="Revenue at risk" value={selectedTeamMember.revenueAtRisk} />
+            <DetailField label="Recovered this month" value={selectedTeamMember.recoveredThisMonth} />
+            <DetailField label="Source focus" value={selectedTeamMember.sourceFocus} />
+          </div>
+          <div className="detail-callout">
+            <span>Next action</span>
+            <p>{selectedTeamMember.nextAction}</p>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {activeModal === "source" && selectedSourceEvent ? (
+        <ModalShell
+          footer={
+            <>
+              <button className="primary-btn" onClick={() => onNavigate("Automation Health")} type="button">
+                Open Automation Health
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={() => createSourceActivity(selectedSourceEvent, "Source fix task created", "Created")}
+                type="button"
+              >
+                Create Source Fix Task
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={() => createSourceActivity(selectedSourceEvent, "Source event reviewed", "Reviewed")}
+                type="button"
+              >
+                Mark Reviewed
+              </button>
+            </>
+          }
+          onClose={closeModal}
+          title={selectedSourceEvent.title}
+        >
+          <p>{selectedSourceEvent.description}</p>
+          <div style={modalGridStyle}>
+            <DetailField label="Related record" value={getSourceRelatedRecord(selectedSourceEvent)} />
+            <DetailField label="Status" value={selectedSourceEvent.status} />
+            <DetailField label="Owner" value={selectedSourceEvent.owner} />
+            <DetailField label="Revenue at risk" value={selectedSourceEvent.revenueAtRisk} />
+            <DetailField label="Source" value={selectedSourceEvent.source} />
+            <DetailField label="Tone" value={selectedSourceEvent.tone} />
+          </div>
+          <div className="detail-callout">
+            <span>Next action</span>
+            <p>{selectedSourceEvent.nextAction}</p>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {activeModal === "activity" && selectedActivity ? (
+        <ModalShell
+          footer={
+            <>
+              <button
+                className="primary-btn"
+                onClick={() => onNavigate(activityTargets[selectedActivity.category])}
+                type="button"
+              >
+                Open Related Area
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={() =>
+                  addOverviewActivity(
+                    {
+                      category: selectedActivity.category,
+                      title: "Activity reviewed",
+                      description: `Reviewed activity: ${selectedActivity.title}.`,
+                      impactBadge: selectedActivity.impactBadge,
+                      relatedRecord: selectedActivity.relatedRecord,
+                      owner: selectedActivity.owner,
+                      status: "Reviewed",
+                      nextAction: selectedActivity.nextAction,
+                      tone: selectedActivity.tone,
+                    },
+                    "Activity reviewed",
+                  )
+                }
+                type="button"
+              >
+                Mark Reviewed
+              </button>
+            </>
+          }
+          onClose={closeModal}
+          title={selectedActivity.title}
+        >
+          <p>{selectedActivity.description}</p>
+          <div style={modalGridStyle}>
+            <DetailField label="Category" value={selectedActivity.category} />
+            <DetailField label="Impact" value={selectedActivity.impactBadge} />
+            <DetailField label="Related record" value={selectedActivity.relatedRecord} />
+            <DetailField label="Owner" value={selectedActivity.owner ?? "External automation"} />
+            <DetailField label="Status" value={selectedActivity.status} />
+            <DetailField label="Timestamp" value={selectedActivity.timestamp} />
+          </div>
+          <div className="detail-callout">
+            <span>Next action</span>
+            <p>{selectedActivity.nextAction}</p>
+          </div>
+        </ModalShell>
+      ) : null}
     </div>
   );
 }
@@ -12977,6 +13518,15 @@ export default function Home() {
   const [openGroup, setOpenGroup] = useState<string>("Command Center");
   const [activePage, setActivePage] = useState<string>("Recovery Overview");
   const [activityFeed, setActivityFeed] = useState<RecoveryActivity[]>(activities);
+  const [quickModal, setQuickModal] = useState<"export" | "capture" | null>(null);
+  const [quickToast, setQuickToast] = useState("");
+  const [captureForm, setCaptureForm] = useState({
+    buyerName: "",
+    estimatedValue: "",
+    owner: "",
+    recoveryNote: "",
+    source: "",
+  });
 
   const pageSubtitle =
     activePage === "Import / Export" && openGroup === "Setup"
@@ -13000,6 +13550,72 @@ export default function Home() {
       },
       ...current,
     ]);
+  }
+
+  async function copyOverviewReportSummary() {
+    const summary = [
+      "Recovery Overview Report",
+      "",
+      "Included sections:",
+      "- KPIs",
+      "- Highest Risk Leaks",
+      "- Team Recovery Load",
+      "- Automation & Source Visibility",
+      "- Recovery Activity",
+      "",
+      ...kpis.map((item) => `${item.label}: ${item.value} (${item.caption})`),
+      `Recent activity events: ${activityFeed.length}`,
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(summary);
+      setQuickToast("Report summary copied");
+    } catch {
+      setQuickToast("Copy failed. Please copy manually.");
+    }
+
+    addRecoveryActivity({
+      category: "Reports",
+      title: "Recovery overview report prepared",
+      description: "Copied a frontend-only Recovery Overview report summary.",
+      impactBadge: kpis[1]?.value ?? "$42.7K recovered",
+      relatedRecord: "Recovery Overview",
+      owner: "Operations",
+      status: "Prepared",
+      nextAction: "Share report summary with the recovery owner team.",
+      tone: "cyan",
+    });
+  }
+
+  function handleCaptureSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const buyerName = captureForm.buyerName.trim() || "New buyer";
+    const source = captureForm.source.trim() || "Manual capture";
+    const estimatedValue = captureForm.estimatedValue.trim() || "Value pending";
+    const owner = captureForm.owner.trim() || "Unassigned";
+    const note = captureForm.recoveryNote.trim() || "Review inquiry and assign the next recovery action.";
+
+    addRecoveryActivity({
+      category: "Inquiries",
+      title: "Missed inquiry captured",
+      description: `${buyerName} was captured from ${source}.`,
+      impactBadge: estimatedValue,
+      relatedRecord: "Manual capture - Recovery Overview",
+      owner,
+      status: "Captured",
+      nextAction: note,
+      tone: "cyan",
+    });
+
+    setQuickToast("Missed inquiry captured locally");
+    setCaptureForm({
+      buyerName: "",
+      estimatedValue: "",
+      owner: "",
+      recoveryNote: "",
+      source: "",
+    });
+    setQuickModal(null);
   }
 
   return (
@@ -13077,7 +13693,7 @@ export default function Home() {
           </div>
 
           <div className="header-actions">
-            <button className="secondary-btn" type="button">
+            <button className="secondary-btn" onClick={() => setQuickModal("export")} type="button">
               Export report
             </button>
             <button
@@ -13087,14 +13703,24 @@ export default function Home() {
             >
               Open Recovery Queue
             </button>
-            <button className="primary-btn" type="button">
+            <button className="primary-btn" onClick={() => setQuickModal("capture")} type="button">
               Capture Missed Inquiry
             </button>
           </div>
         </header>
 
+        {quickToast ? (
+          <div className="glass-card panel-card" role="status">
+            <p>{quickToast}</p>
+          </div>
+        ) : null}
+
         {activePage === "Recovery Overview" ? (
-          <RecoveryOverview activities={activityFeed} />
+          <RecoveryOverview
+            activities={activityFeed}
+            onActivity={addRecoveryActivity}
+            onNavigate={setActivePage}
+          />
         ) : activePage === "Today's Recovery Queue" ? (
           <TodaysRecoveryQueue />
         ) : activePage === "Inquiry Inbox" ? (
@@ -13164,6 +13790,98 @@ export default function Home() {
         ) : (
           <PlaceholderPage title={activePage} />
         )}
+
+        {quickModal === "export" ? (
+          <ModalShell
+            footer={
+              <>
+                <button className="primary-btn" onClick={copyOverviewReportSummary} type="button">
+                  Copy report summary
+                </button>
+                <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
+                  Close
+                </button>
+              </>
+            }
+            onClose={() => setQuickModal(null)}
+            title="Export Recovery Overview Report"
+          >
+            <div style={modalGridStyle}>
+              <DetailField label="Report type" value="Recovery Overview" />
+              <DetailField label="Format" value="Clipboard summary" />
+            </div>
+            <div className="detail-callout">
+              <span>Included sections</span>
+              <div className="recovery-meta">
+                <span>KPIs</span>
+                <span>Highest Risk Leaks</span>
+                <span>Team Recovery Load</span>
+                <span>Automation & Source Visibility</span>
+                <span>Recovery Activity</span>
+              </div>
+            </div>
+          </ModalShell>
+        ) : null}
+
+        {quickModal === "capture" ? (
+          <ModalShell onClose={() => setQuickModal(null)} title="Capture Missed Inquiry">
+            <form onSubmit={handleCaptureSubmit} style={modalStackStyle}>
+              <label>
+                <span className="sr-only">Buyer name</span>
+                <input
+                  onChange={(event) => setCaptureForm((current) => ({ ...current, buyerName: event.target.value }))}
+                  placeholder="Buyer name"
+                  type="text"
+                  value={captureForm.buyerName}
+                />
+              </label>
+              <label>
+                <span className="sr-only">Source</span>
+                <input
+                  onChange={(event) => setCaptureForm((current) => ({ ...current, source: event.target.value }))}
+                  placeholder="Source"
+                  type="text"
+                  value={captureForm.source}
+                />
+              </label>
+              <label>
+                <span className="sr-only">Estimated value</span>
+                <input
+                  onChange={(event) => setCaptureForm((current) => ({ ...current, estimatedValue: event.target.value }))}
+                  placeholder="Estimated value"
+                  type="text"
+                  value={captureForm.estimatedValue}
+                />
+              </label>
+              <label>
+                <span className="sr-only">Owner</span>
+                <input
+                  onChange={(event) => setCaptureForm((current) => ({ ...current, owner: event.target.value }))}
+                  placeholder="Owner"
+                  type="text"
+                  value={captureForm.owner}
+                />
+              </label>
+              <label>
+                <span className="sr-only">Recovery note</span>
+                <textarea
+                  onChange={(event) => setCaptureForm((current) => ({ ...current, recoveryNote: event.target.value }))}
+                  placeholder="Recovery note"
+                  rows={4}
+                  value={captureForm.recoveryNote}
+                />
+              </label>
+              <div className="capture-actions">
+                <button className="primary-btn" type="submit">
+                  Capture inquiry
+                </button>
+                <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
+                  Close
+                </button>
+              </div>
+            </form>
+          </ModalShell>
+        ) : null}
       </section>
     </main>
   );
