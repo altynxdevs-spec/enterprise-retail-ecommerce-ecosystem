@@ -8497,12 +8497,24 @@ img, svg, video {
 
 .sku-sheet-wrap-upgraded {
   cursor: grab !important;
-  overscroll-behavior: contain !important;
-  scroll-behavior: auto !important;
-  scrollbar-gutter: stable both-edges !important;
-  height: clamp(420px, 62vh, 680px) !important;
+  scrollbar-gutter: auto !important;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+  overscroll-behavior-x: contain !important;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-y !important;
+  height: auto !important;
+  min-height: 0 !important;
   max-height: none !important;
-  overflow: auto !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  overflow: auto hidden !important;
+}
+
+.sku-sheet-wrap-upgraded::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 .sku-sheet-wrap-upgraded.is-dragging {
@@ -8517,13 +8529,14 @@ img, svg, video {
 }
 
 .sku-sheet-upgraded .sku-sheet-head {
-  z-index: 40 !important;
+  z-index: 50 !important;
+  background: #fff !important;
   position: sticky !important;
   top: 0 !important;
 }
 
 .sku-sheet-upgraded .sku-sheet-row > :first-child {
-  z-index: 18 !important;
+  z-index: 25 !important;
   background: #fff !important;
   position: sticky !important;
   left: 0 !important;
@@ -8531,18 +8544,11 @@ img, svg, video {
 }
 
 .sku-sheet-upgraded .sku-sheet-head > :first-child {
-  z-index: 60 !important;
+  z-index: 70 !important;
 }
 
-.sku-sheet-upgraded .sku-sheet-row {
-  border-bottom: 1px solid #eeeeea !important;
-}
-
-.sku-sheet-upgraded .sku-sheet-row input:focus, .sku-sheet-upgraded .sku-sheet-row select:focus {
-  z-index: 10 !important;
-  border: 1px solid #ff4500 !important;
-  position: relative !important;
-  box-shadow: inset 0 0 0 1px #ff4500, 0 0 0 3px #ff45001f !important;
+.sheet-field-summary.sku-selling-summary {
+  display: none !important;
 }
 
 .sku-search-box {
@@ -8635,16 +8641,6 @@ img, svg, video {
   font-size: 13px !important;
 }
 
-.sku-sheet-wrap-upgraded {
-  height: auto !important;
-  max-height: none !important;
-  overflow: auto visible !important;
-}
-
-.sheet-field-summary.sku-selling-summary {
-  display: none !important;
-}
-
 .sku-pagination-bar {
   background: #fff !important;
   border: 1px solid #e8e8e5 !important;
@@ -8654,7 +8650,8 @@ img, svg, video {
   align-items: center !important;
   gap: 14px !important;
   width: 100% !important;
-  margin-top: 18px !important;
+  margin-top: 16px !important;
+  margin-bottom: 0 !important;
   padding: 14px 16px !important;
   display: flex !important;
 }
@@ -8668,7 +8665,7 @@ img, svg, video {
 .sku-pagination-bar strong {
   color: #111 !important;
   font-size: 14px !important;
-  font-weight: 850 !important;
+  font-weight: 800 !important;
 }
 
 .sku-pagination-bar span {
@@ -8705,6 +8702,11 @@ img, svg, video {
 .sku-pagination-actions button:disabled {
   opacity: .45 !important;
   cursor: not-allowed !important;
+}
+
+.detail-notice.capture-page-notice {
+  margin-top: 10px !important;
+  margin-bottom: 0 !important;
 }
 
 /*# sourceMappingURL=src_app_globals_0p2ml0n.css.map*/

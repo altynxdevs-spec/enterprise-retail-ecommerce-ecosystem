@@ -10709,18 +10709,39 @@ video {
 }
 
 /* =========================================================
-   ALTYNX SKU SHEET DRAG SCROLL FIX
-   Paste at the very END of globals.css
+   FINAL ALTYNX SKU SHEET CLEAN LAYOUT
+   Full page vertical scroll
+   Horizontal mouse drag only
+   No ugly horizontal scrollbar
+   25 rows per page with pagination
 ========================================================= */
 
 .sku-sheet-wrap-upgraded {
-  height: clamp(420px, 62vh, 680px) !important;
+  height: auto !important;
+  min-height: 0 !important;
   max-height: none !important;
-  overflow: auto !important;
+
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+
   cursor: grab !important;
-  overscroll-behavior: contain !important;
-  scroll-behavior: auto !important;
-  scrollbar-gutter: stable both-edges !important;
+  scrollbar-gutter: auto !important;
+
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+
+  overscroll-behavior-x: contain !important;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-y !important;
+}
+
+.sku-sheet-wrap-upgraded::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 .sku-sheet-wrap-upgraded.is-dragging {
@@ -10732,44 +10753,33 @@ video {
   user-select: none !important;
 }
 
-/* Header ko scroll karte waqt top par fixed rakhega */
+/* Header top par sticky rahe */
 .sku-sheet-upgraded .sku-sheet-head {
   position: sticky !important;
   top: 0 !important;
-  z-index: 40 !important;
+  z-index: 50 !important;
+  background: #ffffff !important;
 }
 
-/* First SKU column ko Excel jaisa left side par fixed rakhega */
+/* First SKU column left side par fixed rahe */
 .sku-sheet-upgraded .sku-sheet-row > :first-child {
   position: sticky !important;
   left: 0 !important;
-  z-index: 18 !important;
+  z-index: 25 !important;
   background: #ffffff !important;
   box-shadow: 10px 0 18px rgba(17, 17, 17, 0.06) !important;
 }
 
 .sku-sheet-upgraded .sku-sheet-head > :first-child {
-  z-index: 60 !important;
+  z-index: 70 !important;
 }
 
-/* Sheet ko thora clean Excel-style grid look dega */
-.sku-sheet-upgraded .sku-sheet-row {
-  border-bottom: 1px solid #eeeeea !important;
+/* Neeche wale extra explanation cards hide */
+.sheet-field-summary.sku-selling-summary {
+  display: none !important;
 }
 
-.sku-sheet-upgraded .sku-sheet-row input:focus,
-.sku-sheet-upgraded .sku-sheet-row select:focus {
-  position: relative !important;
-  z-index: 10 !important;
-  border: 1px solid #ff4500 !important;
-  box-shadow: inset 0 0 0 1px #ff4500, 0 0 0 3px rgba(255, 69, 0, 0.12) !important;
-}
-
-/* =========================================================
-   ALTYNX SKU SHEET SEARCH BAR
-   Search stays simple and recovery-focused.
-========================================================= */
-
+/* Search bar */
 .sku-search-box {
   flex: 1 1 340px !important;
   min-width: min(100%, 320px) !important;
@@ -10834,6 +10844,7 @@ video {
   color: #ff4500 !important;
 }
 
+/* No search result row */
 .sku-empty-row {
   min-width: 2180px !important;
   display: flex !important;
@@ -10860,26 +10871,11 @@ video {
   font-size: 13px !important;
 }
 
-/* =========================================================
-   ALTYNX SKU SHEET PAGINATION
-   Shows 25 SKU rows per page and removes unnecessary
-   explanation cards under the sheet.
-========================================================= */
-
-.sku-sheet-wrap-upgraded {
-  height: auto !important;
-  max-height: none !important;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-}
-
-.sheet-field-summary.sku-selling-summary {
-  display: none !important;
-}
-
+/* Pagination bar */
 .sku-pagination-bar {
   width: 100% !important;
-  margin-top: 18px !important;
+  margin-top: 16px !important;
+  margin-bottom: 0 !important;
   padding: 14px 16px !important;
   border: 1px solid #e8e8e5 !important;
   border-radius: 16px !important;
@@ -10900,7 +10896,7 @@ video {
 .sku-pagination-bar strong {
   color: #111111 !important;
   font-size: 14px !important;
-  font-weight: 850 !important;
+  font-weight: 800 !important;
 }
 
 .sku-pagination-bar span {
@@ -10937,4 +10933,10 @@ video {
 .sku-pagination-actions button:disabled {
   opacity: 0.45 !important;
   cursor: not-allowed !important;
+}
+
+/* Extra bottom spacing kam */
+.detail-notice.capture-page-notice {
+  margin-top: 10px !important;
+  margin-bottom: 0 !important;
 }

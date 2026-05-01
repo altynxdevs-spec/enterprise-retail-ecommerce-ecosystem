@@ -12375,79 +12375,75 @@ const paginatedRows = filteredRows.slice(
     const sheetScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const sheet = sheetScrollRef.current;
-    if (!sheet) return;
+  const sheet = sheetScrollRef.current;
+  if (!sheet) return;
 
-    let isDragging = false;
-    let startX = 0;
-    let startY = 0;
-    let scrollLeft = 0;
-    let scrollTop = 0;
+  let isDragging = false;
+  let startX = 0;
+  let scrollLeft = 0;
 
-    const shouldIgnoreDrag = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) return false;
+  const shouldIgnoreDrag = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
 
-      return Boolean(target.closest("button, input, select, textarea, a"));
-    };
+    return Boolean(target.closest("button, input, select, textarea, a"));
+  };
 
-    const startDrag = (event: PointerEvent) => {
-      if (event.button !== 0) return;
-      if (shouldIgnoreDrag(event.target)) return;
+  const startDrag = (event: PointerEvent) => {
+    if (event.button !== 0) return;
+    if (shouldIgnoreDrag(event.target)) return;
 
-      isDragging = true;
-      startX = event.clientX;
-      startY = event.clientY;
-      scrollLeft = sheet.scrollLeft;
-      scrollTop = sheet.scrollTop;
+    isDragging = true;
+    startX = event.clientX;
+    scrollLeft = sheet.scrollLeft;
 
-      sheet.classList.add("is-dragging");
+    sheet.classList.add("is-dragging");
+
+    if (sheet.setPointerCapture) {
       sheet.setPointerCapture(event.pointerId);
-    };
+    }
+  };
 
-    const moveDrag = (event: PointerEvent) => {
-      if (!isDragging) return;
+  const moveDrag = (event: PointerEvent) => {
+    if (!isDragging) return;
 
-      const moveX = event.clientX - startX;
-      const moveY = event.clientY - startY;
+    const moveX = event.clientX - startX;
+    sheet.scrollLeft = scrollLeft - moveX;
 
-      sheet.scrollLeft = scrollLeft - moveX;
-      sheet.scrollTop = scrollTop - moveY;
+    event.preventDefault();
+  };
 
-      event.preventDefault();
-    };
+  const stopDrag = (event: PointerEvent) => {
+    if (!isDragging) return;
 
-    const stopDrag = (event: PointerEvent) => {
-      if (!isDragging) return;
+    isDragging = false;
+    sheet.classList.remove("is-dragging");
 
-      isDragging = false;
-      sheet.classList.remove("is-dragging");
+    if (sheet.hasPointerCapture?.(event.pointerId)) {
+      sheet.releasePointerCapture(event.pointerId);
+    }
+  };
 
-      if (sheet.hasPointerCapture(event.pointerId)) {
-        sheet.releasePointerCapture(event.pointerId);
-      }
-    };
+  const shiftWheelScroll = (event: WheelEvent) => {
+    if (!event.shiftKey) return;
 
-    const shiftWheelScroll = (event: WheelEvent) => {
-      if (!event.shiftKey) return;
+    sheet.scrollLeft += event.deltaY;
+    event.preventDefault();
+  };
 
-      sheet.scrollLeft += event.deltaY;
-      event.preventDefault();
-    };
+  sheet.addEventListener("pointerdown", startDrag);
+  sheet.addEventListener("pointermove", moveDrag);
+  sheet.addEventListener("pointerup", stopDrag);
+  sheet.addEventListener("pointercancel", stopDrag);
+  sheet.addEventListener("wheel", shiftWheelScroll, { passive: false });
 
-    sheet.addEventListener("pointerdown", startDrag);
-    sheet.addEventListener("pointermove", moveDrag);
-    sheet.addEventListener("pointerup", stopDrag);
-    sheet.addEventListener("pointercancel", stopDrag);
-    sheet.addEventListener("wheel", shiftWheelScroll, { passive: false });
-
-    return () => {
-      sheet.removeEventListener("pointerdown", startDrag);
-      sheet.removeEventListener("pointermove", moveDrag);
-      sheet.removeEventListener("pointerup", stopDrag);
-      sheet.removeEventListener("pointercancel", stopDrag);
-      sheet.removeEventListener("wheel", shiftWheelScroll);
-    };
-  }, []);
+  return () => {
+    sheet.removeEventListener("pointerdown", startDrag);
+    sheet.removeEventListener("pointermove", moveDrag);
+    sheet.removeEventListener("pointerup", stopDrag);
+    sheet.removeEventListener("pointercancel", stopDrag);
+    sheet.removeEventListener("wheel", shiftWheelScroll);
+  };
+}, []);
 
   function updateSkuStockStatus(id: string, value: string) {
     updateRowsWithDraft(
