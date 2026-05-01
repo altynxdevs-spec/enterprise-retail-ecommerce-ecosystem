@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ChangeEvent, FormEvent, ReactNode } from "react";
 import { jsPDF } from "jspdf";
 
@@ -12320,6 +12320,83 @@ function SKUVariantSheet() {
     );
   }
 
+    const sheetScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const sheet = sheetScrollRef.current;
+    if (!sheet) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let scrollLeft = 0;
+    let scrollTop = 0;
+
+    const shouldIgnoreDrag = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+
+      return Boolean(target.closest("button, select, textarea, a"));
+    };
+
+    const startDrag = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      if (shouldIgnoreDrag(event.target)) return;
+
+      isDragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      scrollLeft = sheet.scrollLeft;
+      scrollTop = sheet.scrollTop;
+
+      sheet.classList.add("is-dragging");
+      sheet.setPointerCapture(event.pointerId);
+    };
+
+    const moveDrag = (event: PointerEvent) => {
+      if (!isDragging) return;
+
+      const moveX = event.clientX - startX;
+      const moveY = event.clientY - startY;
+
+      sheet.scrollLeft = scrollLeft - moveX;
+      sheet.scrollTop = scrollTop - moveY;
+
+      event.preventDefault();
+    };
+
+    const stopDrag = (event: PointerEvent) => {
+      if (!isDragging) return;
+
+      isDragging = false;
+      sheet.classList.remove("is-dragging");
+
+      if (sheet.hasPointerCapture(event.pointerId)) {
+        sheet.releasePointerCapture(event.pointerId);
+      }
+    };
+
+    const shiftWheelScroll = (event: WheelEvent) => {
+      if (!event.shiftKey) return;
+
+      sheet.scrollLeft += event.deltaY;
+      event.preventDefault();
+    };
+
+    sheet.addEventListener("pointerdown", startDrag);
+    sheet.addEventListener("pointermove", moveDrag);
+    sheet.addEventListener("pointerup", stopDrag);
+    sheet.addEventListener("pointercancel", stopDrag);
+    sheet.addEventListener("wheel", shiftWheelScroll, { passive: false });
+
+    return () => {
+      sheet.removeEventListener("pointerdown", startDrag);
+      sheet.removeEventListener("pointermove", moveDrag);
+      sheet.removeEventListener("pointerup", stopDrag);
+      sheet.removeEventListener("pointercancel", stopDrag);
+      sheet.removeEventListener("wheel", shiftWheelScroll);
+    };
+  }, []);
+
   function updateSkuStockStatus(id: string, value: string) {
     updateRowsWithDraft(
       (items) =>
@@ -12672,15 +12749,18 @@ function SKUVariantSheet() {
           <div>
             <strong>Recovery data quality layer</strong>
             <span>
-              Scroll inside the sheet. These fields power Product Demand, Restock Waitlist, Refill Opportunities,
-              Order Risk, and Revenue Reports.
+              Drag inside the sheet to move around. You can also use Shift + mouse wheel to scroll left or right. These fields power Product Demand, Restock Waitlist, Refill Opportunities, Order Risk, and Revenue Reports.
             </span>
           </div>
 
           <span>{hasUnsavedChanges ? "Unsaved changes are stored as draft" : "All changes saved"}</span>
         </div>
 
-        <div className="sku-sheet-wrap sku-sheet-wrap-upgraded">
+        <div
+  ref={sheetScrollRef}
+  className="sku-sheet-wrap sku-sheet-wrap-upgraded"
+  aria-label="Draggable SKU variant recovery sheet"
+>
           <div className="sku-sheet sku-sheet-upgraded">
             <div className="sku-sheet-row sku-sheet-head">
               {skuColumnKeys.map((key) => (

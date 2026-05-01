@@ -10707,3 +10707,60 @@ video {
     width: 100% !important;
   }
 }
+
+/* =========================================================
+   ALTYNX SKU SHEET DRAG SCROLL FIX
+   Paste at the very END of globals.css
+========================================================= */
+
+.sku-sheet-wrap-upgraded {
+  height: clamp(420px, 62vh, 680px) !important;
+  max-height: none !important;
+  overflow: auto !important;
+  cursor: grab !important;
+  overscroll-behavior: contain !important;
+  scroll-behavior: auto !important;
+  scrollbar-gutter: stable both-edges !important;
+}
+
+.sku-sheet-wrap-upgraded.is-dragging {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+.sku-sheet-wrap-upgraded.is-dragging * {
+  user-select: none !important;
+}
+
+/* Header ko scroll karte waqt top par fixed rakhega */
+.sku-sheet-upgraded .sku-sheet-head {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 40 !important;
+}
+
+/* First SKU column ko Excel jaisa left side par fixed rakhega */
+.sku-sheet-upgraded .sku-sheet-row > :first-child {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 18 !important;
+  background: #ffffff !important;
+  box-shadow: 10px 0 18px rgba(17, 17, 17, 0.06) !important;
+}
+
+.sku-sheet-upgraded .sku-sheet-head > :first-child {
+  z-index: 60 !important;
+}
+
+/* Sheet ko thora clean Excel-style grid look dega */
+.sku-sheet-upgraded .sku-sheet-row {
+  border-bottom: 1px solid #eeeeea !important;
+}
+
+.sku-sheet-upgraded .sku-sheet-row input:focus,
+.sku-sheet-upgraded .sku-sheet-row select:focus {
+  position: relative !important;
+  z-index: 10 !important;
+  border: 1px solid #ff4500 !important;
+  box-shadow: inset 0 0 0 1px #ff4500, 0 0 0 3px rgba(255, 69, 0, 0.12) !important;
+}
