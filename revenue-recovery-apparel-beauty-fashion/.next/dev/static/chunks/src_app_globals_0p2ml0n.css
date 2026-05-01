@@ -8545,4 +8545,166 @@ img, svg, video {
   box-shadow: inset 0 0 0 1px #ff4500, 0 0 0 3px #ff45001f !important;
 }
 
+.sku-search-box {
+  background: #fff !important;
+  border: 1px solid #e8e8e5 !important;
+  border-radius: 999px !important;
+  flex: 340px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: min(100%, 320px) !important;
+  max-width: 520px !important;
+  min-height: 44px !important;
+  padding: 6px 8px 6px 14px !important;
+  display: flex !important;
+}
+
+.sku-search-box span {
+  color: #5f6368 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.sku-search-box input {
+  color: #111 !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  box-shadow: none !important;
+  background: none !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  outline: none !important;
+  flex: 1 !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+}
+
+.sku-search-box input:focus {
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+.sku-search-box input::placeholder {
+  color: #9ca3af !important;
+}
+
+.sku-search-clear {
+  color: #111 !important;
+  cursor: pointer !important;
+  background: #f8f8f6 !important;
+  border: 1px solid #deded9 !important;
+  border-radius: 999px !important;
+  min-height: 32px !important;
+  padding: 7px 12px !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+}
+
+.sku-search-clear:hover {
+  color: #ff4500 !important;
+  background: #fff3ed !important;
+  border-color: #ff450047 !important;
+}
+
+.sku-empty-row {
+  color: #111 !important;
+  background: #fbfbfa !important;
+  border: 1px dashed #deded9 !important;
+  border-radius: 16px !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 2180px !important;
+  min-height: 140px !important;
+  padding: 24px !important;
+  display: flex !important;
+}
+
+.sku-empty-row strong {
+  color: #111 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+}
+
+.sku-empty-row span {
+  color: #6b7280 !important;
+  font-size: 13px !important;
+}
+
+.sku-sheet-wrap-upgraded {
+  height: auto !important;
+  max-height: none !important;
+  overflow: auto visible !important;
+}
+
+.sheet-field-summary.sku-selling-summary {
+  display: none !important;
+}
+
+.sku-pagination-bar {
+  background: #fff !important;
+  border: 1px solid #e8e8e5 !important;
+  border-radius: 16px !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 14px !important;
+  width: 100% !important;
+  margin-top: 18px !important;
+  padding: 14px 16px !important;
+  display: flex !important;
+}
+
+.sku-pagination-bar > div:first-child {
+  flex-direction: column !important;
+  gap: 3px !important;
+  display: flex !important;
+}
+
+.sku-pagination-bar strong {
+  color: #111 !important;
+  font-size: 14px !important;
+  font-weight: 850 !important;
+}
+
+.sku-pagination-bar span {
+  color: #6b7280 !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.sku-pagination-actions {
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  display: flex !important;
+}
+
+.sku-pagination-actions button {
+  color: #111 !important;
+  cursor: pointer !important;
+  background: #f8f8f6 !important;
+  border: 1px solid #deded9 !important;
+  border-radius: 999px !important;
+  min-height: 36px !important;
+  padding: 8px 14px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.sku-pagination-actions button:hover:not(:disabled) {
+  color: #ff4500 !important;
+  background: #fff3ed !important;
+  border-color: #ff450047 !important;
+}
+
+.sku-pagination-actions button:disabled {
+  opacity: .45 !important;
+  cursor: not-allowed !important;
+}
+
 /*# sourceMappingURL=src_app_globals_0p2ml0n.css.map*/

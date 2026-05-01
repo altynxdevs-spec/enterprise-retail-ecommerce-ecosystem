@@ -12178,6 +12178,8 @@ function SKUVariantSheet() {
   const [rows, setRows] = useState<SKUVariant[]>(skuVariants);
   const [savedRows, setSavedRows] = useState<SKUVariant[]>(skuVariants);
   const [activeSkuFilter, setActiveSkuFilter] = useState<SKUVariantFilter>("All");
+  const [skuSearchQuery, setSkuSearchQuery] = useState("");
+  const [currentSkuPage, setCurrentSkuPage] = useState(1);
   const [highlightedProductName, setHighlightedProductName] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [notice, setNotice] = useState(
@@ -12196,7 +12198,57 @@ function SKUVariantSheet() {
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
-  const filteredRows = rows.filter((row) => matchesSKUVariantFilter(row, activeSkuFilter));
+  const filteredRows = useMemo(() => {
+  const cleanedQuery = skuSearchQuery.trim().toLowerCase();
+
+  return rows.filter((row) => {
+    const matchesFilter = matchesSKUVariantFilter(row, activeSkuFilter);
+
+    if (!matchesFilter) return false;
+    if (!cleanedQuery) return true;
+
+    const searchableText = [
+      row.sku,
+      row.productName,
+      row.variant,
+      row.size,
+      row.colorShade,
+      row.category,
+      row.price,
+      row.stockStatus,
+      row.restockStatus,
+      row.refillCycle,
+      row.productFolder,
+      row.tags,
+      row.linkedDemand,
+      row.recoveryValue,
+      row.lastUpdated,
+      row.industryType,
+      row.fitType,
+      row.skinConcern,
+      row.routineStep,
+      row.bundleEligibility,
+      row.sensitiveSkinFlag,
+      row.active ? "active" : "inactive",
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return searchableText.includes(cleanedQuery);
+  });
+}, [activeSkuFilter, rows, skuSearchQuery]);
+
+const rowsPerPage = 25;
+const totalSkuPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage));
+const safeSkuPage = Math.min(currentSkuPage, totalSkuPages);
+
+const firstSkuRowNumber = filteredRows.length === 0 ? 0 : (safeSkuPage - 1) * rowsPerPage + 1;
+const lastSkuRowNumber = Math.min(safeSkuPage * rowsPerPage, filteredRows.length);
+
+const paginatedRows = filteredRows.slice(
+  (safeSkuPage - 1) * rowsPerPage,
+  safeSkuPage * rowsPerPage,
+);
 
   useEffect(() => {
     const savedDraft = window.localStorage.getItem(draftStorageKey);
@@ -12335,7 +12387,7 @@ function SKUVariantSheet() {
     const shouldIgnoreDrag = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) return false;
 
-      return Boolean(target.closest("button, select, textarea, a"));
+      return Boolean(target.closest("button, input, select, textarea, a"));
     };
 
     const startDrag = (event: PointerEvent) => {
@@ -12424,6 +12476,7 @@ function SKUVariantSheet() {
     }
 
     setActiveSkuFilter(filter);
+    setCurrentSkuPage(1);
   }
 
   function addSkuRow() {
@@ -12711,6 +12764,29 @@ function SKUVariantSheet() {
           ))}
         </div>
 
+<div className="sku-search-box" role="search">
+  <span>Search</span>
+  <input
+    type="search"
+    value={skuSearchQuery}
+    onChange={(event) => {
+  setSkuSearchQuery(event.target.value);
+  setCurrentSkuPage(1);
+}}
+    placeholder="Search SKU, product, shade, tag, restock..."
+    aria-label="Search SKU variant sheet"
+  />
+
+  {skuSearchQuery ? (
+    <button type="button" className="sku-search-clear" onClick={() => {
+  setSkuSearchQuery("");
+  setCurrentSkuPage(1);
+}}>
+      Clear
+    </button>
+  ) : null}
+</div>
+
         <div className="capture-actions sheet-actions">
           {hasUnsavedChanges ? <span className="sku-unsaved-chip">Draft saved locally</span> : null}
 
@@ -12742,7 +12818,9 @@ function SKUVariantSheet() {
             </p>
           </div>
 
-          <Badge tone="cyan">{filteredRows.length} visible rows</Badge>
+          <Badge tone="cyan">
+  Showing {firstSkuRowNumber}-{lastSkuRowNumber} of {filteredRows.length} rows
+</Badge>
         </div>
 
         <div className="sku-scroll-note">
@@ -12794,7 +12872,14 @@ function SKUVariantSheet() {
               ))}
             </div>
 
-            {filteredRows.map((row) => (
+{filteredRows.length === 0 ? (
+  <div className="sku-empty-row">
+    <strong>No SKU rows found</strong>
+    <span>Try another search term or clear the current filter.</span>
+  </div>
+) : null}
+
+            {paginatedRows.map((row) => (
               <div
                 className={`sku-sheet-row ${row.tone} ${
                   highlightedProductName === row.productName ? "is-sku-product-highlight" : ""
@@ -12966,33 +13051,44 @@ function SKUVariantSheet() {
             ))}
           </div>
         </div>
+        <div className="sku-pagination-bar" aria-label="SKU sheet pagination">
+  <div>
+    <strong>Page {safeSkuPage} of {totalSkuPages}</strong>
+    <span>
+      Showing {firstSkuRowNumber}-{lastSkuRowNumber} of {filteredRows.length} SKU rows
+    </span>
+  </div>
 
-        <div className="sheet-field-summary sku-selling-summary">
-          <div>
-            <span>Fashion-specific recovery fields</span>
-            <p>
-              Size, color, collection, fit type, restock status, and new drop tags help recover size/fit questions,
-              bridal appointments, VIP early access, and restock demand.
-            </p>
-          </div>
+  <div className="sku-pagination-actions">
+    <button type="button" disabled={safeSkuPage === 1} onClick={() => setCurrentSkuPage(1)}>
+      First
+    </button>
 
-          <div>
-            <span>Beauty-specific recovery fields</span>
-            <p>
-              Shade, skin concern, routine step, refill cycle, bundle eligibility, and sensitive-skin tags support
-              refill reminders, routine follow-ups, and product education.
-            </p>
-          </div>
+    <button
+      type="button"
+      disabled={safeSkuPage === 1}
+      onClick={() => setCurrentSkuPage((page) => Math.max(1, page - 1))}
+    >
+      Previous
+    </button>
 
-          <div>
-            <span>Why this sells Altynx</span>
-            <p>
-              Clean SKU data makes product signals traceable to demand, revenue at risk, recovered value, owner
-              action, and monthly proof-of-value reporting.
-            </p>
-          </div>
-        </div>
+    <button
+      type="button"
+      disabled={safeSkuPage === totalSkuPages || filteredRows.length === 0}
+      onClick={() => setCurrentSkuPage((page) => Math.min(totalSkuPages, page + 1))}
+    >
+      Next
+    </button>
 
+    <button
+      type="button"
+      disabled={safeSkuPage === totalSkuPages || filteredRows.length === 0}
+      onClick={() => setCurrentSkuPage(totalSkuPages)}
+    >
+      Last
+    </button>
+  </div>
+</div>
         <p className="detail-notice capture-page-notice">{notice}</p>
       </section>
 
