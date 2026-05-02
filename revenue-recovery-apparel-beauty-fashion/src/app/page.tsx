@@ -1060,7 +1060,7 @@ const sidebarGroups: SidebarGroup[] = [
   },
   {
     title: "Product Intelligence",
-    items: ["Product Catalog", "SKU / Variant Sheet", "Categories & Tags", "Import / Export"],
+    items: ["Product Catalog", "SKU / Variant Sheet", "Import / Export"],
   },
   {
     title: "Buyers",
@@ -13224,168 +13224,456 @@ const paginatedRows = filteredRows.slice(
   );
 }
 
-function CategoriesTags() {
-  const taxonomyKpis: KPI[] = [
-    { label: "Product Folders", value: `${productFolders.length}`, caption: "Recovery-ready groups", tone: "cyan" },
-    { label: "Active Categories", value: `${productCategories.length}`, caption: "Mapped product categories", tone: "emerald" },
-    { label: "Product Tags", value: `${productTags.length}`, caption: "Recovery labels", tone: "amber" },
-    { label: "Auto Tag Suggestions", value: `${tagSuggestions.length}`, caption: "Smart cleanup ideas", tone: "cyan" },
-    { label: "Untagged Products", value: `${skuVariants.filter((row) => !row.tags).length}`, caption: "Needs recovery tags", tone: "rose" },
-    { label: "Recovery Rules Using Tags", value: "18", caption: "Tag-driven actions", tone: "emerald" },
+function ProductImportExport() {
+  type ExportFormat = "csv" | "xlsx" | "json";
+  type ExportRow = Record<string, string | number | boolean>;
+
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
+  const [selectedFileName, setSelectedFileName] = useState("No sheet uploaded yet");
+  const [importedCount, setImportedCount] = useState(0);
+  const [importedProductRows, setImportedProductRows] = useState<ImportPreviewRow[]>([]);
+  const [importNotice, setImportNotice] = useState(
+    "Upload one complete product/SKU CSV sheet. Altynx will check the full sheet for missing SKU, category, price, tags, and duplicate SKUs before import.",
+  );
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+  const savedRows = localStorage.getItem("altynx-imported-product-rows");
+
+  if (!savedRows) return;
+
+  try {
+    const parsedRows = JSON.parse(savedRows) as ImportPreviewRow[];
+
+    if (Array.isArray(parsedRows)) {
+      setImportedProductRows(parsedRows);
+      setImportedCount(parsedRows.length);
+    }
+  } catch {
+    localStorage.removeItem("altynx-imported-product-rows");
+  }
+}, []);
+
+  const hasUploadedSheet = selectedFileName !== "No sheet uploaded yet";
+  const importIssues = previewRows.filter((row) => row.detectedIssue !== "Clean").length;
+  const duplicateSkus = previewRows.filter((row) => row.detectedIssue === "Duplicate SKU").length;
+  const missingSkus = previewRows.filter((row) => row.detectedIssue === "Missing SKU").length;
+  const missingCategories = previewRows.filter((row) => row.detectedIssue.toLowerCase().includes("category")).length;
+  const missingPrices = previewRows.filter((row) => row.detectedIssue === "Missing price").length;
+  const missingTags = previewRows.filter((row) => row.detectedIssue.toLowerCase().includes("tags")).length;
+  const cleanRecords = previewRows.filter((row) => row.detectedIssue === "Clean").length;
+
+  const importExportKpis: KPI[] = [
+    {
+      label: "Selected Sheet",
+      value: hasUploadedSheet ? "1" : "0",
+      caption: selectedFileName,
+      tone: "cyan",
+    },
+    {
+      label: "Records Checked",
+      value: `${previewRows.length}`,
+      caption: "Inside uploaded full sheet",
+      tone: "cyan",
+    },
+    {
+      label: "Import Issues",
+      value: `${importIssues}`,
+      caption: "Missing or duplicate data",
+      tone: importIssues > 0 ? "rose" : "emerald",
+    },
+    {
+      label: "Duplicate SKUs",
+      value: `${duplicateSkus}`,
+      caption: "Merge or rename before import",
+      tone: duplicateSkus > 0 ? "amber" : "emerald",
+    },
+    {
+      label: "Exportable Lists",
+      value: `${exportOptions.length}`,
+      caption: "CSV / XLSX / JSON ready",
+      tone: "emerald",
+    },
+    {
+      label: "Imported Records",
+      value: `${importedCount}`,
+      caption: "Imported this session",
+      tone: importedCount > 0 ? "emerald" : "cyan",
+    },
   ];
 
-  return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {taxonomyKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
-      </section>
+  function escapeCsv(value: string | number | boolean) {
+    return `"${String(value ?? "").replace(/"/g, '""')}"`;
+  }
 
-      <section className="two-column-grid product-taxonomy-grid">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Product Folders</h2>
-              <p>Folders that help product demand, restock interest, refill timing, and post-purchase actions stay organized.</p>
-            </div>
-            <Badge tone="cyan">{productFolders.length} folders</Badge>
-          </div>
+  function escapeHtml(value: string | number | boolean) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
 
-          <div className="capture-card-list">
-            {productFolders.map((folder) => (
-              <article className={`product-card ${folder.tone}`} key={folder.id}>
-                <div className="capture-card-main">
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{folder.folderName}</h3>
-                      <Badge tone={folder.tone}>{folder.industryType}</Badge>
-                    </div>
-                    <p>{folder.recoveryUse}</p>
-                    <div className="recovery-meta">
-                      <span>{folder.productCount} products</span>
-                      <span>{folder.owner}</span>
-                    </div>
-                  </div>
-                  <div className="capture-value-stack">
-                    <strong>{folder.openRecoveryValue}</strong>
-                    <span>open recovery value</span>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+  function downloadTextFile(filename: string, content: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
-          <div className="capture-actions">
-            <button type="button" className="primary-btn">Create folder</button>
-            <button type="button" className="secondary-btn">Assign products to folder</button>
-          </div>
-        </article>
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
 
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Product Categories</h2>
-              <p>Category mapping that keeps recovery actions tied to product demand instead of loose product notes.</p>
-            </div>
-            <Badge tone="emerald">{productCategories.length} categories</Badge>
-          </div>
+  function parseCsv(text: string) {
+    const rows: string[][] = [];
+    let cell = "";
+    let row: string[] = [];
+    let insideQuotes = false;
 
-          <div className="capture-card-list">
-            {productCategories.map((category) => (
-              <article className={`product-card ${category.tone}`} key={category.id}>
-                <div className="capture-card-main">
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{category.categoryName}</h3>
-                      <Badge tone={category.tone}>{category.mappedDemandSignals} signals</Badge>
-                    </div>
-                    <p>{category.recoveryUse}</p>
-                    <div className="recovery-meta">
-                      <span>{category.productCount} products</span>
-                      <span>{category.mappedDemandSignals} mapped demand signals</span>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+      const nextChar = text[index + 1];
 
-          <div className="capture-actions">
-            <button type="button" className="primary-btn">Add category</button>
-            <button type="button" className="secondary-btn">Merge duplicate tags</button>
-          </div>
-        </article>
-      </section>
+      if (char === '"' && nextChar === '"') {
+        cell += '"';
+        index += 1;
+        continue;
+      }
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Smart Tag Suggestions</h2>
-            <p>Suggestions based on product name, SKU, category, stock status, refill cycle, and demand signals.</p>
-          </div>
-          <Badge tone="amber">Recovery tags</Badge>
-        </div>
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+        continue;
+      }
 
-        <div className="tag-suggestion-layout">
-          <div className="capture-card-list">
-            {tagSuggestions.map((suggestion) => (
-              <article className={`product-card tag-suggestion-card ${suggestion.tone}`} key={suggestion.id}>
-                <div className="capture-card-main">
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{suggestion.condition}</h3>
-                      <Badge tone={suggestion.tone}>{suggestion.affectedProducts} products</Badge>
-                    </div>
-                    <p>{suggestion.reason}</p>
-                    <div className="product-tag-list">
-                      {suggestion.suggestedTags.map((tag) => (
-                        <span key={tag}>{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="detail-callout source-fix-callout">
-                  <span>Recovery use</span>
-                  <p>{suggestion.recoveryUse}</p>
-                </div>
-                <div className="capture-actions">
-                  <button type="button" className="primary-btn">Apply suggested tags</button>
-                  <button type="button" className="secondary-btn">Create recovery rule from tag</button>
-                </div>
-              </article>
-            ))}
-          </div>
+      if (char === "," && !insideQuotes) {
+        row.push(cell.trim());
+        cell = "";
+        continue;
+      }
 
-          <aside className="summary-breakdown-card product-tag-bank">
-            <h3>Product Tags</h3>
-            {productTags.map((tag) => (
-              <div key={tag.id}>
-                <span>{tag.tagName}</span>
-                <strong>{tag.productCount}</strong>
-              </div>
-            ))}
-          </aside>
-        </div>
-      </section>
-    </div>
+      if ((char === "\n" || char === "\r") && !insideQuotes) {
+        if (char === "\r" && nextChar === "\n") index += 1;
+
+        row.push(cell.trim());
+
+        if (row.some((value) => value.length > 0)) {
+          rows.push(row);
+        }
+
+        row = [];
+        cell = "";
+        continue;
+      }
+
+      cell += char;
+    }
+
+    row.push(cell.trim());
+
+    if (row.some((value) => value.length > 0)) {
+      rows.push(row);
+    }
+
+    return rows;
+  }
+
+  function normalizeHeader(value: string) {
+    return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
+
+  function findColumn(headers: string[], possibleNames: string[]) {
+    return (
+      headers.find((header) =>
+        possibleNames.some((name) => normalizeHeader(header) === normalizeHeader(name)),
+      ) ?? ""
+    );
+  }
+
+  function getIssue(row: ImportPreviewRow, skuCount: Map<string, number>) {
+    if (!row.sku) return "Missing SKU";
+    if ((skuCount.get(row.sku) ?? 0) > 1) return "Duplicate SKU";
+    if (!row.category) return "Missing category";
+    if (!row.price) return "Missing price";
+    if (!row.tags) return "Missing tags";
+    return "Clean";
+  }
+
+  function getIssueTone(issue: string): Tone {
+    if (issue === "Clean") return "emerald";
+    if (issue === "Duplicate SKU" || issue === "Missing tags") return "amber";
+    return "rose";
+  }
+
+  function getImportAction(issue: string) {
+    if (issue === "Clean") return "Ready to import";
+    if (issue === "Duplicate SKU") return "Merge or rename SKU";
+    if (issue === "Missing SKU") return "Add SKU before import";
+    if (issue === "Missing category") return "Map category before import";
+    if (issue === "Missing price") return "Add price before recovery value";
+    if (issue === "Missing tags") return "Add recovery tags later if needed";
+    return "Review row";
+  }
+
+  async function handleUploadSheet(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setImportNotice("Upload CSV for now. XLSX and JSON are active for export only.");
+      return;
+    }
+
+    const text = await file.text();
+    const parsed = parseCsv(text);
+
+    if (parsed.length < 2) {
+      setImportNotice("CSV must include a header row and product rows.");
+      return;
+    }
+
+    const headers = parsed[0].map((header) => header.trim());
+    const skuHeader = findColumn(headers, ["sku", "variant sku", "product sku", "item sku"]);
+    const productHeader = findColumn(headers, ["product", "product name", "name", "title", "item name"]);
+    const categoryHeader = findColumn(headers, ["category", "product category", "type", "collection"]);
+    const priceHeader = findColumn(headers, ["price", "amount", "sale price", "product price"]);
+    const tagsHeader = findColumn(headers, ["tags", "tag", "recovery tags", "labels"]);
+
+    const rawRows = parsed.slice(1).map((cells) =>
+      headers.reduce<Record<string, string>>((record, header, index) => {
+        record[header] = cells[index] ?? "";
+        return record;
+      }, {}),
+    );
+
+    const skuCount = new Map<string, number>();
+
+    rawRows.forEach((record) => {
+      const sku = record[skuHeader] ?? "";
+      if (sku) skuCount.set(sku, (skuCount.get(sku) ?? 0) + 1);
+    });
+
+    const rows: ImportPreviewRow[] = rawRows.map((record, index) => {
+      const row: ImportPreviewRow = {
+        id: `uploaded-row-${Date.now()}-${index}`,
+        rowLabel: `Row ${index + 2}`,
+        sku: record[skuHeader] ?? "",
+        productName: record[productHeader] || "Unnamed product",
+        category: record[categoryHeader] ?? "",
+        price: record[priceHeader] ?? "",
+        tags: record[tagsHeader] ?? "",
+        detectedIssue: "Clean",
+        importAction: "Ready to import",
+        tone: "emerald",
+      };
+
+      const issue = getIssue(row, skuCount);
+
+      return {
+        ...row,
+        detectedIssue: issue,
+        importAction: getImportAction(issue),
+        tone: getIssueTone(issue),
+      };
+    });
+
+    const issueCount = rows.filter((row) => row.detectedIssue !== "Clean").length;
+
+    setSelectedFileName(file.name);
+    setPreviewRows(rows);
+    setImportedCount(0);
+    setImportNotice(
+      `${file.name} uploaded. Full sheet checked: ${rows.length} records found. ${issueCount} records need cleanup.`,
+    );
+  }
+
+  function importSheet() {
+  if (previewRows.length === 0) {
+    setImportNotice("Upload a product/SKU CSV sheet first.");
+    return;
+  }
+
+  const cleanRows = previewRows.filter((row) => row.detectedIssue === "Clean");
+  const issueRows = previewRows.filter((row) => row.detectedIssue !== "Clean");
+
+  if (cleanRows.length === 0) {
+    setImportNotice(
+      "Import blocked. Fix missing SKU, duplicate SKU, missing category, missing price, or missing tags first.",
+    );
+    return;
+  }
+
+  localStorage.setItem("altynx-imported-product-rows", JSON.stringify(cleanRows));
+  localStorage.setItem(
+    "altynx-last-product-import-check",
+    JSON.stringify({
+      fileName: selectedFileName,
+      totalRows: previewRows.length,
+      cleanRows: cleanRows.length,
+      issueRows: issueRows.length,
+      importedAt: new Date().toISOString(),
+      issues: issueRows,
+    }),
+  );
+
+  setImportedProductRows(cleanRows);
+  setImportedCount(cleanRows.length);
+  setImportNotice(
+    `Imported ${cleanRows.length} clean records from ${selectedFileName}. ${issueRows.length} records still need cleanup before import.`,
   );
 }
 
-function ProductImportExport() {
-  const importIssues = importPreviewRows.filter((row) => row.detectedIssue !== "Clean").length;
-  const duplicateSkus = importPreviewRows.filter((row) => row.detectedIssue === "Duplicate SKU").length;
-  const missingCategories = importPreviewRows.filter((row) => row.detectedIssue.includes("category")).length;
-  const cleanRecords = importPreviewRows.filter((row) => row.detectedIssue === "Clean").length;
+function skuExportRow(row: SKUVariant): ExportRow {
+  return {
+    SKU: row.sku || "Missing SKU",
+    Product: row.productName,
+    Variant: row.variant,
+    Size: row.size,
+    "Color/Shade": row.colorShade,
+    Category: row.category || "Missing category",
+    Price: row.price || "Missing price",
+    "Stock status": row.stockStatus,
+    "Restock status": row.restockStatus,
+    "Refill cycle": row.refillCycle,
+    "Product folder": row.productFolder,
+    Tags: row.tags || "Missing tags",
+    "Linked demand": row.linkedDemand,
+    "Recovery value": row.recoveryValue,
+    Active: row.active ? "Yes" : "No",
+  };
+}
 
-  const importExportKpis: KPI[] = [
-    { label: "Last Import Rows", value: "482", caption: "Most recent product file", tone: "cyan" },
-    { label: "Import Issues", value: `${importIssues}`, caption: "Needs cleanup before confirm", tone: "rose" },
-    { label: "Duplicate SKUs", value: `${duplicateSkus}`, caption: "Merge or rename", tone: "amber" },
-    { label: "Missing Categories", value: `${missingCategories}`, caption: "Category mapping needed", tone: "rose" },
-    { label: "Exportable Lists", value: `${exportOptions.length}`, caption: "CSV-ready surfaces", tone: "emerald" },
-    { label: "Clean Product Records", value: `${cleanRecords}`, caption: "Preview rows ready", tone: "emerald" },
-  ];
+  function getRowsForExport(option?: ExportOption): ExportRow[] {
+    const name = option?.exportName.toLowerCase() ?? "sku sheet";
+
+    if (name.includes("restock")) {
+      return skuVariants
+        .filter((row) => row.restockStatus.toLowerCase().includes("restock") || row.tags.toLowerCase().includes("restock"))
+        .map(skuExportRow);
+    }
+
+    if (name.includes("refill")) {
+      return skuVariants
+        .filter((row) => row.refillCycle !== "N/A" || row.tags.toLowerCase().includes("refill"))
+        .map(skuExportRow);
+    }
+
+    if (name.includes("category") || name.includes("tag")) {
+      return skuVariants.map((row) => ({
+        SKU: row.sku || "Missing SKU",
+        Product: row.productName,
+        Category: row.category || "Missing category",
+        Tags: row.tags || "Missing tags",
+        "Product folder": row.productFolder,
+        "Recovery value": row.recoveryValue,
+      }));
+    }
+
+    if (name.includes("demand")) {
+      return skuVariants
+        .filter((row) => row.linkedDemand > 0)
+        .map((row) => ({
+          Product: row.productName,
+          SKU: row.sku || "Missing SKU",
+          Category: row.category || "Missing category",
+          "Linked demand": row.linkedDemand,
+          "Restock status": row.restockStatus,
+          "Refill cycle": row.refillCycle,
+          "Recovery value": row.recoveryValue,
+          Tags: row.tags || "Missing tags",
+        }));
+    }
+
+    return skuVariants.map(skuExportRow);
+  }
+
+  function downloadRows(filenameBase: string, rows: ExportRow[], format: ExportFormat) {
+    if (rows.length === 0) {
+      setImportNotice("No rows found for this export.");
+      return;
+    }
+
+    const columns = Object.keys(rows[0]);
+
+    if (format === "csv") {
+      const csv = [
+        columns.map(escapeCsv).join(","),
+        ...rows.map((row) => columns.map((column) => escapeCsv(row[column] ?? "")).join(",")),
+      ].join("\n");
+
+      downloadTextFile(`${filenameBase}.csv`, csv, "text/csv;charset=utf-8;");
+      setImportNotice("CSV export downloaded.");
+      return;
+    }
+
+    if (format === "json") {
+      downloadTextFile(`${filenameBase}.json`, JSON.stringify(rows, null, 2), "application/json;charset=utf-8;");
+      setImportNotice("JSON export downloaded.");
+      return;
+    }
+
+    const tableRows = rows
+      .map(
+        (row) => `
+          <tr>
+            ${columns.map((column) => `<td>${escapeHtml(row[column] ?? "")}</td>`).join("")}
+          </tr>
+        `,
+      )
+      .join("");
+
+    const workbookHtml = `
+      <html>
+        <head><meta charset="UTF-8" /></head>
+        <body>
+          <table border="1">
+            <thead>
+              <tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    downloadTextFile(`${filenameBase}.xlsx`, workbookHtml, "application/vnd.ms-excel;charset=utf-8;");
+    setImportNotice("XLSX export downloaded.");
+  }
+
+  function exportOptionAs(option: ExportOption) {
+    const fallbackFormat: ExportFormat =
+      option.format === "JSON placeholder" ? "json" : option.format === "XLSX placeholder" ? "xlsx" : "csv";
+
+    const safeName = option.exportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    downloadRows(`altynx-${safeName || "product-export"}`, getRowsForExport(option), fallbackFormat);
+  }
+
+  function importedRowToExportRow(row: ImportPreviewRow): ExportRow {
+  return {
+    SKU: row.sku || "Missing SKU",
+    Product: row.productName || "Unnamed product",
+    Category: row.category || "Missing category",
+    Price: row.price || "Missing price",
+    Tags: row.tags || "Missing tags",
+    "Import status": row.detectedIssue,
+    "Import action": row.importAction,
+  };
+}
+
+function getActiveProductExportRows() {
+  if (importedProductRows.length > 0) {
+    return importedProductRows.map(importedRowToExportRow);
+  }
+
+  return skuVariants.map(skuExportRow);
+}
+
+function exportWholeSheet(format: ExportFormat) {
+  downloadRows("altynx-product-sku-recovery-sheet", getActiveProductExportRows(), format);
+}
 
   return (
     <div className="recovery-page">
@@ -13395,58 +13683,63 @@ function ProductImportExport() {
         ))}
       </section>
 
-      <section className="two-column-grid import-export-grid">
+      <section className="import-export-stack">
         <article className="glass-card panel-card">
           <div className="panel-header">
             <div>
               <h2>Import Product Data</h2>
-              <p>Bring in product, SKU, folder, category, and tag data without rebuilding recovery context manually.</p>
+              <p>
+                Upload one complete product/SKU sheet. Altynx checks missing SKU, category,
+                price, tags, and duplicate SKUs before import.
+              </p>
             </div>
-            <Badge tone="cyan">CSV ready</Badge>
+            <span className="import-export-pill">CSV import ready</span>
           </div>
 
-          <div className="import-step-grid">
-            <div>
-              <span>Upload CSV</span>
-              <strong>Product file selected</strong>
+          <section className="glass-card panel-card import-export-status" role="status">
+            <div className="recovery-row-title">
+              <h3>{hasUploadedSheet ? selectedFileName : "No sheet selected"}</h3>
+              <Badge tone={importIssues > 0 ? "amber" : hasUploadedSheet ? "emerald" : "cyan"}>
+                {hasUploadedSheet ? "Sheet checked" : "Waiting for upload"}
+              </Badge>
             </div>
-            <div>
-              <span>Upload XLSX placeholder</span>
-              <strong>Available next</strong>
-            </div>
-            <div>
-              <span>Map columns</span>
-              <strong>SKU, product, category, price, tags</strong>
-            </div>
-            <div>
-              <span>Validate import</span>
-              <strong>Detect missing and duplicate data</strong>
-            </div>
-          </div>
+            <p>{importNotice}</p>
+          </section>
+
+          <section className="summary-breakdown-grid">
+            <article className="summary-breakdown-card">
+              <h3>Sheet Validation</h3>
+              <div><span>Total records checked</span><strong>{previewRows.length}</strong></div>
+              <div><span>Clean records</span><strong>{cleanRecords}</strong></div>
+              <div><span>Issue records</span><strong>{importIssues}</strong></div>
+            </article>
+
+            <article className="summary-breakdown-card">
+              <h3>Missing / Duplicate Data</h3>
+              <div><span>Missing SKU</span><strong>{missingSkus}</strong></div>
+              <div><span>Duplicate SKU</span><strong>{duplicateSkus}</strong></div>
+              <div><span>Missing category</span><strong>{missingCategories}</strong></div>
+              <div><span>Missing price</span><strong>{missingPrices}</strong></div>
+              <div><span>Missing tags</span><strong>{missingTags}</strong></div>
+            </article>
+          </section>
 
           <div className="capture-actions">
-            <button type="button" className="primary-btn">Upload file</button>
-            <button type="button" className="secondary-btn">Map columns</button>
-            <button type="button" className="secondary-btn">Validate import</button>
-            <button type="button" className="secondary-btn">Confirm import</button>
-          </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleUploadSheet}
+              style={{ display: "none" }}
+            />
 
-          <div className="import-preview-list">
-            {importPreviewRows.map((row) => (
-              <article className={`import-preview-row ${row.tone}`} key={row.id}>
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{row.rowLabel} - {row.productName}</h3>
-                    <Badge tone={row.tone}>{row.detectedIssue}</Badge>
-                  </div>
-                  <p>{row.sku || "Missing SKU"} - {row.category || "Missing category"} - {row.price || "Missing price"}</p>
-                  <div className="recovery-meta">
-                    <span>{row.tags || "Missing tags"}</span>
-                    <span>{row.importAction}</span>
-                  </div>
-                </div>
-              </article>
-            ))}
+            <button type="button" className="primary-btn" onClick={() => fileInputRef.current?.click()}>
+              Upload sheet
+            </button>
+
+            <button type="button" className="secondary-btn" onClick={importSheet}>
+              Import sheet
+            </button>
           </div>
         </article>
 
@@ -13456,7 +13749,7 @@ function ProductImportExport() {
               <h2>Export Product Data</h2>
               <p>Export catalog, SKU, product demand, restock, refill, category, and tag data for cleanup or reporting.</p>
             </div>
-            <Badge tone="emerald">CSV / XLSX / JSON</Badge>
+            <span className="import-export-pill success">CSV / XLSX / JSON export</span>
           </div>
 
           <div className="export-option-list">
@@ -13473,15 +13766,25 @@ function ProductImportExport() {
                     <span>{option.recoveryUse}</span>
                   </div>
                 </div>
-                <button type="button" className="secondary-btn">Export</button>
+                <button type="button" className="secondary-btn" onClick={() => exportOptionAs(option)}>
+                  Export
+                </button>
               </article>
             ))}
           </div>
 
           <div className="capture-actions">
-            <button type="button" className="primary-btn">Export CSV</button>
-            <button type="button" className="secondary-btn">Export XLSX</button>
-            <button type="button" className="secondary-btn">Export JSON</button>
+            <button type="button" className="primary-btn" onClick={() => exportWholeSheet("csv")}>
+              Export CSV
+            </button>
+
+            <button type="button" className="secondary-btn" onClick={() => exportWholeSheet("xlsx")}>
+              Export XLSX
+            </button>
+
+            <button type="button" className="secondary-btn" onClick={() => exportWholeSheet("json")}>
+              Export JSON
+            </button>
           </div>
         </article>
       </section>
@@ -13489,16 +13792,20 @@ function ProductImportExport() {
       <section className="summary-breakdown-grid">
         <article className="summary-breakdown-card">
           <h3>Import Activity Log</h3>
-          <div><span>Preview generated</span><strong>Today 12:20 PM</strong></div>
-          <div><span>Column map saved</span><strong>SKU + category</strong></div>
-          <div><span>Issues detected</span><strong>{importIssues}</strong></div>
+          <div><span>Selected sheet</span><strong>{hasUploadedSheet ? selectedFileName : "None"}</strong></div>
+          <div><span>Records checked</span><strong>{previewRows.length}</strong></div>
+          <div><span>Imported records</span><strong>{importedCount}</strong></div>
         </article>
+
         <article className="summary-breakdown-card">
           <h3>Data Checks</h3>
-          <div><span>Missing SKU</span><strong>{importPreviewRows.filter((row) => row.detectedIssue === "Missing SKU").length}</strong></div>
-          <div><span>Missing price</span><strong>{importPreviewRows.filter((row) => row.detectedIssue === "Missing price").length}</strong></div>
-          <div><span>Missing tags</span><strong>{importPreviewRows.filter((row) => row.detectedIssue.includes("tags")).length}</strong></div>
+          <div><span>Missing SKU</span><strong>{missingSkus}</strong></div>
+          <div><span>Duplicate SKU</span><strong>{duplicateSkus}</strong></div>
+          <div><span>Missing category</span><strong>{missingCategories}</strong></div>
+          <div><span>Missing price</span><strong>{missingPrices}</strong></div>
+          <div><span>Missing tags</span><strong>{missingTags}</strong></div>
         </article>
+
         <article className="summary-breakdown-card">
           <h3>Export Readiness</h3>
           <div><span>Product catalog</span><strong>Ready</strong></div>
@@ -13510,15 +13817,147 @@ function ProductImportExport() {
   );
 }
 
+type InternalNoteEditorProps = {
+  title?: string;
+  helperText?: string;
+  value: string;
+  emptyText?: string;
+  onSave: (note: string) => void;
+  onRemove: () => void;
+};
+
+function InternalNoteEditor({
+  title = "Internal Notes",
+  helperText = "Private team context for this specific recovery record.",
+  value,
+  emptyText = "No internal note added yet.",
+  onSave,
+  onRemove,
+}: InternalNoteEditorProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftNote, setDraftNote] = useState(value);
+
+  useEffect(() => {
+    setDraftNote(value);
+    setIsEditing(false);
+  }, [value]);
+
+  const trimmedNote = value.trim();
+  const trimmedDraft = draftNote.trim();
+
+  return (
+    <section className="buyer-modal-section internal-note-editor">
+      <div className="internal-note-heading">
+        <div>
+          <h3>{title}</h3>
+          <p>{helperText}</p>
+        </div>
+
+        <div className="internal-note-actions">
+          {!isEditing ? (
+            <button
+              type="button"
+              className="secondary-btn compact-note-btn"
+              onClick={() => setIsEditing(true)}
+            >
+              {trimmedNote ? "Edit" : "Add Note"}
+            </button>
+          ) : null}
+
+          {trimmedNote ? (
+            <button
+              type="button"
+              className="secondary-btn compact-note-btn danger-note-btn"
+              onClick={onRemove}
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {isEditing ? (
+        <div className="internal-note-edit-area">
+          <textarea
+            value={draftNote}
+            onChange={(event) => setDraftNote(event.target.value)}
+            placeholder="Write a private internal note for this buyer profile..."
+            rows={4}
+          />
+
+          <div className="internal-note-edit-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={() => {
+                onSave(trimmedDraft);
+                setIsEditing(false);
+              }}
+            >
+              Save Note
+            </button>
+
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => {
+                setDraftNote(value);
+                setIsEditing(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className={trimmedNote ? "internal-note-text" : "internal-note-empty"}>
+          {trimmedNote || emptyText}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function BuyerProfiles() {
-  const [activeBuyerFilter, setActiveBuyerFilter] = useState<BuyerProfileFilter>("All");
-  const [selectedBuyerId, setSelectedBuyerId] = useState(buyerProfiles[0].id);
+  const BUYERS_PER_PAGE = 25;
+
+const [activeBuyerFilter, setActiveBuyerFilter] = useState<BuyerProfileFilter>("All");
+const [buyerPage, setBuyerPage] = useState(1);
+const [selectedBuyer, setSelectedBuyer] = useState<BuyerProfileRecord | null>(null);
+
+const [buyerProfileInternalNotes, setBuyerProfileInternalNotes] = useState<Record<string, string>>(() =>
+  Object.fromEntries(buyerProfiles.map((buyer) => [buyer.id, buyer.internalNotes])),
+);
 
   const filteredBuyers = buyerProfiles.filter((buyer) =>
     matchesBuyerProfileFilter(buyer, activeBuyerFilter),
   );
-  const selectedBuyer =
-    buyerProfiles.find((buyer) => buyer.id === selectedBuyerId) ?? filteredBuyers[0] ?? buyerProfiles[0];
+
+  const totalBuyerPages = Math.max(1, Math.ceil(filteredBuyers.length / BUYERS_PER_PAGE));
+  const currentBuyerPage = Math.min(buyerPage, totalBuyerPages);
+  const pageStartIndex = (currentBuyerPage - 1) * BUYERS_PER_PAGE;
+  const pageEndIndex = Math.min(pageStartIndex + BUYERS_PER_PAGE, filteredBuyers.length);
+  const paginatedBuyers = filteredBuyers.slice(pageStartIndex, pageEndIndex);
+  const firstVisibleBuyer = filteredBuyers.length === 0 ? 0 : pageStartIndex + 1;
+
+  useEffect(() => {
+    setBuyerPage(1);
+    setSelectedBuyer(null);
+  }, [activeBuyerFilter]);
+
+const saveBuyerProfileInternalNote = (buyerId: string, note: string) => {
+  setBuyerProfileInternalNotes((currentNotes) => ({
+    ...currentNotes,
+    [buyerId]: note,
+  }));
+};
+
+const removeBuyerProfileInternalNote = (buyerId: string) => {
+  setBuyerProfileInternalNotes((currentNotes) => ({
+    ...currentNotes,
+    [buyerId]: "",
+  }));
+};
 
   const buyerKpis = useMemo<KPI[]>(() => {
     const openCases = buyerProfiles.filter((buyer) => buyer.openRecoveryCases > 0).length;
@@ -13568,159 +14007,249 @@ function BuyerProfiles() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredBuyers.length} buyer profiles</Badge>
+
+        <Badge tone="cyan">
+          {filteredBuyers.length} buyer profiles
+        </Badge>
       </section>
 
-      <section className="recovery-workspace capture-workspace buyer-workspace">
-        <article className="glass-card panel-card">
+      <section className="recovery-workspace capture-workspace buyer-workspace buyer-profiles-fullspace">
+        <article className="glass-card panel-card buyer-list-panel">
           <div className="panel-header">
             <div>
               <h2>Buyer Profiles</h2>
-              <p>Individual buyer lifecycle context for value, risk, preferences, and next best revenue action.</p>
+              <p>
+                Full buyer recovery list showing lifecycle context, revenue at risk, owner, open cases,
+                and the next best revenue action.
+              </p>
             </div>
-            <Badge tone="emerald">Lifecycle recovery</Badge>
+            <Badge tone="emerald">25 per page</Badge>
           </div>
 
-          <div className="capture-card-list">
-            {filteredBuyers.map((buyer) => (
-              <button
-                className={`buyer-card inquiry-button ${buyer.tone} ${
-                  selectedBuyer.id === buyer.id ? "selected" : ""
-                }`}
-                key={buyer.id}
-                onClick={() => setSelectedBuyerId(buyer.id)}
-                type="button"
-              >
-                <div className="capture-card-main buyer-card-main">
-                  <div className="buyer-identity">
-                    <Avatar name={buyer.buyerName} />
-                    <div>
-                      <div className="recovery-row-title">
-                        <h3>{buyer.buyerName}</h3>
-                        <Badge tone={buyer.tone}>{buyer.lifecycleStatus}</Badge>
-                      </div>
-                      <p>{buyer.favoriteCategory}</p>
-                      <div className="recovery-meta">
-                        <span>{buyer.source}</span>
-                        <span>{buyer.lastPurchase}</span>
-                        <span>{buyer.lastContact}</span>
-                        <span>{buyer.nextFollowUp}</span>
-                        <span>{buyer.owner}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="capture-value-stack">
-                    <strong>{buyer.totalSpend}</strong>
-                    <span>{buyer.purchaseCount} purchases</span>
-                  </div>
-                </div>
+          <div className="buyer-table-summary">
+            <span>
+              Showing <strong>{firstVisibleBuyer}</strong> - <strong>{pageEndIndex}</strong> of{" "}
+              <strong>{filteredBuyers.length}</strong> buyer profiles
+            </span>
+            <span>
+              Page <strong>{currentBuyerPage}</strong> of <strong>{totalBuyerPages}</strong>
+            </span>
+          </div>
 
-                <div className="capture-stat-grid buyer-stat-grid">
-                  <div>
-                    <span>Open recovery cases</span>
-                    <strong>{buyer.openRecoveryCases}</strong>
-                  </div>
-                  <div>
-                    <span>Revenue at risk</span>
-                    <strong>{buyer.revenueAtRisk}</strong>
-                  </div>
-                  <div>
-                    <span>Tags</span>
-                    <strong>{buyer.tags.join(" / ")}</strong>
-                  </div>
-                  <div>
-                    <span>Next best action</span>
-                    <strong>{buyer.recommendedNextAction}</strong>
-                  </div>
-                </div>
-              </button>
-            ))}
+          <div className="buyer-profile-table-wrap">
+            <table className="buyer-profile-table">
+              <thead>
+                <tr>
+                  <th>Buyer</th>
+                  <th>Lifecycle</th>
+                  <th>Source</th>
+                  <th>Value / Risk</th>
+                  <th>Owner / Cases</th>
+                  <th>Next Best Action</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {paginatedBuyers.length > 0 ? (
+                  paginatedBuyers.map((buyer) => (
+                    <tr key={buyer.id}>
+                      <td>
+                        <div className="buyer-table-identity">
+                          <strong>{buyer.buyerName}</strong>
+                          <span>{buyer.favoriteCategory}</span>
+                          <small>{buyer.email}</small>
+                        </div>
+                      </td>
+
+                      <td>
+                        <div className="buyer-tag-stack">
+                          <Badge tone={buyer.tone}>{buyer.lifecycleStatus}</Badge>
+                          <div className="buyer-mini-tags">
+                            {buyer.tags.slice(0, 2).map((tag) => (
+                              <span key={`${buyer.id}-${tag}`}>{tag}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td>
+                        <div className="buyer-table-text">
+                          <strong>{buyer.source}</strong>
+                          <span>Last contact: {buyer.lastContact}</span>
+                        </div>
+                      </td>
+
+                      <td>
+                        <div className="buyer-value-stack">
+                          <strong>{buyer.revenueAtRisk}</strong>
+                          <span>Revenue at risk</span>
+                          <small>{buyer.totalSpend} total spend</small>
+                        </div>
+                      </td>
+
+                      <td>
+                        <div className="buyer-table-text">
+                          <strong>{buyer.owner}</strong>
+                          <span>{buyer.openRecoveryCases} open recovery case{buyer.openRecoveryCases === 1 ? "" : "s"}</span>
+                        </div>
+                      </td>
+
+                      <td>
+                        <p className="buyer-next-action">{buyer.recommendedNextAction}</p>
+                      </td>
+
+                      <td>
+                        <button
+                          type="button"
+                          className="secondary-btn buyer-view-button"
+                          onClick={() => setSelectedBuyer(buyer)}
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="buyer-empty-state" colSpan={7}>
+                      No buyer profiles found for this lifecycle filter.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="buyer-pagination">
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentBuyerPage === 1}
+              onClick={() => setBuyerPage((page) => Math.max(1, page - 1))}
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {currentBuyerPage} / {totalBuyerPages}
+            </span>
+
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentBuyerPage === totalBuyerPages || filteredBuyers.length === 0}
+              onClick={() => setBuyerPage((page) => Math.min(totalBuyerPages, page + 1))}
+            >
+              Next
+            </button>
           </div>
         </article>
+      </section>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedBuyer.buyerName} />
+      {selectedBuyer ? (
+        <div className="buyer-modal-backdrop" role="dialog" aria-modal="true">
+          <article className="glass-card buyer-profile-modal">
+            <div className="buyer-modal-header">
               <div>
+                <span className="eyebrow">Buyer Recovery Profile</span>
                 <h2>{selectedBuyer.buyerName}</h2>
-                <p>{selectedBuyer.favoriteCategory}</p>
+                <p>
+                  Buyer-level context for value, preferences, purchase history, open recovery cases,
+                  and the next action.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="buyer-modal-close"
+                onClick={() => setSelectedBuyer(null)}
+                aria-label="Close buyer details"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="buyer-modal-kpis">
+              <div>
+                <span>Total Spend</span>
+                <strong>{selectedBuyer.totalSpend}</strong>
+              </div>
+              <div>
+                <span>Revenue At Risk</span>
+                <strong>{selectedBuyer.revenueAtRisk}</strong>
+              </div>
+              <div>
+                <span>Open Cases</span>
+                <strong>{selectedBuyer.openRecoveryCases}</strong>
+              </div>
+              <div>
+                <span>Purchases</span>
+                <strong>{selectedBuyer.purchaseCount}</strong>
               </div>
             </div>
-            <strong>{selectedBuyer.revenueAtRisk}</strong>
-          </div>
 
-          <div className="customer-summary-box">
-            <span>Buyer lifecycle summary</span>
-            <p>
-              {selectedBuyer.lifecycleStatus} buyer from {selectedBuyer.source}. Owner: {selectedBuyer.owner}.{" "}
-              {selectedBuyer.openRecoveryCases} open recovery cases.
-            </p>
-          </div>
+            <div className="buyer-modal-grid">
+              <section className="buyer-modal-section">
+                <h3>Buyer Identity</h3>
+                <div><span>Email</span><strong>{selectedBuyer.email}</strong></div>
+                <div><span>Phone</span><strong>{selectedBuyer.phone}</strong></div>
+                <div><span>Source</span><strong>{selectedBuyer.source}</strong></div>
+                <div><span>Owner</span><strong>{selectedBuyer.owner}</strong></div>
+              </section>
 
-          <div className="detail-grid">
-            <div>
-              <span>Email</span>
-              <strong>{selectedBuyer.email}</strong>
-            </div>
-            <div>
-              <span>Phone</span>
-              <strong>{selectedBuyer.phone}</strong>
-            </div>
-            <div>
-              <span>Source</span>
-              <strong>{selectedBuyer.source}</strong>
-            </div>
-            <div>
-              <span>Lifecycle status</span>
-              <strong>{selectedBuyer.lifecycleStatus}</strong>
-            </div>
-            <div>
-              <span>Total spend / LTV</span>
-              <strong>{selectedBuyer.totalSpend}</strong>
-            </div>
-            <div>
-              <span>Purchase count</span>
-              <strong>{selectedBuyer.purchaseCount}</strong>
-            </div>
-          </div>
+              <section className="buyer-modal-section">
+                <h3>Lifecycle & Value</h3>
+                <div><span>Status</span><strong>{selectedBuyer.lifecycleStatus}</strong></div>
+                <div><span>Favorite Category</span><strong>{selectedBuyer.favoriteCategory}</strong></div>
+                <div><span>Last Purchase</span><strong>{selectedBuyer.lastPurchase}</strong></div>
+                <div><span>Next Follow-up</span><strong>{selectedBuyer.nextFollowUp}</strong></div>
+              </section>
 
-          <div className="detail-callout">
-            <span>Recommended next action</span>
-            <p>{selectedBuyer.recommendedNextAction}</p>
-          </div>
+              <section className="buyer-modal-section">
+                <h3>Product / Purchase Context</h3>
+                <p>{selectedBuyer.productPreferences}</p>
+                <p>{selectedBuyer.purchaseHistorySummary}</p>
+              </section>
 
-          <div className="thread-panel buyer-detail-stack">
-            <div>
-              <span>Product preferences</span>
-              <p>{selectedBuyer.productPreferences}</p>
-            </div>
-            <div>
-              <span>Purchase history summary</span>
-              <p>{selectedBuyer.purchaseHistorySummary}</p>
-            </div>
-            <div>
-              <span>Refill/restock status</span>
-              <p>{selectedBuyer.refillRestockStatus}</p>
-            </div>
-            <div>
-              <span>Post-purchase status</span>
-              <p>{selectedBuyer.postPurchaseStatus}</p>
-            </div>
-            <div>
-              <span>Internal notes</span>
-              <p>{selectedBuyer.internalNotes}</p>
-            </div>
-          </div>
+              <section className="buyer-modal-section">
+                <h3>Repeat & Post-Purchase Context</h3>
+                <p>{selectedBuyer.refillRestockStatus}</p>
+                <p>{selectedBuyer.postPurchaseStatus}</p>
+              </section>
 
-          <div className="template-box">
-            <div>
-              <span>Message template preview</span>
+              <InternalNoteEditor
+  title="Buyer Profile Internal Notes"
+  helperText="Private buyer-level context only. This note belongs to this buyer profile, not inquiry, payment, order, or follow-up pages."
+  value={buyerProfileInternalNotes[selectedBuyer.id] ?? ""}
+  emptyText="No buyer profile note added yet."
+  onSave={(note) => saveBuyerProfileInternalNote(selectedBuyer.id, note)}
+  onRemove={() => removeBuyerProfileInternalNote(selectedBuyer.id)}
+/>
+
+              <section className="buyer-modal-section">
+                <h3>Next Best Recovery Action</h3>
+                <p>{selectedBuyer.recommendedNextAction}</p>
+              </section>
             </div>
-            <p>{selectedBuyer.messageTemplatePreview}</p>
-          </div>
-        </aside>
-      </section>
+
+            <div className="buyer-modal-tags">
+              {selectedBuyer.tags.map((tag) => (
+                <Badge key={`${selectedBuyer.id}-modal-${tag}`} tone="gray">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+
+            <div className="template-box buyer-modal-template">
+              <div>
+                <span>Message template preview</span>
+              </div>
+              <p>{selectedBuyer.messageTemplatePreview}</p>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -18506,8 +19035,6 @@ function closeExportReport() {
           <ProductCatalog onNavigate={navigateToPage} />
         ) : activePage === "SKU / Variant Sheet" ? (
           <SKUVariantSheet />
-        ) : activePage === "Categories & Tags" ? (
-          <CategoriesTags />
         ) : activePage === "Import / Export" && openGroup === "Product Intelligence" ? (
           <ProductImportExport />
         ) : activePage === "Brand Settings" ? (
