@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, ChangeEvent, FormEvent, ReactNode } from "react";
+import type { CSSProperties, ChangeEvent, FormEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { jsPDF } from "jspdf";
 
 type Tone = "cyan" | "rose" | "amber" | "emerald" | "indigo" | "gray";
@@ -239,6 +239,17 @@ type BuyerProfileRecord = {
   tone: Tone;
 };
 
+type SegmentOpenActionRecord = {
+  id: string;
+  actionName: string;
+  owner: string;
+  dueWindow: string;
+  estimatedValue: string;
+  status: "Draft" | "Open" | "Reviewed";
+};
+
+type SegmentCreationMode = "Automatic" | "Manual";
+
 type RevenueSegmentRecord = {
   id: string;
   segmentName: string;
@@ -263,6 +274,12 @@ type RevenueSegmentRecord = {
   lastActivity: string;
   owner: string;
   recommendedAction: string;
+  reviewed?: boolean;
+  tasksCreated?: boolean;
+  buyerIds?: string[];
+  openActions?: SegmentOpenActionRecord[];
+  creationMode?: SegmentCreationMode;
+  lastAction?: string;
   tone: Tone;
 };
 
@@ -287,6 +304,26 @@ type BuyerValueRecord = {
   tone: Tone;
 };
 
+type BuyerPurchaseMapRow = {
+  id: string;
+  orderNumber: string;
+  purchaseDate: string;
+  purchaseTime: string;
+  productPurchased: string;
+  variant: string;
+  orderValue: string;
+  orderStatus: "Completed" | "Recovered" | "Pending Issue" | "Returned / Exchanged";
+  source: string;
+  repeatSignal: string;
+};
+
+type BuyerValueTemplateOption = {
+  id: string;
+  templateName: string;
+  templateType: "Refill" | "Restock" | "VIP" | "Payment" | "Post-Purchase" | "Winback" | "Order Risk" | "General";
+  templateText: string;
+};
+
 type RevenueStage =
   | "New Interest Captured"
   | "First Reply Needed"
@@ -296,6 +333,7 @@ type RevenueStage =
   | "Order Confirmed"
   | "Delivered / Post-Purchase"
   | "Repeat Opportunity"
+  | "Recovered"
   | "Lost / Inactive";
 
 type RevenueOpportunity = {
@@ -312,7 +350,7 @@ type RevenueOpportunity = {
   priority: Priority;
   lastActivity: string;
   nextAction: string;
-  dueStatus: DueStatus | "Lost";
+  dueStatus: DueStatus | "Recovered" | "Lost";
   recommendedMessage: string;
   lastAction?: string;
   tone: Tone;
@@ -597,7 +635,7 @@ type ExportOption = {
   id: string;
   exportName: string;
   description: string;
-  format: "CSV" | "XLSX placeholder" | "JSON placeholder";
+  format: "CSV" | "XLSX later" | "JSON later";
   recordCount: number;
   recoveryUse: string;
   tone: Tone;
@@ -668,7 +706,7 @@ type InactiveBuyerRecoveryItem = {
   lastAction: string;
   recommendedWinbackAction: string;
   messageTemplate: string;
-  recoveryStatus: "Open" | "Reactivated" | "Lost" | "Snoozed";
+  recoveryStatus: "Open" | "Winback sent" | "Reactivated" | "Lost" | "Snoozed";
   tone: Tone;
 };
 
@@ -984,7 +1022,7 @@ type MessageTemplate = {
   templateName: string;
   recoveryType: string;
   industryFit: "Fashion / Apparel" | "Beauty / Skincare" | "Hybrid";
-  channel: "Instagram DM" | "WhatsApp" | "Email" | "SMS placeholder" | "Manual Copy";
+  channel: "Instagram DM" | "WhatsApp" | "Email" | "SMS" | "Manual Copy";
   owner: string;
   approvalStatus: "Approved" | "Needs Review" | "Draft";
   lastUpdated: string;
@@ -2783,6 +2821,285 @@ const buyerValueRecords: BuyerValueRecord[] = [
   },
 ];
 
+const buyerValueTemplateOptions: BuyerValueTemplateOption[] = [
+  {
+    id: "BVT-REFILL",
+    templateName: "Refill reminder with saved routine",
+    templateType: "Refill",
+    templateText:
+      "Hi {{buyer_name}}, based on your last {{product_name}} order, this is a good time to refill before you run low. Want me to send your saved reorder link?",
+  },
+  {
+    id: "BVT-VIP",
+    templateName: "VIP early-access hold",
+    templateType: "VIP",
+    templateText:
+      "Hi {{buyer_name}}, your preferred item is available for early access. We can hold it briefly and send the checkout link if you would like to reserve it.",
+  },
+  {
+    id: "BVT-PAYMENT",
+    templateName: "Payment pending reminder",
+    templateType: "Payment",
+    templateText:
+      "Hi {{buyer_name}}, your checkout is still pending. I can resend the secure payment link so your order does not go cold.",
+  },
+  {
+    id: "BVT-POST",
+    templateName: "Post-purchase second purchase prompt",
+    templateType: "Post-Purchase",
+    templateText:
+      "Hi {{buyer_name}}, hope you are enjoying your order. Based on what you purchased, this matching item may be a good next option.",
+  },
+  {
+    id: "BVT-ORDER",
+    templateName: "Order risk follow-up",
+    templateType: "Order Risk",
+    templateText:
+      "Hi {{buyer_name}}, we noticed your order needs a quick detail confirmed before it can move smoothly. Can you confirm this for us?",
+  },
+  {
+    id: "BVT-GENERAL",
+    templateName: "General next-best-action message",
+    templateType: "General",
+    templateText:
+      "Hi {{buyer_name}}, based on your previous interest and purchase history, we wanted to follow up with the best next option for you.",
+  },
+];
+
+const buyerValuePurchaseHistoryMap: Record<string, BuyerPurchaseMapRow[]> = {
+  "VAL-701": [
+    {
+      id: "VAL-701-P1",
+      orderNumber: "ORD-4108",
+      purchaseDate: "2026-04-29",
+      purchaseTime: "02:35 PM",
+      productPurchased: "Bridal Styling Deposit",
+      variant: "Appointment Hold",
+      orderValue: "$600",
+      orderStatus: "Completed",
+      source: "Website Form",
+      repeatSignal: "Open bridal styling balance can still be recovered.",
+    },
+  ],
+  "VAL-702": [
+    {
+      id: "VAL-702-P1",
+      orderNumber: "ORD-3912",
+      purchaseDate: "2026-03-03",
+      purchaseTime: "10:12 AM",
+      productPurchased: "Vitamin C Serum",
+      variant: "30ml",
+      orderValue: "$118",
+      orderStatus: "Completed",
+      source: "Shopify",
+      repeatSignal: "60-day refill window is open.",
+    },
+    {
+      id: "VAL-702-P2",
+      orderNumber: "ORD-3620",
+      purchaseDate: "2026-01-04",
+      purchaseTime: "05:44 PM",
+      productPurchased: "Vitamin C Serum",
+      variant: "30ml",
+      orderValue: "$118",
+      orderStatus: "Completed",
+      source: "Shopify",
+      repeatSignal: "Repeat serum buyer.",
+    },
+    {
+      id: "VAL-702-P3",
+      orderNumber: "ORD-3311",
+      purchaseDate: "2025-11-05",
+      purchaseTime: "01:18 PM",
+      productPurchased: "Sensitive Skin Routine Bundle",
+      variant: "Cleanser + Serum",
+      orderValue: "$236",
+      orderStatus: "Recovered",
+      source: "Email",
+      repeatSignal: "Routine bundle buyer.",
+    },
+  ],
+  "VAL-703": [
+    {
+      id: "VAL-703-P1",
+      orderNumber: "ORD-4190",
+      purchaseDate: "2026-04-10",
+      purchaseTime: "11:08 AM",
+      productPurchased: "Limited Knitwear Drop",
+      variant: "Cream / Medium",
+      orderValue: "$689",
+      orderStatus: "Completed",
+      source: "Campaign",
+      repeatSignal: "VIP early-access buyer.",
+    },
+    {
+      id: "VAL-703-P2",
+      orderNumber: "ORD-3774",
+      purchaseDate: "2026-02-16",
+      purchaseTime: "07:21 PM",
+      productPurchased: "Rue Muse Coat",
+      variant: "Camel / Medium",
+      orderValue: "$960",
+      orderStatus: "Completed",
+      source: "Campaign",
+      repeatSignal: "High-value fashion buyer.",
+    },
+  ],
+  "VAL-704": [
+    {
+      id: "VAL-704-P1",
+      orderNumber: "ORD-4027",
+      purchaseDate: "2026-03-20",
+      purchaseTime: "04:10 PM",
+      productPurchased: "Routine Bundle",
+      variant: "Cleanser + Serum + Moisturizer",
+      orderValue: "$670",
+      orderStatus: "Recovered",
+      source: "WhatsApp",
+      repeatSignal: "Payment recovery already worked once.",
+    },
+  ],
+  "VAL-709": [
+    {
+      id: "VAL-709-P1",
+      orderNumber: "ORD-4262",
+      purchaseDate: "2026-04-30",
+      purchaseTime: "12:40 PM",
+      productPurchased: "Denim Set",
+      variant: "Blue / Small",
+      orderValue: "$390",
+      orderStatus: "Pending Issue",
+      source: "Shopify",
+      repeatSignal: "Order risk should be resolved before next offer.",
+    },
+    {
+      id: "VAL-709-P2",
+      orderNumber: "ORD-3741",
+      purchaseDate: "2026-02-02",
+      purchaseTime: "09:52 AM",
+      productPurchased: "Cropped Jacket",
+      variant: "Black / Small",
+      orderValue: "$390",
+      orderStatus: "Completed",
+      source: "Instagram DM",
+      repeatSignal: "Fashion buyer with repeat potential.",
+    },
+  ],
+};
+
+function getBuyerValueTemplateForRecord(
+  record: BuyerValueRecord,
+  templates: BuyerValueTemplateOption[],
+) {
+  const selectedByCategory = templates.find((template) => {
+    if (record.valueFlags.includes("Refill Ready")) return template.templateType === "Refill";
+    if (record.valueFlags.includes("VIP")) return template.templateType === "VIP";
+    if (record.buyerCategory.toLowerCase().includes("payment")) return template.templateType === "Payment";
+    if (record.buyerCategory.toLowerCase().includes("order risk")) return template.templateType === "Order Risk";
+    if (record.buyerCategory.toLowerCase().includes("post")) return template.templateType === "Post-Purchase";
+    return false;
+  });
+
+  return selectedByCategory ?? templates.find((template) => template.templateType === "General") ?? templates[0];
+}
+
+function getBuyerPurchaseMap(record: BuyerValueRecord) {
+  const storedHistory = buyerValuePurchaseHistoryMap[record.id];
+
+  if (storedHistory?.length) {
+    return storedHistory;
+  }
+
+  if (record.purchaseCount <= 0) {
+    return [];
+  }
+
+  return Array.from({ length: record.purchaseCount }).map((_, index) => ({
+    id: `${record.id}-AUTO-${index + 1}`,
+    orderNumber: `ORDER-${record.id.replace("VAL-", "")}-${index + 1}`,
+    purchaseDate: index === 0 ? record.lastPurchaseDate : `Previous purchase ${index + 1}`,
+    purchaseTime: index === 0 ? "Synced from order data" : "Historical order time",
+    productPurchased: record.buyerCategory,
+    variant: "Order-backed buyer value record",
+    orderValue: record.averageOrderValue,
+    orderStatus: "Completed" as const,
+    source: "Order history",
+    repeatSignal:
+      moneyToNumber(record.refillRestockOpportunityValue) > 0
+        ? "Repeat opportunity detected."
+        : "No repeat opportunity currently detected.",
+  }));
+}
+
+function getBuyerRepeatOpportunitySummary(record: BuyerValueRecord) {
+  if (moneyToNumber(record.refillRestockOpportunityValue) <= 0) {
+    return "No repeat opportunity is currently detected from this buyer's completed order history.";
+  }
+
+  return `${record.refillRestockOpportunityValue} repeat opportunity detected. Predicted next purchase: ${record.predictedNextPurchase}.`;
+}
+
+function getBuyerValueExportRows(
+  record: BuyerValueRecord,
+  purchaseRows: BuyerPurchaseMapRow[],
+  template: BuyerValueTemplateOption,
+) {
+  return [
+    ["Buyer Value Summary"],
+    ["Buyer", record.buyerName],
+    ["Buyer Category", record.buyerCategory],
+    ["Lifetime Value", record.lifetimeValue],
+    ["YTD Spend", record.yearToDateSpend],
+    ["Purchase Count", String(record.purchaseCount)],
+    ["Average Order Value", record.averageOrderValue],
+    ["Revenue At Risk", record.revenueAtRisk],
+    ["Recovered Value", record.recoveredValue],
+    ["Repeat Opportunity", record.refillRestockOpportunityValue],
+    ["Predicted Next Purchase", record.predictedNextPurchase],
+    ["Value Flags", record.valueFlags.join(" / ")],
+    ["Next Best Action", record.nextBestAction],
+    ["Selected Template", template.templateName],
+    ["Template Text", template.templateText],
+    [],
+    ["Purchase Map"],
+    ["Order Number", "Purchase Date", "Purchase Time", "Product Purchased", "Variant", "Order Value", "Order Status", "Source", "Repeat Signal"],
+    ...purchaseRows.map((row) => [
+      row.orderNumber,
+      row.purchaseDate,
+      row.purchaseTime,
+      row.productPurchased,
+      row.variant,
+      row.orderValue,
+      row.orderStatus,
+      row.source,
+      row.repeatSignal,
+    ]),
+  ];
+}
+
+function downloadRowsAsCsv(filename: string, rows: string[][]) {
+  const csv = rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const value = String(cell ?? "");
+          return `"${value.replace(/"/g, '""')}"`;
+        })
+        .join(","),
+    )
+    .join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
 const revenueOpportunities: RevenueOpportunity[] = [
   {
     id: "OPP-801",
@@ -4500,12 +4817,12 @@ const importPreviewRows: ImportPreviewRow[] = [
 const exportOptions: ExportOption[] = [
   { id: "EXP-1", exportName: "Product catalog", description: "Products, folders, tags, demand value, and recovered value.", format: "CSV", recordCount: 156, recoveryUse: "Clean catalog review", tone: "cyan" },
   { id: "EXP-2", exportName: "SKU sheet", description: "SKU rows with variants, price, status, refill cycle, and tags.", format: "CSV", recordCount: 482, recoveryUse: "SKU control and CSV cleanup", tone: "emerald" },
-  { id: "EXP-3", exportName: "Product demand", description: "Linked demand, restock interest, refill timing, and recovery value.", format: "CSV", recordCount: 74, recoveryUse: "Demand recovery planning", tone: "rose" },
+  { id: "EXP-3", exportName: "Product demand", description: "Linked demand, restock interest, refill timing, and recovery value.", format: "CSV", recordCount: 74, recoveryUse: "Demand recovery reporting", tone: "rose" },
   { id: "EXP-4", exportName: "Restock list", description: "Products and SKUs with restock interest and waiting buyers.", format: "CSV", recordCount: 31, recoveryUse: "Restock notification actions", tone: "amber" },
   { id: "EXP-5", exportName: "Refill products", description: "Refill cycles, routine steps, and repeat revenue timing.", format: "CSV", recordCount: 28, recoveryUse: "Refill reminders", tone: "emerald" },
   { id: "EXP-6", exportName: "Category/tag report", description: "Folders, categories, recovery tags, and suggested rules.", format: "CSV", recordCount: 88, recoveryUse: "Category mapping", tone: "indigo" },
-  { id: "EXP-7", exportName: "XLSX product workbook", description: "Spreadsheet-ready product catalog and SKU sheet.", format: "XLSX placeholder", recordCount: 482, recoveryUse: "Team editing handoff", tone: "cyan" },
-  { id: "EXP-8", exportName: "JSON product data", description: "Structured product, SKU, folder, category, and tag data.", format: "JSON placeholder", recordCount: 482, recoveryUse: "Future data sync", tone: "gray" },
+  { id: "EXP-7", exportName: "XLSX product workbook", description: "Spreadsheet-ready product catalog and SKU sheet.", format: "XLSX later", recordCount: 482, recoveryUse: "Team editing handoff", tone: "cyan" },
+  { id: "EXP-8", exportName: "JSON product data", description: "Structured product, SKU, folder, category, and tag data.", format: "JSON later", recordCount: 482, recoveryUse: "Structured data export", tone: "gray" },
 ];
 
 const refillOpportunities: RefillOpportunity[] = [
@@ -4855,10 +5172,10 @@ const inactiveBuyerRecoveryItems: InactiveBuyerRecoveryItem[] = [
     lifecycleStatus: "Event / Pop-up",
     estimatedRecoveryValue: "$540",
     recoveredValue: "$0",
-    owner: "Unassigned",
+    owner: "Events team",
     source: "Event / Pop-up",
-    lastAction: "Imported without owner",
-    recommendedWinbackAction: "Assign owner and send post-event saved-pieces recap.",
+    lastAction: "Saved pieces imported from pop-up list",
+    recommendedWinbackAction: "Send the post-event saved-pieces recap with the saved items and order link.",
     messageTemplate:
       "Thanks again for stopping by the pop-up. I can still help with the pieces you saved if you want to complete the order.",
     recoveryStatus: "Open",
@@ -5905,7 +6222,7 @@ const messageTemplates: MessageTemplate[] = [
   { id: "TPL-4", templateName: "Sensitive-skin product reply", recoveryType: "Order Issue", industryFit: "Beauty / Skincare", channel: "WhatsApp", owner: "Mina Cole", approvalStatus: "Needs Review", lastUpdated: "Last week", usageCount: 21, linkedStageTag: "Sensitive Skin", previewText: "Hi {{buyer_name}}, before recommending {{product_name}}, can you share any known sensitivities or ingredients you avoid?", tone: "amber" },
   { id: "TPL-5", templateName: "Payment pending reminder", recoveryType: "Payment Reminder", industryFit: "Hybrid", channel: "WhatsApp", owner: "Tessa Nguyen", approvalStatus: "Approved", lastUpdated: "Today", usageCount: 89, linkedStageTag: "Payment Pending", previewText: "Hi {{buyer_name}}, your {{product_name}} payment link is still open. I can resend it now or adjust the order if needed.", tone: "rose" },
   { id: "TPL-6", templateName: "Refill reorder reminder", recoveryType: "Refill Reminder", industryFit: "Beauty / Skincare", channel: "Email", owner: "Mina Cole", approvalStatus: "Approved", lastUpdated: "Today", usageCount: 73, linkedStageTag: "Refill Ready", previewText: "Hi {{buyer_name}}, your {{refill_window}} is active for {{product_name}}. Want us to prepare your refill before you run low?", tone: "emerald" },
-  { id: "TPL-7", templateName: "Restock back-in-stock notice", recoveryType: "Restock Notice", industryFit: "Hybrid", channel: "SMS placeholder", owner: "Luis Park", approvalStatus: "Approved", lastUpdated: "Yesterday", usageCount: 58, linkedStageTag: "Restock Waiting", previewText: "Good news {{buyer_name}}, {{restock_item}} is back. Want us to hold it before it sells through again?", tone: "amber" },
+  { id: "TPL-7", templateName: "Restock back-in-stock notice", recoveryType: "Restock Notice", industryFit: "Hybrid", channel: "SMS", owner: "Luis Park", approvalStatus: "Approved", lastUpdated: "Yesterday", usageCount: 58, linkedStageTag: "Restock Waiting", previewText: "Good news {{buyer_name}}, {{restock_item}} is back. Want us to hold it before it sells through again?", tone: "amber" },
   { id: "TPL-8", templateName: "Delivery satisfaction check", recoveryType: "Delivery Follow-up", industryFit: "Hybrid", channel: "Email", owner: "Luis Park", approvalStatus: "Approved", lastUpdated: "3 days ago", usageCount: 44, linkedStageTag: "Delivered / Post-Purchase", previewText: "Hi {{buyer_name}}, did everything arrive well with order {{order_number}}? I want to make sure {{product_name}} worked as expected.", tone: "cyan" },
   { id: "TPL-9", templateName: "Review request", recoveryType: "Review Request", industryFit: "Hybrid", channel: "Email", owner: "Luis Park", approvalStatus: "Approved", lastUpdated: "Today", usageCount: 39, linkedStageTag: "Review Candidate", previewText: "Hi {{buyer_name}}, if {{product_name}} worked well for you, a short review would help other buyers choose confidently.", tone: "emerald" },
   { id: "TPL-10", templateName: "Referral request", recoveryType: "Referral Request", industryFit: "Hybrid", channel: "Manual Copy", owner: "Luis Park", approvalStatus: "Draft", lastUpdated: "Last week", usageCount: 12, linkedStageTag: "Referral Candidate", previewText: "Hi {{buyer_name}}, if anyone asked about {{product_name}}, I can send over a referral note from {{owner_name}}.", tone: "indigo" },
@@ -5934,16 +6251,16 @@ const importValidationIssues: ImportValidationIssue[] = [
 ];
 
 const setupExportDatasets: SetupExportDataset[] = [
-  { id: "EXDATA-1", datasetName: "Buyers", records: 1240, formats: ["CSV", "XLSX placeholder", "JSON placeholder"], recoveryUse: "Buyer lifecycle and value context.", tone: "cyan" },
-  { id: "EXDATA-2", datasetName: "Recovery cases", records: 312, formats: ["CSV", "XLSX placeholder", "JSON placeholder"], recoveryUse: "Open and recovered case export.", tone: "rose" },
-  { id: "EXDATA-3", datasetName: "Revenue leak report", records: 88, formats: ["CSV", "PDF placeholder"], recoveryUse: "Management leak reporting.", tone: "amber" },
-  { id: "EXDATA-4", datasetName: "Monthly summary", records: 1, formats: ["PDF placeholder", "CSV"], recoveryUse: "Client review package.", tone: "emerald" },
-  { id: "EXDATA-5", datasetName: "Product catalog", records: 156, formats: ["CSV", "XLSX placeholder", "JSON placeholder"], recoveryUse: "Product recovery data movement.", tone: "indigo" },
-  { id: "EXDATA-6", datasetName: "Tags/stages", records: 74, formats: ["CSV", "JSON placeholder"], recoveryUse: "Recovery stage and tag setup review.", tone: "cyan" },
-  { id: "EXDATA-7", datasetName: "Templates", records: 42, formats: ["CSV", "JSON placeholder"], recoveryUse: "Approved recovery message library.", tone: "emerald" },
-  { id: "EXDATA-8", datasetName: "Team workload", records: 18, formats: ["CSV", "PDF placeholder"], recoveryUse: "Owner workload and bottleneck review.", tone: "rose" },
-  { id: "EXDATA-9", datasetName: "Automation health log", records: 210, formats: ["CSV", "JSON placeholder"], recoveryUse: "Third-party sync monitoring export.", tone: "amber" },
-  { id: "EXDATA-10", datasetName: "Recovered revenue report", records: 96, formats: ["CSV", "PDF placeholder"], recoveryUse: "Proof of recovered value.", tone: "emerald" },
+  { id: "EXDATA-1", datasetName: "Buyers", records: 1240, formats: ["CSV", "XLSX later", "JSON later"], recoveryUse: "Buyer lifecycle and value context.", tone: "cyan" },
+  { id: "EXDATA-2", datasetName: "Recovery cases", records: 312, formats: ["CSV", "XLSX later", "JSON later"], recoveryUse: "Open and recovered case export.", tone: "rose" },
+  { id: "EXDATA-3", datasetName: "Revenue leak report", records: 88, formats: ["CSV", "PDF later"], recoveryUse: "Management leak reporting.", tone: "amber" },
+  { id: "EXDATA-4", datasetName: "Monthly summary", records: 1, formats: ["PDF later", "CSV"], recoveryUse: "Client review package.", tone: "emerald" },
+  { id: "EXDATA-5", datasetName: "Product catalog", records: 156, formats: ["CSV", "XLSX later", "JSON later"], recoveryUse: "Product recovery data movement.", tone: "indigo" },
+  { id: "EXDATA-6", datasetName: "Tags/stages", records: 74, formats: ["CSV", "JSON later"], recoveryUse: "Recovery stage and tag setup review.", tone: "cyan" },
+  { id: "EXDATA-7", datasetName: "Templates", records: 42, formats: ["CSV", "JSON later"], recoveryUse: "Approved recovery message library.", tone: "emerald" },
+  { id: "EXDATA-8", datasetName: "Team workload", records: 18, formats: ["CSV", "PDF later"], recoveryUse: "Owner workload and bottleneck review.", tone: "rose" },
+  { id: "EXDATA-9", datasetName: "Automation health log", records: 210, formats: ["CSV", "JSON later"], recoveryUse: "Third-party sync monitoring export.", tone: "amber" },
+  { id: "EXDATA-10", datasetName: "Recovered revenue report", records: 96, formats: ["CSV", "PDF later"], recoveryUse: "Proof of recovered value.", tone: "emerald" },
 ];
 
 const activities: RecoveryActivity[] = [
@@ -6274,6 +6591,8 @@ const revenuePipelineFilters = [
   "Repeat Opportunity",
   "At Risk",
   "High Value",
+  "Recovered",
+  "Lost",
 ] as const;
 
 type RevenuePipelineFilter = (typeof revenuePipelineFilters)[number];
@@ -6302,6 +6621,7 @@ const paymentRecoveryFilters = [
   "COD Confirmation",
   "Partial / Failed",
   "Recovered",
+  "Lost",
 ] as const;
 
 type PaymentRecoveryFilter = (typeof paymentRecoveryFilters)[number];
@@ -6330,6 +6650,7 @@ const orderRiskFilters = [
   "Unassigned",
   "High Value",
   "Needs Ops Review",
+  "Resolved",
 ] as const;
 
 type OrderRiskFilter = (typeof orderRiskFilters)[number];
@@ -6402,6 +6723,10 @@ const inactiveBuyerRecoveryFilters = [
   "Bought Once",
   "VIP Inactive",
   "Event / Pop-up",
+  "Winback Sent",
+  "Snoozed",
+  "Reactivated",
+  "Lost",
 ] as const;
 
 type InactiveBuyerRecoveryFilter = (typeof inactiveBuyerRecoveryFilters)[number];
@@ -6418,6 +6743,8 @@ const assignedRecoveryActionFilters = [
   "Refill / Restock",
   "Post-Purchase",
   "Order Risk",
+  "Escalated",
+  "Completed",
 ] as const;
 
 type AssignedRecoveryActionFilter = (typeof assignedRecoveryActionFilters)[number];
@@ -6569,11 +6896,11 @@ const pageSubtitles: Record<string, string> = {
   "Team Load":
     "Owner workload, team bottlenecks, unassigned recovery actions, overdue revenue work, and recovered value by owner.",
   "Automation Health":
-    "Third-party automation health, sync status, failed records, review needs, and recovery actions created.",
+    "Monitor inbound automation events, outbound Altynx action syncs, failed records, manual entries, and workflow responses.",
   "Revenue Leak Reports":
-    "Revenue leak reporting by leak type, source, product, owner, recovered value, and open recommendations.",
+    "Proof of where revenue leaked, what was recovered, what remains open, and which report actions need ownership.",
   "Monthly Summary":
-    "Client-ready monthly review of recovered revenue, remaining leaks, external workflow monitoring, and next month focus.",
+    "Client-ready proof of recovered revenue, remaining risks, workflow health, team performance, and next month focus.",
   "Brand Settings":
     "Brand recovery profile, enabled modules, recovery windows, connected sources, and default recovery rules.",
   "Team Users":
@@ -6770,16 +7097,23 @@ function matchesBuyerValueFilter(record: BuyerValueRecord, filter: BuyerValueFil
 }
 
 function matchesRevenuePipelineFilter(opportunity: RevenueOpportunity, filter: RevenuePipelineFilter) {
-  if (filter === "All") return true;
+  const isRecovered = opportunity.currentStage === "Recovered";
+  const isLost = opportunity.currentStage === "Lost / Inactive";
+
+  if (filter === "All") return !isRecovered && !isLost;
   if (filter === "New Interest") return opportunity.currentStage === "New Interest Captured";
   if (filter === "First Reply Needed") return opportunity.currentStage === "First Reply Needed";
   if (filter === "Follow-up Needed") return opportunity.currentStage === "Follow-up Needed";
   if (filter === "Payment Pending") return opportunity.currentStage === "Payment Pending";
   if (filter === "Repeat Opportunity") return opportunity.currentStage === "Repeat Opportunity";
+  if (filter === "Recovered") return isRecovered;
+  if (filter === "Lost") return isLost;
+
   if (filter === "At Risk") {
-    return opportunity.dueStatus === "Overdue" || opportunity.currentStage === "Lost / Inactive";
+    return !isRecovered && !isLost && opportunity.dueStatus === "Overdue";
   }
-  return moneyToNumber(opportunity.estimatedValue) >= 800;
+
+  return !isRecovered && !isLost && moneyToNumber(opportunity.estimatedValue) >= 800;
 }
 
 function matchesFollowUpRecoveryFilter(item: FollowUpRecoveryItem, filter: FollowUpRecoveryFilter) {
@@ -6803,13 +7137,21 @@ function matchesPaymentRecoveryFilter(item: PaymentRecoveryItem, filter: Payment
   if (filter === "Overdue") return item.dueStatus === "Overdue" || item.paymentStatus === "Overdue";
   if (filter === "Due Today") return item.dueStatus === "Due today";
   if (filter === "High Value") return moneyToNumber(item.paymentAmount) >= 500;
-  if (filter === "WhatsApp Checkout") return item.source === "WhatsApp Checkout";
-  if (filter === "Shopify / Ecommerce") return item.source === "Shopify / Ecommerce";
+  if (filter === "WhatsApp Checkout") return item.source.toLowerCase().includes("whatsapp");
+  if (filter === "Shopify / Ecommerce") {
+    return (
+      item.source.toLowerCase().includes("shopify") ||
+      item.source.toLowerCase().includes("ecommerce")
+    );
+  }
   if (filter === "COD Confirmation") return item.paymentStatus === "COD confirmation needed";
   if (filter === "Partial / Failed") {
     return item.paymentStatus === "Partial payment" || item.paymentStatus === "Failed payment";
   }
-  return item.paymentStatus === "Recovered";
+  if (filter === "Recovered") return item.paymentStatus === "Recovered" || item.dueStatus === "Recovered";
+  if (filter === "Lost") return item.paymentStatus === "Cancelled / Lost" || item.dueStatus === "Lost";
+
+  return true;
 }
 
 function matchesRecoveredRevenueFilter(item: RecoveredRevenueItem, filter: RecoveredRevenueFilter) {
@@ -6832,9 +7174,14 @@ function matchesRecoveredRevenueFilter(item: RecoveredRevenueItem, filter: Recov
 }
 
 function matchesOrderRiskFilter(item: OrderRiskItem, filter: OrderRiskFilter) {
+  if (filter === "Resolved") return item.resolved === true;
+
+  if (item.resolved) return false;
+
   if (filter === "All") return true;
   if (filter === "High Value") return moneyToNumber(item.orderValue) >= 500;
   if (filter === "Unassigned") return item.owner === "Unassigned";
+
   return item.riskType === filter;
 }
 
@@ -6910,9 +7257,13 @@ function matchesInactiveBuyerRecoveryFilter(item: InactiveBuyerRecoveryItem, fil
   if (filter === "Out of Stock") return item.inactiveReason === "Out of stock";
   if (filter === "No Reply") return item.inactiveReason === "No reply / ghosted";
   if (filter === "Payment Abandoned") return item.inactiveReason === "Payment abandoned";
-  if (filter === "Bought Once") return item.lastPurchaseDate !== "No purchase yet" && item.recoveryStatus === "Open";
+  if (filter === "Bought Once") return item.lastPurchaseDate !== "No purchase yet" && item.recoveryStatus !== "Lost";
   if (filter === "VIP Inactive") return item.lifecycleStatus.includes("VIP");
-  return item.source === "Event / Pop-up";
+  if (filter === "Event / Pop-up") return item.source === "Event / Pop-up" || item.lifecycleStatus.includes("Event");
+  if (filter === "Winback Sent") return item.recoveryStatus === "Winback sent";
+  if (filter === "Snoozed") return item.recoveryStatus === "Snoozed";
+  if (filter === "Reactivated") return item.recoveryStatus === "Reactivated";
+  return item.recoveryStatus === "Lost";
 }
 
 function matchesAssignedRecoveryActionFilter(
@@ -6935,7 +7286,10 @@ function matchesAssignedRecoveryActionFilter(
   if (filter === "Post-Purchase") {
     return ["Review request", "Referral request", "UGC request"].includes(item.recoveryType);
   }
-  return item.recoveryType === "Order issue resolution";
+  if (filter === "Order Risk") return item.recoveryType === "Order issue resolution";
+  if (filter === "Escalated") return item.handoffStatus.toLowerCase().includes("escalated");
+  if (filter === "Completed") return item.completed === true || item.dueStatus === "Completed";
+  return true;
 }
 
 function matchesRecoveryThreadFilter(item: RecoveryThread, filter: RecoveryThreadFilter) {
@@ -13645,7 +13999,7 @@ function skuExportRow(row: SKUVariant): ExportRow {
 
   function exportOptionAs(option: ExportOption) {
     const fallbackFormat: ExportFormat =
-      option.format === "JSON placeholder" ? "json" : option.format === "XLSX placeholder" ? "xlsx" : "csv";
+      option.format === "JSON later" ? "json" : option.format === "XLSX later" ? "xlsx" : "csv";
 
     const safeName = option.exportName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     downloadRows(`altynx-${safeName || "product-export"}`, getRowsForExport(option), fallbackFormat);
@@ -14256,26 +14610,584 @@ const removeBuyerProfileInternalNote = (buyerId: string) => {
 
 function RevenueSegments() {
   const [activeSegmentFilter, setActiveSegmentFilter] = useState<RevenueSegmentFilter>("All");
-  const filteredSegments = revenueSegments.filter((segment) =>
+const [segments, setSegments] = useState<RevenueSegmentRecord[]>(() => revenueSegments);
+const [segmentNotice, setSegmentNotice] = useState("");
+const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
+
+  const [ownerModalSegment, setOwnerModalSegment] = useState<RevenueSegmentRecord | null>(null);
+  const [ownerDraft, setOwnerDraft] = useState(fallbackCaptureAssignees[0]?.name ?? "Operations");
+
+  const [taskModalSegment, setTaskModalSegment] = useState<RevenueSegmentRecord | null>(null);
+  const [taskDrafts, setTaskDrafts] = useState<SegmentOpenActionRecord[]>([]);
+
+  const [buyersModalSegment, setBuyersModalSegment] = useState<RevenueSegmentRecord | null>(null);
+
+  const [createSegmentOpen, setCreateSegmentOpen] = useState(false);
+  const [segmentForm, setSegmentForm] = useState<{
+    segmentName: string;
+    segmentType: RevenueSegmentRecord["segmentType"];
+    creationMode: SegmentCreationMode;
+    owner: string;
+    recommendedAction: string;
+    manualBuyerIds: string[];
+    openActions: SegmentOpenActionRecord[];
+  }>({
+    segmentName: "",
+    segmentType: "High Intent",
+    creationMode: "Automatic",
+    owner: fallbackCaptureAssignees[0]?.name ?? "Operations",
+    recommendedAction: "",
+    manualBuyerIds: [],
+    openActions: [
+      {
+        id: `SEG-ACTION-${Date.now()}`,
+        actionName: "Send recovery follow-up",
+        owner: fallbackCaptureAssignees[0]?.name ?? "Operations",
+        dueWindow: "Today",
+        estimatedValue: "$0",
+        status: "Draft",
+      },
+    ],
+  });
+
+  const segmentOwnerOptions = fallbackCaptureAssignees.map((assignee) => assignee.name);
+
+  const filteredSegments = segments.filter((segment) =>
     matchesRevenueSegmentFilter(segment, activeSegmentFilter),
   );
 
+  const visibleSegmentIds = filteredSegments.map((segment) => segment.id);
+const selectedVisibleSegmentCount = visibleSegmentIds.filter((id) =>
+  selectedSegmentIds.includes(id),
+).length;
+
+const allVisibleSegmentsSelected =
+  filteredSegments.length > 0 && selectedVisibleSegmentCount === filteredSegments.length;
+
+const toggleSegmentSelection = (segmentId: string) => {
+  setSelectedSegmentIds((currentIds) =>
+    currentIds.includes(segmentId)
+      ? currentIds.filter((id) => id !== segmentId)
+      : [...currentIds, segmentId],
+  );
+};
+
+const toggleAllVisibleSegments = () => {
+  setSelectedSegmentIds((currentIds) => {
+    if (allVisibleSegmentsSelected) {
+      return currentIds.filter((id) => !visibleSegmentIds.includes(id));
+    }
+
+    return Array.from(new Set([...currentIds, ...visibleSegmentIds]));
+  });
+};
+
+const deleteSelectedSegments = () => {
+  if (selectedSegmentIds.length === 0) {
+    setSegmentNotice("Select at least one revenue segment before deleting.");
+    return;
+  }
+
+  const selectedCount = selectedSegmentIds.length;
+  const confirmed = window.confirm(
+    `Delete ${selectedCount} selected revenue segment${selectedCount === 1 ? "" : "s"}? This will only remove the segment view, not the buyers or recovery records.`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setSegments((currentSegments) =>
+    currentSegments.filter((segment) => !selectedSegmentIds.includes(segment.id)),
+  );
+
+  setSelectedSegmentIds([]);
+  setSegmentNotice(
+    `${selectedCount} revenue segment${selectedCount === 1 ? "" : "s"} deleted.`,
+  );
+};
+
+const deleteRevenueSegment = (segmentToDelete: RevenueSegmentRecord) => {
+  const confirmed = window.confirm(
+    `Delete ${segmentToDelete.segmentName}? This will only remove the segment view, not the buyers or recovery records.`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setSegments((currentSegments) =>
+    currentSegments.filter((segment) => segment.id !== segmentToDelete.id),
+  );
+
+  setSelectedSegmentIds((currentIds) =>
+    currentIds.filter((id) => id !== segmentToDelete.id),
+  );
+
+  setSegmentNotice(`${segmentToDelete.segmentName} deleted.`);
+};
+
+  const getSegmentTone = (segmentType: RevenueSegmentRecord["segmentType"]): Tone => {
+    if (segmentType === "Payment Pending" || segmentType === "High Intent" || segmentType === "Inactive Buyers") {
+      return "rose";
+    }
+
+    if (segmentType === "Refill Due" || segmentType === "Restock Waiting" || segmentType === "Post-Purchase") {
+      return "emerald";
+    }
+
+    if (segmentType === "VIP" || segmentType === "Bridal") {
+      return "amber";
+    }
+
+    if (segmentType === "Event / Pop-up" || segmentType === "UGC / Referral") {
+      return "cyan";
+    }
+
+    return "gray";
+  };
+
+  const getDefaultSegmentAction = (segmentType: RevenueSegmentRecord["segmentType"]) => {
+    const actionMap: Record<RevenueSegmentRecord["segmentType"], string> = {
+      VIP: "Send VIP recovery offer or early-access message",
+      "Refill Due": "Send refill reminder with saved routine context",
+      "Restock Waiting": "Send restock notice to waiting buyers",
+      "Inactive Buyers": "Send winback recovery message",
+      "Payment Pending": "Send payment reminder and verify checkout status",
+      "Post-Purchase": "Send post-purchase review / second-purchase prompt",
+      "High Intent": "Send first reply or second nudge",
+      "Event / Pop-up": "Create post-event follow-up task",
+      "UGC / Referral": "Send UGC or referral request",
+      "Price-Sensitive": "Send value-based follow-up",
+      "Out-of-Stock": "Create restock recovery task",
+      Bridal: "Send bridal appointment or styling follow-up",
+    };
+
+    return actionMap[segmentType];
+  };
+
+  const makeSegmentAction = (
+    segmentType: RevenueSegmentRecord["segmentType"],
+    owner: string,
+    estimatedValue = "$0",
+  ): SegmentOpenActionRecord => ({
+    id: `SEG-ACTION-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    actionName: getDefaultSegmentAction(segmentType),
+    owner,
+    dueWindow: "Today",
+    estimatedValue,
+    status: "Draft",
+  });
+
+  const getAutoMatchedBuyersBySegmentType = (segmentType: RevenueSegmentRecord["segmentType"]) => {
+    if (segmentType === "VIP") {
+      return buyerProfiles.filter((buyer) => buyer.lifecycleStatus === "VIP" || buyer.tags.includes("VIP"));
+    }
+
+    if (segmentType === "Refill Due") {
+      return buyerProfiles.filter(
+        (buyer) => buyer.lifecycleStatus === "Refill Ready" || buyer.tags.includes("Refill Ready"),
+      );
+    }
+
+    if (segmentType === "Restock Waiting" || segmentType === "Out-of-Stock") {
+      return buyerProfiles.filter(
+        (buyer) => buyer.lifecycleStatus === "Restock Waiting" || buyer.tags.includes("Restock Waiting"),
+      );
+    }
+
+    if (segmentType === "Inactive Buyers") {
+      return buyerProfiles.filter((buyer) => buyer.lifecycleStatus === "Inactive");
+    }
+
+    if (segmentType === "Payment Pending") {
+      return buyerProfiles.filter(
+        (buyer) =>
+          buyer.recommendedNextAction.toLowerCase().includes("payment") ||
+          buyer.recommendedNextAction.toLowerCase().includes("checkout"),
+      );
+    }
+
+    if (segmentType === "Post-Purchase" || segmentType === "UGC / Referral") {
+      return buyerProfiles.filter((buyer) => buyer.lifecycleStatus === "Post-Purchase");
+    }
+
+    if (segmentType === "High Intent") {
+      return buyerProfiles.filter((buyer) => buyer.lifecycleStatus === "High Intent");
+    }
+
+    if (segmentType === "Event / Pop-up") {
+      return buyerProfiles.filter((buyer) => buyer.source.toLowerCase().includes("event"));
+    }
+
+    if (segmentType === "Bridal") {
+      return buyerProfiles.filter(
+        (buyer) =>
+          buyer.favoriteCategory.toLowerCase().includes("bridal") ||
+          buyer.productPreferences.toLowerCase().includes("bridal"),
+      );
+    }
+
+    if (segmentType === "Price-Sensitive") {
+      return buyerProfiles.filter(
+        (buyer) =>
+          buyer.internalNotes.toLowerCase().includes("price") ||
+          buyer.recommendedNextAction.toLowerCase().includes("offer"),
+      );
+    }
+
+    return [];
+  };
+
+  const getBuyersForSegment = (segment: RevenueSegmentRecord) => {
+    if (segment.buyerIds?.length) {
+      return buyerProfiles.filter((buyer) => segment.buyerIds?.includes(buyer.id));
+    }
+
+    const matchedBuyers = getAutoMatchedBuyersBySegmentType(segment.segmentType);
+
+    if (matchedBuyers.length > 0) {
+      return matchedBuyers;
+    }
+
+    return buyerProfiles.slice(0, Math.min(segment.buyerCount, buyerProfiles.length));
+  };
+
+  const getOpportunityFromBuyers = (buyers: BuyerProfileRecord[]) =>
+    buyers.reduce((total, buyer) => total + moneyToNumber(buyer.revenueAtRisk), 0);
+
+  const getRecoveredFromBuyers = (buyers: BuyerProfileRecord[]) =>
+    buyers.reduce((total, buyer) => total + Math.round(moneyToNumber(buyer.totalSpend) * 0.12), 0);
+
+  const getOpenActionValue = (actions: SegmentOpenActionRecord[]) =>
+    actions.reduce((total, action) => total + moneyToNumber(action.estimatedValue), 0);
+
+  const openCreateTasksModal = (segment: RevenueSegmentRecord) => {
+    const segmentBuyers = getBuyersForSegment(segment);
+    const defaultValue =
+      segmentBuyers.length > 0
+        ? formatCompactMoney(Math.round(getOpportunityFromBuyers(segmentBuyers) / Math.max(1, segmentBuyers.length)))
+        : "$0";
+
+    setTaskModalSegment(segment);
+    setTaskDrafts([
+      makeSegmentAction(segment.segmentType, segment.owner, defaultValue),
+      makeSegmentAction(segment.segmentType, segment.owner, defaultValue),
+    ]);
+  };
+
+  const saveSegmentTasks = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!taskModalSegment) {
+      return;
+    }
+
+    const cleanTasks = taskDrafts
+      .map((task) => ({
+        ...task,
+        actionName: task.actionName.trim(),
+        owner: task.owner.trim(),
+        dueWindow: task.dueWindow.trim(),
+        estimatedValue: task.estimatedValue.trim() || "$0",
+        status: "Open" as const,
+      }))
+      .filter((task) => task.actionName.length > 0);
+
+    if (cleanTasks.length === 0) {
+      setSegmentNotice("Add at least one recovery action before saving.");
+      return;
+    }
+
+    setSegments((currentSegments) =>
+      currentSegments.map((segment) =>
+        segment.id === taskModalSegment.id
+          ? {
+              ...segment,
+              tasksCreated: true,
+              openActions: [...(segment.openActions ?? []), ...cleanTasks],
+              openRecoveryActions: segment.openRecoveryActions + cleanTasks.length,
+              lastActivity: "Recovery tasks created just now",
+              lastAction: `${cleanTasks.length} recovery task${cleanTasks.length === 1 ? "" : "s"} created from this segment.`,
+            }
+          : segment,
+      ),
+    );
+
+    setSegmentNotice(`${cleanTasks.length} recovery task${cleanTasks.length === 1 ? "" : "s"} created for ${taskModalSegment.segmentName}.`);
+    setTaskModalSegment(null);
+    setTaskDrafts([]);
+  };
+
+  const openOwnerModal = (segment: RevenueSegmentRecord) => {
+    setOwnerModalSegment(segment);
+    setOwnerDraft(segment.owner);
+  };
+
+  const saveSegmentOwner = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!ownerModalSegment) {
+      return;
+    }
+
+    setSegments((currentSegments) =>
+      currentSegments.map((segment) =>
+        segment.id === ownerModalSegment.id
+          ? {
+              ...segment,
+              owner: ownerDraft,
+              openActions: segment.openActions?.map((action) => ({
+                ...action,
+                owner: action.owner || ownerDraft,
+              })),
+              lastActivity: "Segment owner updated just now",
+              lastAction: `${ownerDraft} is now the owner for this revenue segment.`,
+            }
+          : segment,
+      ),
+    );
+
+    setSegmentNotice(`${ownerDraft} is now assigned to ${ownerModalSegment.segmentName}.`);
+    setOwnerModalSegment(null);
+  };
+
+  const markSegmentReviewed = (segmentId: string) => {
+    const reviewedSegment = segments.find((segment) => segment.id === segmentId);
+
+    setSegments((currentSegments) =>
+      currentSegments.map((segment) =>
+        segment.id === segmentId
+          ? {
+              ...segment,
+              reviewed: true,
+              lastActivity: "Reviewed just now",
+              lastAction: "Segment reviewed by owner. Open actions and buyer group checked.",
+            }
+          : segment,
+      ),
+    );
+
+    if (reviewedSegment) {
+      setSegmentNotice(`${reviewedSegment.segmentName} marked as reviewed.`);
+    }
+  };
+
+  const downloadSegmentCsv = (segment: RevenueSegmentRecord) => {
+    const buyers = getBuyersForSegment(segment);
+    const actions = segment.openActions ?? [];
+
+    const rows = [
+      ["Segment Name", segment.segmentName],
+      ["Segment Type", segment.segmentType],
+      ["Owner", segment.owner],
+      ["Creation Mode", segment.creationMode ?? "Automatic"],
+      ["Buyer Count", String(segment.buyerCount)],
+      ["Total Revenue Opportunity", segment.totalRevenueOpportunity],
+      ["Recovered Value", segment.recoveredValue],
+      ["Open Recovery Actions", String(segment.openRecoveryActions)],
+      ["Average Order Value", segment.averageOrderValue],
+      ["Recommended Action", segment.recommendedAction],
+      [],
+      ["Buyer Name", "Lifecycle", "Source", "Revenue At Risk", "Owner", "Next Best Action"],
+      ...buyers.map((buyer) => [
+        buyer.buyerName,
+        buyer.lifecycleStatus,
+        buyer.source,
+        buyer.revenueAtRisk,
+        buyer.owner,
+        buyer.recommendedNextAction,
+      ]),
+      [],
+      ["Open Action", "Owner", "Due Window", "Estimated Value", "Status"],
+      ...actions.map((action) => [
+        action.actionName,
+        action.owner,
+        action.dueWindow,
+        action.estimatedValue,
+        action.status,
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => {
+            const value = String(cell ?? "");
+            return `"${value.replace(/"/g, '""')}"`;
+          })
+          .join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${segment.segmentName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-revenue-segment.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    setSegmentNotice(`${segment.segmentName} exported as a CSV segment report.`);
+  };
+
+  const updateTaskDraft = (index: number, field: keyof SegmentOpenActionRecord, value: string) => {
+    setTaskDrafts((currentDrafts) =>
+      currentDrafts.map((task, taskIndex) =>
+        taskIndex === index
+          ? {
+              ...task,
+              [field]: value,
+            }
+          : task,
+      ),
+    );
+  };
+
+  const addTaskDraft = () => {
+    const owner = taskModalSegment?.owner ?? segmentForm.owner;
+    const type = taskModalSegment?.segmentType ?? segmentForm.segmentType;
+    setTaskDrafts((currentDrafts) => [...currentDrafts, makeSegmentAction(type, owner)]);
+  };
+
+  const removeTaskDraft = (index: number) => {
+    setTaskDrafts((currentDrafts) => currentDrafts.filter((_, taskIndex) => taskIndex !== index));
+  };
+
+  const updateSegmentFormAction = (index: number, field: keyof SegmentOpenActionRecord, value: string) => {
+    setSegmentForm((currentForm) => ({
+      ...currentForm,
+      openActions: currentForm.openActions.map((action, actionIndex) =>
+        actionIndex === index
+          ? {
+              ...action,
+              [field]: value,
+            }
+          : action,
+      ),
+    }));
+  };
+
+  const addSegmentFormAction = () => {
+    setSegmentForm((currentForm) => ({
+      ...currentForm,
+      openActions: [
+        ...currentForm.openActions,
+        makeSegmentAction(currentForm.segmentType, currentForm.owner),
+      ],
+    }));
+  };
+
+  const removeSegmentFormAction = (index: number) => {
+    setSegmentForm((currentForm) => ({
+      ...currentForm,
+      openActions: currentForm.openActions.filter((_, actionIndex) => actionIndex !== index),
+    }));
+  };
+
+  const toggleManualBuyer = (buyerId: string) => {
+    setSegmentForm((currentForm) => ({
+      ...currentForm,
+      manualBuyerIds: currentForm.manualBuyerIds.includes(buyerId)
+        ? currentForm.manualBuyerIds.filter((id) => id !== buyerId)
+        : [...currentForm.manualBuyerIds, buyerId],
+    }));
+  };
+
+  const resetSegmentForm = () => {
+    const defaultOwner = fallbackCaptureAssignees[0]?.name ?? "Operations";
+
+    setSegmentForm({
+      segmentName: "",
+      segmentType: "High Intent",
+      creationMode: "Automatic",
+      owner: defaultOwner,
+      recommendedAction: "",
+      manualBuyerIds: [],
+      openActions: [makeSegmentAction("High Intent", defaultOwner)],
+    });
+  };
+
+  const createRevenueSegment = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const segmentName = segmentForm.segmentName.trim();
+
+    if (!segmentName) {
+      setSegmentNotice("Add a segment name before creating the revenue segment.");
+      return;
+    }
+
+    const selectedBuyers =
+      segmentForm.creationMode === "Manual"
+        ? buyerProfiles.filter((buyer) => segmentForm.manualBuyerIds.includes(buyer.id))
+        : getAutoMatchedBuyersBySegmentType(segmentForm.segmentType);
+
+    const cleanActions = segmentForm.openActions
+      .map((action) => ({
+        ...action,
+        actionName: action.actionName.trim(),
+        owner: action.owner.trim() || segmentForm.owner,
+        dueWindow: action.dueWindow.trim() || "Today",
+        estimatedValue: action.estimatedValue.trim() || "$0",
+        status: "Open" as const,
+      }))
+      .filter((action) => action.actionName.length > 0);
+
+    const buyerOpportunity = getOpportunityFromBuyers(selectedBuyers);
+    const actionOpportunity = getOpenActionValue(cleanActions);
+    const opportunityValue = buyerOpportunity > 0 ? buyerOpportunity : actionOpportunity;
+    const recoveredValue = getRecoveredFromBuyers(selectedBuyers);
+    const averageOrderValue = selectedBuyers.length > 0 ? Math.round(opportunityValue / selectedBuyers.length) : 0;
+
+    const newSegment: RevenueSegmentRecord = {
+      id: `SEG-${Date.now()}`,
+      segmentName,
+      segmentType: segmentForm.segmentType,
+      buyerCount: selectedBuyers.length,
+      totalRevenueOpportunity: formatCompactMoney(opportunityValue),
+      recoveredValue: formatCompactMoney(recoveredValue),
+      openRecoveryActions: cleanActions.length,
+      averageOrderValue: `$${averageOrderValue}`,
+      lastActivity:
+        segmentForm.creationMode === "Automatic"
+          ? "Auto segment created just now"
+          : "Manual segment created just now",
+      owner: segmentForm.owner,
+      recommendedAction:
+        segmentForm.recommendedAction.trim() || getDefaultSegmentAction(segmentForm.segmentType),
+      reviewed: false,
+      tasksCreated: cleanActions.length > 0,
+      buyerIds: selectedBuyers.map((buyer) => buyer.id),
+      openActions: cleanActions,
+      creationMode: segmentForm.creationMode,
+      lastAction: `${segmentForm.creationMode} revenue segment created with ${cleanActions.length} open action${cleanActions.length === 1 ? "" : "s"}.`,
+      tone: getSegmentTone(segmentForm.segmentType),
+    };
+
+    setSegments((currentSegments) => [newSegment, ...currentSegments]);
+    setActiveSegmentFilter("All");
+    setCreateSegmentOpen(false);
+    resetSegmentForm();
+    setSegmentNotice(`${segmentName} created as a revenue recovery segment.`);
+  };
+
   const segmentKpis = useMemo<KPI[]>(() => {
-    const totalOpportunity = revenueSegments.reduce(
+    const totalOpportunity = segments.reduce(
       (total, segment) => total + moneyToNumber(segment.totalRevenueOpportunity),
       0,
     );
-    const buyersInSegments = revenueSegments.reduce((total, segment) => total + segment.buyerCount, 0);
-    const refillRestockValue = revenueSegments
+    const buyersInSegments = segments.reduce((total, segment) => total + segment.buyerCount, 0);
+    const refillRestockValue = segments
       .filter((segment) => segment.segmentType === "Refill Due" || segment.segmentType === "Restock Waiting")
       .reduce((total, segment) => total + moneyToNumber(segment.totalRevenueOpportunity), 0);
-    const inactiveValue = revenueSegments
+    const inactiveValue = segments
       .filter((segment) => segment.segmentType === "Inactive Buyers")
       .reduce((total, segment) => total + moneyToNumber(segment.totalRevenueOpportunity), 0);
-    const postPurchaseValue = revenueSegments
+    const postPurchaseValue = segments
       .filter((segment) => segment.segmentType === "Post-Purchase" || segment.segmentType === "UGC / Referral")
       .reduce((total, segment) => total + moneyToNumber(segment.totalRevenueOpportunity), 0);
-    const highIntentCount = revenueSegments.filter((segment) => segment.segmentType === "High Intent").length;
+    const highIntentCount = segments.filter((segment) => segment.segmentType === "High Intent").length;
 
     return [
       { label: "Segment Revenue Opportunity", value: formatCompactMoney(totalOpportunity), caption: "Recoverable segment value", tone: "rose" },
@@ -14285,7 +15197,7 @@ function RevenueSegments() {
       { label: "Post-Purchase Opportunity", value: formatCompactMoney(postPurchaseValue), caption: "Review and referral value", tone: "emerald" },
       { label: "High-Intent Segment Count", value: `${highIntentCount}`, caption: "Needs fast follow-up", tone: "rose" },
     ];
-  }, []);
+  }, [segments]);
 
   return (
     <div className="recovery-page">
@@ -14308,8 +15220,50 @@ function RevenueSegments() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredSegments.length} recovery segments</Badge>
+
+        <div className="segment-toolbar-actions">
+  <Badge tone="cyan">{filteredSegments.length} recovery segments</Badge>
+
+  {selectedSegmentIds.length > 0 ? (
+    <Badge tone="rose">{selectedSegmentIds.length} selected</Badge>
+  ) : null}
+
+  <button
+    type="button"
+    className="secondary-btn"
+    disabled={filteredSegments.length === 0}
+    onClick={toggleAllVisibleSegments}
+  >
+    {allVisibleSegmentsSelected ? "Unselect visible" : "Select visible"}
+  </button>
+
+  <button
+    type="button"
+    className="secondary-btn danger-segment-btn"
+    disabled={selectedSegmentIds.length === 0}
+    onClick={deleteSelectedSegments}
+  >
+    Delete selected
+  </button>
+
+  <button
+    type="button"
+    className="primary-btn"
+    onClick={() => {
+      resetSegmentForm();
+      setCreateSegmentOpen(true);
+    }}
+  >
+    Create revenue segment
+  </button>
+</div>
       </section>
+
+      {segmentNotice ? (
+        <div className="segment-notice">
+          {segmentNotice}
+        </div>
+      ) : null}
 
       <section className="glass-card panel-card">
         <div className="panel-header">
@@ -14328,6 +15282,8 @@ function RevenueSegments() {
                   <div className="recovery-row-title">
                     <h3>{segment.segmentName}</h3>
                     <Badge tone={segment.tone}>{segment.segmentType}</Badge>
+                    {segment.reviewed ? <Badge tone="emerald">Reviewed</Badge> : <Badge tone="amber">Needs review</Badge>}
+                    {segment.creationMode ? <Badge tone="gray">{segment.creationMode}</Badge> : null}
                   </div>
                   <p>{segment.recommendedAction}</p>
                   <div className="recovery-meta">
@@ -14337,11 +15293,23 @@ function RevenueSegments() {
                     <span>{segment.lastActivity}</span>
                     <span>{segment.owner}</span>
                   </div>
+                  {segment.lastAction ? (
+                    <p className="segment-last-action">{segment.lastAction}</p>
+                  ) : null}
                 </div>
-                <div className="capture-value-stack">
-                  <strong>{segment.totalRevenueOpportunity}</strong>
-                  <span>{segment.recoveredValue} recovered</span>
-                </div>
+                <div className="capture-value-stack segment-value-stack">
+  <label className="segment-select-control">
+    <input
+      type="checkbox"
+      checked={selectedSegmentIds.includes(segment.id)}
+      onChange={() => toggleSegmentSelection(segment.id)}
+    />
+    <span>Select</span>
+  </label>
+
+  <strong>{segment.totalRevenueOpportunity}</strong>
+  <span>{segment.recoveredValue} recovered</span>
+</div>
               </div>
 
               <div className="capture-stat-grid">
@@ -14358,56 +15326,638 @@ function RevenueSegments() {
                   <strong>{segment.openRecoveryActions}</strong>
                 </div>
                 <div>
-                  <span>Owner</span>
+                  <span>Segment owner</span>
                   <strong>{segment.owner}</strong>
                 </div>
               </div>
 
+              {segment.openActions?.length ? (
+                <div className="segment-open-actions">
+                  <span>Open actions created from this segment</span>
+                  {segment.openActions.slice(0, 3).map((action) => (
+                    <div key={action.id}>
+                      <strong>{action.actionName}</strong>
+                      <small>{action.owner} • {action.dueWindow} • {action.estimatedValue}</small>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="capture-actions">
-                <button type="button" className="primary-btn">Create recovery tasks</button>
-                <button type="button" className="secondary-btn">Assign segment owner</button>
-                <button type="button" className="secondary-btn">Mark segment reviewed</button>
-                <button type="button" className="secondary-btn">Export segment</button>
-                <button type="button" className="secondary-btn">Open buyers</button>
+                <button type="button" className="primary-btn" onClick={() => openCreateTasksModal(segment)}>
+                  {segment.tasksCreated ? "Add more recovery tasks" : "Create recovery tasks"}
+                </button>
+                <button type="button" className="secondary-btn" onClick={() => openOwnerModal(segment)}>
+                  Change segment owner
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => markSegmentReviewed(segment.id)}
+                >
+                  {segment.reviewed ? "Reviewed" : "Mark segment reviewed"}
+                </button>
+                <button type="button" className="secondary-btn" onClick={() => downloadSegmentCsv(segment)}>
+                  Export segment
+                </button>
+                <button type="button" className="secondary-btn" onClick={() => setBuyersModalSegment(segment)}>
+                  Open buyers
+                </button>
+                <button
+  type="button"
+  className="secondary-btn danger-segment-btn"
+  onClick={() => deleteRevenueSegment(segment)}
+>
+  Delete segment
+</button>
               </div>
             </article>
           ))}
         </div>
       </section>
+
+      {ownerModalSegment ? (
+        <div className="segment-modal-backdrop" role="dialog" aria-modal="true">
+          <form className="glass-card segment-modal" onSubmit={saveSegmentOwner}>
+            <div className="segment-modal-header">
+              <div>
+                <span className="eyebrow">Segment owner override</span>
+                <h2>Change segment owner</h2>
+                <p>
+                  This only changes the owner for this revenue segment and its segment-created recovery actions.
+                  Team user setup and default routing stay separate.
+                </p>
+              </div>
+              <button type="button" className="buyer-modal-close" onClick={() => setOwnerModalSegment(null)}>
+                ×
+              </button>
+            </div>
+
+            <label className="segment-form-field">
+              <span>Segment</span>
+              <input value={ownerModalSegment.segmentName} disabled />
+            </label>
+
+            <label className="segment-form-field">
+              <span>Segment owner</span>
+              <select value={ownerDraft} onChange={(event) => setOwnerDraft(event.target.value)}>
+                {segmentOwnerOptions.map((owner) => (
+                  <option key={owner} value={owner}>
+                    {owner}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="segment-modal-actions">
+              <button type="submit" className="primary-btn">Save owner</button>
+              <button type="button" className="secondary-btn" onClick={() => setOwnerModalSegment(null)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {taskModalSegment ? (
+        <div className="segment-modal-backdrop" role="dialog" aria-modal="true">
+          <form className="glass-card segment-modal wide-segment-modal" onSubmit={saveSegmentTasks}>
+            <div className="segment-modal-header">
+              <div>
+                <span className="eyebrow">Create recovery tasks</span>
+                <h2>{taskModalSegment.segmentName}</h2>
+                <p>
+                  These are action drafts created from this buyer segment. They are not generic tasks;
+                  they are tied to revenue recovery.
+                </p>
+              </div>
+              <button type="button" className="buyer-modal-close" onClick={() => setTaskModalSegment(null)}>
+                ×
+              </button>
+            </div>
+
+            <div className="segment-action-editor">
+              {taskDrafts.map((task, index) => (
+                <div className="segment-action-row" key={task.id}>
+                  <label>
+                    <span>Recovery action</span>
+                    <input
+                      value={task.actionName}
+                      onChange={(event) => updateTaskDraft(index, "actionName", event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Owner</span>
+                    <select
+                      value={task.owner}
+                      onChange={(event) => updateTaskDraft(index, "owner", event.target.value)}
+                    >
+                      {segmentOwnerOptions.map((owner) => (
+                        <option key={owner} value={owner}>
+                          {owner}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Due window</span>
+                    <input
+                      value={task.dueWindow}
+                      onChange={(event) => updateTaskDraft(index, "dueWindow", event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Estimated value</span>
+                    <input
+                      value={task.estimatedValue}
+                      onChange={(event) => updateTaskDraft(index, "estimatedValue", event.target.value)}
+                    />
+                  </label>
+
+                  <button type="button" className="secondary-btn danger-note-btn" onClick={() => removeTaskDraft(index)}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button type="button" className="secondary-btn" onClick={addTaskDraft}>
+              Add another open action
+            </button>
+
+            <div className="segment-modal-actions">
+              <button type="submit" className="primary-btn">Save recovery tasks</button>
+              <button type="button" className="secondary-btn" onClick={() => setTaskModalSegment(null)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {buyersModalSegment ? (
+        <div className="segment-modal-backdrop" role="dialog" aria-modal="true">
+          <article className="glass-card segment-modal wide-segment-modal">
+            <div className="segment-modal-header">
+              <div>
+                <span className="eyebrow">Segment buyers</span>
+                <h2>{buyersModalSegment.segmentName}</h2>
+                <p>
+                  Buyer list connected to this revenue segment. Use this to see who belongs to the group
+                  before creating actions or exporting.
+                </p>
+              </div>
+              <button type="button" className="buyer-modal-close" onClick={() => setBuyersModalSegment(null)}>
+                ×
+              </button>
+            </div>
+
+            <div className="segment-buyer-table-wrap">
+              <table className="segment-buyer-table">
+                <thead>
+                  <tr>
+                    <th>Buyer</th>
+                    <th>Lifecycle</th>
+                    <th>Source</th>
+                    <th>Revenue at risk</th>
+                    <th>Owner</th>
+                    <th>Next action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getBuyersForSegment(buyersModalSegment).map((buyer) => (
+                    <tr key={buyer.id}>
+                      <td>
+                        <strong>{buyer.buyerName}</strong>
+                        <span>{buyer.favoriteCategory}</span>
+                      </td>
+                      <td>{buyer.lifecycleStatus}</td>
+                      <td>{buyer.source}</td>
+                      <td>{buyer.revenueAtRisk}</td>
+                      <td>{buyer.owner}</td>
+                      <td>{buyer.recommendedNextAction}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {createSegmentOpen ? (
+        <div className="segment-modal-backdrop" role="dialog" aria-modal="true">
+          <form className="glass-card segment-modal wide-segment-modal" onSubmit={createRevenueSegment}>
+            <div className="segment-modal-header">
+              <div>
+                <span className="eyebrow">Create revenue segment</span>
+                <h2>New buyer recovery segment</h2>
+                <p>
+                  Create an automatic segment from buyer signals or create a manual segment by choosing buyers
+                  and open recovery actions.
+                </p>
+              </div>
+              <button type="button" className="buyer-modal-close" onClick={() => setCreateSegmentOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="segment-form-grid">
+              <label className="segment-form-field">
+                <span>Segment name</span>
+                <input
+                  value={segmentForm.segmentName}
+                  onChange={(event) =>
+                    setSegmentForm((currentForm) => ({
+                      ...currentForm,
+                      segmentName: event.target.value,
+                    }))
+                  }
+                  placeholder="Example: Bridal appointment leads"
+                />
+              </label>
+
+              <label className="segment-form-field">
+                <span>Segment type</span>
+                <select
+                  value={segmentForm.segmentType}
+                  onChange={(event) =>
+                    setSegmentForm((currentForm) => {
+                      const nextType = event.target.value as RevenueSegmentRecord["segmentType"];
+                      return {
+                        ...currentForm,
+                        segmentType: nextType,
+                        openActions: currentForm.openActions.map((action) => ({
+                          ...action,
+                          actionName: getDefaultSegmentAction(nextType),
+                        })),
+                      };
+                    })
+                  }
+                >
+                  {[
+                    "VIP",
+                    "Refill Due",
+                    "Restock Waiting",
+                    "Inactive Buyers",
+                    "Payment Pending",
+                    "Post-Purchase",
+                    "High Intent",
+                    "Event / Pop-up",
+                    "UGC / Referral",
+                    "Price-Sensitive",
+                    "Out-of-Stock",
+                    "Bridal",
+                  ].map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="segment-form-field">
+                <span>Creation mode</span>
+                <select
+                  value={segmentForm.creationMode}
+                  onChange={(event) =>
+                    setSegmentForm((currentForm) => ({
+                      ...currentForm,
+                      creationMode: event.target.value as SegmentCreationMode,
+                    }))
+                  }
+                >
+                  <option value="Automatic">Automatic from buyer signals</option>
+                  <option value="Manual">Manual buyer selection</option>
+                </select>
+              </label>
+
+              <label className="segment-form-field">
+                <span>Segment owner</span>
+                <select
+                  value={segmentForm.owner}
+                  onChange={(event) =>
+                    setSegmentForm((currentForm) => ({
+                      ...currentForm,
+                      owner: event.target.value,
+                      openActions: currentForm.openActions.map((action) => ({
+                        ...action,
+                        owner: event.target.value,
+                      })),
+                    }))
+                  }
+                >
+                  {segmentOwnerOptions.map((owner) => (
+                    <option key={owner} value={owner}>
+                      {owner}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <label className="segment-form-field">
+              <span>Recommended recovery action</span>
+              <textarea
+                value={segmentForm.recommendedAction}
+                onChange={(event) =>
+                  setSegmentForm((currentForm) => ({
+                    ...currentForm,
+                    recommendedAction: event.target.value,
+                  }))
+                }
+                placeholder={getDefaultSegmentAction(segmentForm.segmentType)}
+                rows={3}
+              />
+            </label>
+
+            {segmentForm.creationMode === "Automatic" ? (
+              <div className="segment-auto-preview">
+                <span>Automatic match preview</span>
+                <strong>{getAutoMatchedBuyersBySegmentType(segmentForm.segmentType).length} buyers found</strong>
+                <p>
+                  The system will group buyers by lifecycle, tags, source, purchase context, recovery case type,
+                  or product/reorder signal based on this segment type.
+                </p>
+              </div>
+            ) : (
+              <div className="segment-manual-picker">
+                <div>
+                  <span>Choose buyers for this manual segment</span>
+                  <strong>{segmentForm.manualBuyerIds.length} selected</strong>
+                </div>
+
+                <div className="segment-manual-buyer-grid">
+                  {buyerProfiles.map((buyer) => (
+                    <label key={buyer.id}>
+                      <input
+                        type="checkbox"
+                        checked={segmentForm.manualBuyerIds.includes(buyer.id)}
+                        onChange={() => toggleManualBuyer(buyer.id)}
+                      />
+                      <span>
+                        <strong>{buyer.buyerName}</strong>
+                        {buyer.lifecycleStatus} • {buyer.revenueAtRisk} at risk
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="segment-open-action-builder">
+              <div className="segment-subheader">
+                <div>
+                  <h3>Open actions for this segment</h3>
+                  <p>Add the first recovery actions that should exist when this segment is created.</p>
+                </div>
+                <button type="button" className="secondary-btn" onClick={addSegmentFormAction}>
+                  Add open action
+                </button>
+              </div>
+
+              {segmentForm.openActions.map((action, index) => (
+                <div className="segment-action-row" key={action.id}>
+                  <label>
+                    <span>Recovery action</span>
+                    <input
+                      value={action.actionName}
+                      onChange={(event) => updateSegmentFormAction(index, "actionName", event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Owner</span>
+                    <select
+                      value={action.owner}
+                      onChange={(event) => updateSegmentFormAction(index, "owner", event.target.value)}
+                    >
+                      {segmentOwnerOptions.map((owner) => (
+                        <option key={owner} value={owner}>
+                          {owner}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Due window</span>
+                    <input
+                      value={action.dueWindow}
+                      onChange={(event) => updateSegmentFormAction(index, "dueWindow", event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    <span>Estimated value</span>
+                    <input
+                      value={action.estimatedValue}
+                      onChange={(event) => updateSegmentFormAction(index, "estimatedValue", event.target.value)}
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    className="secondary-btn danger-note-btn"
+                    onClick={() => removeSegmentFormAction(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="segment-modal-actions">
+              <button type="submit" className="primary-btn">Create segment</button>
+              <button type="button" className="secondary-btn" onClick={() => setCreateSegmentOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 function BuyerValue() {
+  const BUYER_VALUE_PER_PAGE = 25;
+
   const [activeValueFilter, setActiveValueFilter] = useState<BuyerValueFilter>("All");
-  const filteredValueRecords = buyerValueRecords.filter((record) =>
+  const [buyerValuePage, setBuyerValuePage] = useState(1);
+  const [selectedValueRecord, setSelectedValueRecord] = useState<BuyerValueRecord | null>(null);
+  const [valueNotice, setValueNotice] = useState("");
+
+  const [customValueTemplates, setCustomValueTemplates] = useState<BuyerValueTemplateOption[]>([]);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Record<string, string>>({});
+  const [templateDraftName, setTemplateDraftName] = useState("");
+  const [templateDraftText, setTemplateDraftText] = useState("");
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+
+  const purchaseMapRef = useRef<HTMLDivElement | null>(null);
+  const isPurchaseMapDragging = useRef(false);
+  const purchaseMapDragStartX = useRef(0);
+  const purchaseMapScrollLeft = useRef(0);
+
+  const allValueTemplates = [...buyerValueTemplateOptions, ...customValueTemplates];
+
+  const orderBackedValueRecords = buyerValueRecords.filter((record) => record.purchaseCount > 0);
+
+  const filteredValueRecords = orderBackedValueRecords.filter((record) =>
     matchesBuyerValueFilter(record, activeValueFilter),
   );
 
+  const totalValuePages = Math.max(1, Math.ceil(filteredValueRecords.length / BUYER_VALUE_PER_PAGE));
+  const currentValuePage = Math.min(buyerValuePage, totalValuePages);
+  const valuePageStart = (currentValuePage - 1) * BUYER_VALUE_PER_PAGE;
+  const valuePageEnd = Math.min(valuePageStart + BUYER_VALUE_PER_PAGE, filteredValueRecords.length);
+  const visibleValueRecords = filteredValueRecords.slice(valuePageStart, valuePageEnd);
+  const firstVisibleValueRecord = filteredValueRecords.length === 0 ? 0 : valuePageStart + 1;
+
+  useEffect(() => {
+    setBuyerValuePage(1);
+    setSelectedValueRecord(null);
+  }, [activeValueFilter]);
+
+  const getSelectedTemplate = (record: BuyerValueRecord) => {
+    const selectedTemplateId = selectedTemplateIds[record.id];
+    const manuallySelectedTemplate = allValueTemplates.find((template) => template.id === selectedTemplateId);
+
+    return manuallySelectedTemplate ?? getBuyerValueTemplateForRecord(record, allValueTemplates);
+  };
+
+  const exportBuyerValueCsv = (record: BuyerValueRecord) => {
+    const purchaseRows = getBuyerPurchaseMap(record);
+    const template = getSelectedTemplate(record);
+    const rows = getBuyerValueExportRows(record, purchaseRows, template);
+
+    downloadRowsAsCsv(
+      `${record.buyerName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-buyer-value.csv`,
+      rows,
+    );
+
+    setValueNotice(`${record.buyerName} buyer value CSV downloaded.`);
+  };
+
+  const exportBuyerValueXlsx = async (record: BuyerValueRecord) => {
+    try {
+      const XLSX = await import("xlsx");
+      const purchaseRows = getBuyerPurchaseMap(record);
+      const template = getSelectedTemplate(record);
+      const rows = getBuyerValueExportRows(record, purchaseRows, template);
+
+      const workbook = XLSX.utils.book_new();
+      const sheet = XLSX.utils.aoa_to_sheet(rows);
+
+      XLSX.utils.book_append_sheet(workbook, sheet, "Buyer Value");
+      XLSX.writeFile(
+        workbook,
+        `${record.buyerName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-buyer-value.xlsx`,
+      );
+
+      setValueNotice(`${record.buyerName} buyer value XLSX downloaded.`);
+    } catch {
+      setValueNotice("XLSX export needs the xlsx package. Run: npm install xlsx");
+    }
+  };
+
+  const copyBuyerTemplate = async (record: BuyerValueRecord) => {
+    const template = getSelectedTemplate(record);
+    const copyText = template.templateText
+      .replaceAll("{{buyer_name}}", record.buyerName)
+      .replaceAll("{{product_name}}", record.buyerCategory);
+
+    await navigator.clipboard.writeText(copyText);
+    setValueNotice(`${template.templateName} copied for ${record.buyerName}.`);
+  };
+
+  const createCustomTemplate = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!selectedValueRecord) {
+      return;
+    }
+
+    const cleanName = templateDraftName.trim();
+    const cleanText = templateDraftText.trim();
+
+    if (!cleanName || !cleanText) {
+      setValueNotice("Add both template name and template text before saving.");
+      return;
+    }
+
+    const newTemplate: BuyerValueTemplateOption = {
+      id: `BVT-CUSTOM-${Date.now()}`,
+      templateName: cleanName,
+      templateType: "General",
+      templateText: cleanText,
+    };
+
+    setCustomValueTemplates((currentTemplates) => [...currentTemplates, newTemplate]);
+    setSelectedTemplateIds((currentIds) => ({
+      ...currentIds,
+      [selectedValueRecord.id]: newTemplate.id,
+    }));
+
+    setTemplateDraftName("");
+    setTemplateDraftText("");
+    setShowCreateTemplate(false);
+    setValueNotice(`${cleanName} created and selected for ${selectedValueRecord.buyerName}.`);
+  };
+
+  const startPurchaseMapDrag = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!purchaseMapRef.current) {
+      return;
+    }
+
+    isPurchaseMapDragging.current = true;
+    purchaseMapDragStartX.current = event.pageX - purchaseMapRef.current.offsetLeft;
+    purchaseMapScrollLeft.current = purchaseMapRef.current.scrollLeft;
+  };
+
+  const movePurchaseMapDrag = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!isPurchaseMapDragging.current || !purchaseMapRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const x = event.pageX - purchaseMapRef.current.offsetLeft;
+    const walk = (x - purchaseMapDragStartX.current) * 1.2;
+    purchaseMapRef.current.scrollLeft = purchaseMapScrollLeft.current - walk;
+  };
+
+  const stopPurchaseMapDrag = () => {
+    isPurchaseMapDragging.current = false;
+  };
+
   const valueKpis = useMemo<KPI[]>(() => {
-    const totalValue = buyerValueRecords.reduce((total, record) => total + moneyToNumber(record.lifetimeValue), 0);
-    const riskValue = buyerValueRecords.reduce((total, record) => total + moneyToNumber(record.revenueAtRisk), 0);
-    const repeatRevenue = buyerValueRecords.reduce(
+    const totalValue = orderBackedValueRecords.reduce((total, record) => total + moneyToNumber(record.lifetimeValue), 0);
+    const riskValue = orderBackedValueRecords.reduce((total, record) => total + moneyToNumber(record.revenueAtRisk), 0);
+    const repeatRevenue = orderBackedValueRecords.reduce(
       (total, record) => total + moneyToNumber(record.refillRestockOpportunityValue),
       0,
     );
-    const highValueAtRisk = buyerValueRecords.filter(
+    const highValueAtRisk = orderBackedValueRecords.filter(
       (record) => record.valueFlags.includes("At Risk") && moneyToNumber(record.lifetimeValue) >= 1000,
     ).length;
-    const recoveredValue = buyerValueRecords.reduce((total, record) => total + moneyToNumber(record.recoveredValue), 0);
+    const recoveredValue = orderBackedValueRecords.reduce((total, record) => total + moneyToNumber(record.recoveredValue), 0);
     const averageOrderValue =
-      buyerValueRecords.reduce((total, record) => total + moneyToNumber(record.averageOrderValue), 0) /
-      buyerValueRecords.length;
+      orderBackedValueRecords.reduce((total, record) => total + moneyToNumber(record.averageOrderValue), 0) /
+      Math.max(1, orderBackedValueRecords.length);
 
     return [
-      { label: "Tracked Buyer Value", value: formatCompactMoney(totalValue), caption: "Visible buyer LTV", tone: "cyan" },
-      { label: "Revenue At Risk", value: formatCompactMoney(riskValue), caption: "Needs next best action", tone: "rose" },
+      { label: "Tracked Buyer Value", value: formatCompactMoney(totalValue), caption: "Completed-order buyer value", tone: "cyan" },
+      { label: "Revenue At Risk", value: formatCompactMoney(riskValue), caption: "Visible next-action risk", tone: "rose" },
       { label: "Predicted Repeat Revenue", value: formatCompactMoney(repeatRevenue), caption: "Refill/restock potential", tone: "emerald" },
-      { label: "High-Value At-Risk Buyers", value: `${highValueAtRisk}`, caption: "Priority recovery", tone: "amber" },
-      { label: "Recovered Buyer Value", value: formatCompactMoney(recoveredValue), caption: "Recovered from buyer actions", tone: "emerald" },
-      { label: "Average Order Value", value: `$${Math.round(averageOrderValue)}`, caption: "Across visible buyers", tone: "cyan" },
+      { label: "High-Value At-Risk Buyers", value: `${highValueAtRisk}`, caption: "Priority visibility", tone: "amber" },
+      { label: "Recovered Buyer Value", value: formatCompactMoney(recoveredValue), caption: "Recovered from buyer history", tone: "emerald" },
+      { label: "Average Order Value", value: `$${Math.round(averageOrderValue)}`, caption: "Across order-backed buyers", tone: "cyan" },
     ];
-  }, []);
+  }, [orderBackedValueRecords]);
 
   return (
     <div className="recovery-page">
@@ -14430,20 +15980,41 @@ function BuyerValue() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredValueRecords.length} buyer value records</Badge>
+
+        <div className="buyer-value-toolbar-actions">
+          <Badge tone="cyan">{filteredValueRecords.length} buyer value records</Badge>
+          <Badge tone="emerald">25 per page</Badge>
+        </div>
       </section>
+
+      {valueNotice ? (
+        <div className="segment-notice">{valueNotice}</div>
+      ) : null}
 
       <section className="glass-card panel-card">
         <div className="panel-header">
           <div>
             <h2>Buyer Value</h2>
-            <p>Buyer value prioritization by LTV, revenue at risk, repeat potential, recovered value, and next best action.</p>
+            <p>
+              Buyer value visibility from completed orders, purchase count, repeat opportunity,
+              recovered value, and next-best-action context.
+            </p>
           </div>
           <Badge tone="rose">Buyer value priority</Badge>
         </div>
 
+        <div className="buyer-table-summary">
+          <span>
+            Showing <strong>{firstVisibleValueRecord}</strong> - <strong>{valuePageEnd}</strong> of{" "}
+            <strong>{filteredValueRecords.length}</strong> order-backed buyer value records
+          </span>
+          <span>
+            Page <strong>{currentValuePage}</strong> of <strong>{totalValuePages}</strong>
+          </span>
+        </div>
+
         <div className="capture-card-list">
-          {filteredValueRecords.map((record) => (
+          {visibleValueRecords.map((record) => (
             <article className={`value-card ${record.tone}`} key={record.id}>
               <div className="capture-card-main buyer-card-main">
                 <div className="buyer-identity">
@@ -14458,10 +16029,10 @@ function BuyerValue() {
                       <span>{record.lastPurchaseDate}</span>
                       <span>{record.predictedNextPurchase}</span>
                       <span>{record.returnExchangeRisk} return/exchange risk</span>
-                      <span>{record.owner}</span>
                     </div>
                   </div>
                 </div>
+
                 <div className="capture-value-stack">
                   <strong>{record.lifetimeValue}</strong>
                   <span>{record.revenueAtRisk} at risk</span>
@@ -14495,46 +16066,345 @@ function BuyerValue() {
                 </div>
               </div>
 
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Create recovery action</button>
-                <button type="button" className="secondary-btn">Assign owner</button>
-                <button type="button" className="secondary-btn">Open buyer profile</button>
-                <button type="button" className="secondary-btn">Mark reviewed</button>
-                <button type="button" className="secondary-btn">Copy next-best-action template</button>
+              <div className="capture-actions buyer-value-actions">
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => {
+                    setSelectedValueRecord(record);
+                    setShowCreateTemplate(false);
+                  }}
+                >
+                  View value details
+                </button>
+
+                <button type="button" className="secondary-btn" onClick={() => exportBuyerValueCsv(record)}>
+                  Download CSV
+                </button>
+
+                <button type="button" className="secondary-btn" onClick={() => exportBuyerValueXlsx(record)}>
+                  Download XLSX
+                </button>
               </div>
             </article>
           ))}
         </div>
+
+        <div className="buyer-pagination">
+          <button
+            type="button"
+            className="secondary-btn"
+            disabled={currentValuePage === 1}
+            onClick={() => setBuyerValuePage((page) => Math.max(1, page - 1))}
+          >
+            Previous
+          </button>
+
+          <span>
+            Page {currentValuePage} / {totalValuePages}
+          </span>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            disabled={currentValuePage === totalValuePages || filteredValueRecords.length === 0}
+            onClick={() => setBuyerValuePage((page) => Math.min(totalValuePages, page + 1))}
+          >
+            Next
+          </button>
+        </div>
       </section>
+
+      {selectedValueRecord ? (
+        <div className="buyer-modal-backdrop" role="dialog" aria-modal="true">
+          <article className="glass-card buyer-profile-modal buyer-value-modal">
+            <div className="buyer-modal-header">
+              <div>
+                <span className="eyebrow">Buyer Value Details</span>
+                <h2>{selectedValueRecord.buyerName}</h2>
+                <p>
+                  Completed-order value, purchase map, repeat opportunity, and next-best-action template.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="buyer-modal-close"
+                onClick={() => {
+                  setSelectedValueRecord(null);
+                  setShowCreateTemplate(false);
+                }}
+                aria-label="Close buyer value details"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="buyer-modal-kpis">
+              <div>
+                <span>Lifetime Value</span>
+                <strong>{selectedValueRecord.lifetimeValue}</strong>
+              </div>
+              <div>
+                <span>Purchase Count</span>
+                <strong>{selectedValueRecord.purchaseCount}</strong>
+              </div>
+              <div>
+                <span>Repeat Opportunity</span>
+                <strong>{selectedValueRecord.refillRestockOpportunityValue}</strong>
+              </div>
+              <div>
+                <span>Revenue At Risk</span>
+                <strong>{selectedValueRecord.revenueAtRisk}</strong>
+              </div>
+            </div>
+
+            <section className="buyer-value-detail-section">
+              <div className="segment-subheader">
+                <div>
+                  <h3>Purchase Map</h3>
+                  <p>
+                    Drag sideways to view the full purchase map, or download it as CSV/XLSX.
+                  </p>
+                </div>
+
+                <div className="buyer-value-export-actions">
+                  <button type="button" className="secondary-btn" onClick={() => exportBuyerValueCsv(selectedValueRecord)}>
+                    Download CSV
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => exportBuyerValueXlsx(selectedValueRecord)}>
+                    Download XLSX
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className="purchase-map-scroll"
+                ref={purchaseMapRef}
+                onMouseDown={startPurchaseMapDrag}
+                onMouseMove={movePurchaseMapDrag}
+                onMouseUp={stopPurchaseMapDrag}
+                onMouseLeave={stopPurchaseMapDrag}
+              >
+                <table className="purchase-map-table">
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Purchase Date</th>
+                      <th>Time</th>
+                      <th>Product Purchased</th>
+                      <th>Variant</th>
+                      <th>Value</th>
+                      <th>Status</th>
+                      <th>Source</th>
+                      <th>Repeat Signal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getBuyerPurchaseMap(selectedValueRecord).map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.orderNumber}</td>
+                        <td>{row.purchaseDate}</td>
+                        <td>{row.purchaseTime}</td>
+                        <td>{row.productPurchased}</td>
+                        <td>{row.variant}</td>
+                        <td>{row.orderValue}</td>
+                        <td>{row.orderStatus}</td>
+                        <td>{row.source}</td>
+                        <td>{row.repeatSignal}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div className="buyer-modal-grid">
+              <section className="buyer-modal-section">
+                <h3>Repeat Opportunity</h3>
+                <p>{getBuyerRepeatOpportunitySummary(selectedValueRecord)}</p>
+              </section>
+
+              <section className="buyer-modal-section">
+                <h3>Next Best Action</h3>
+                <p>{selectedValueRecord.nextBestAction}</p>
+              </section>
+            </div>
+
+            <section className="buyer-value-template-box">
+              <div className="segment-subheader">
+                <div>
+                  <h3>Next-Best-Action Template</h3>
+                  <p>
+                    Select an approved template or create a simple buyer-value template for this buyer.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setTemplateDraftName("");
+                    setTemplateDraftText("");
+                    setShowCreateTemplate((current) => !current);
+                  }}
+                >
+                  {showCreateTemplate ? "Cancel new template" : "Create new template"}
+                </button>
+              </div>
+
+              <label className="segment-form-field">
+                <span>Select template</span>
+                <select
+                  value={getSelectedTemplate(selectedValueRecord).id}
+                  onChange={(event) =>
+                    setSelectedTemplateIds((currentIds) => ({
+                      ...currentIds,
+                      [selectedValueRecord.id]: event.target.value,
+                    }))
+                  }
+                >
+                  {allValueTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.templateName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="template-box buyer-value-template-preview">
+                <span>{getSelectedTemplate(selectedValueRecord).templateName}</span>
+                <p>
+                  {getSelectedTemplate(selectedValueRecord)
+                    .templateText.replaceAll("{{buyer_name}}", selectedValueRecord.buyerName)
+                    .replaceAll("{{product_name}}", selectedValueRecord.buyerCategory)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => copyBuyerTemplate(selectedValueRecord)}
+              >
+                Copy selected template
+              </button>
+
+              {showCreateTemplate ? (
+                <form className="buyer-value-template-create" onSubmit={createCustomTemplate}>
+                  <label className="segment-form-field">
+                    <span>Template name</span>
+                    <input
+                      value={templateDraftName}
+                      onChange={(event) => setTemplateDraftName(event.target.value)}
+                      placeholder="Example: VIP second purchase message"
+                    />
+                  </label>
+
+                  <label className="segment-form-field">
+                    <span>Template text</span>
+                    <textarea
+                      value={templateDraftText}
+                      onChange={(event) => setTemplateDraftText(event.target.value)}
+                      placeholder="Use {{buyer_name}} and {{product_name}} if needed."
+                      rows={4}
+                    />
+                  </label>
+
+                  <button type="submit" className="primary-btn">
+                    Save and select template
+                  </button>
+                </form>
+              ) : null}
+            </section>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryActivity) => void }) {
+function RevenuePipeline({
+  onActivity,
+  onCreateFollowUp,
+  onNavigate,
+}: {
+  onActivity: (activity: NewRecoveryActivity) => void;
+  onCreateFollowUp?: (item: FollowUpRecoveryItem) => void;
+  onNavigate?: (page: string) => void;
+}) {
+  const openPipelineStageOrder: RevenueStage[] = [
+    "New Interest Captured",
+    "First Reply Needed",
+    "Qualified Interest",
+    "Follow-up Needed",
+    "Payment Pending",
+    "Order Confirmed",
+    "Delivered / Post-Purchase",
+    "Repeat Opportunity",
+  ];
+
+  const pipelineStageOrder: RevenueStage[] = [
+    ...openPipelineStageOrder,
+    "Recovered",
+    "Lost / Inactive",
+  ];
+
+  const movablePipelineStageOptions: RevenueStage[] = openPipelineStageOrder;
+
   const [opportunities, setOpportunities] = useState<RevenueOpportunity[]>(revenueOpportunities);
   const [activePipelineFilter, setActivePipelineFilter] = useState<RevenuePipelineFilter>("All");
-  const [selectedOpportunityId, setSelectedOpportunityId] = useState(revenueOpportunities[0].id);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<RevenueOpportunity | null>(null);
+  const [stageDraft, setStageDraft] = useState<RevenueStage>("Follow-up Needed");
   const [notice, setNotice] = useState("Revenue opportunities are ready for recovery review.");
+  const [noticeTone, setNoticeTone] = useState<Tone>("cyan");
+
+  const [pipelineActivityLog, setPipelineActivityLog] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(
+      revenueOpportunities.map((opportunity) => [
+        opportunity.id,
+        [opportunity.lastActivity, opportunity.nextAction],
+      ]),
+    ),
+  );
+
+  const [followUpTargetByOpportunity, setFollowUpTargetByOpportunity] = useState<Record<string, string>>({});
 
   const filteredOpportunities = opportunities.filter((opportunity) =>
     matchesRevenuePipelineFilter(opportunity, activePipelineFilter),
   );
-  const selectedOpportunity =
-    opportunities.find((opportunity) => opportunity.id === selectedOpportunityId) ??
-    filteredOpportunities[0] ??
-    opportunities[0];
+
+  const activeModalOpportunity = selectedOpportunity
+    ? opportunities.find((opportunity) => opportunity.id === selectedOpportunity.id) ?? selectedOpportunity
+    : null;
 
   const pipelineKpis = useMemo<KPI[]>(() => {
-    const openValue = opportunities
-      .filter((opportunity) => opportunity.currentStage !== "Lost / Inactive")
-      .reduce((total, opportunity) => total + moneyToNumber(opportunity.estimatedValue), 0);
-    const highIntent = opportunities.filter((opportunity) => opportunity.priority === "High" || opportunity.priority === "Critical").length;
-    const pendingValue = opportunities
+    const openOpportunities = opportunities.filter(
+      (opportunity) =>
+        opportunity.currentStage !== "Recovered" && opportunity.currentStage !== "Lost / Inactive",
+    );
+
+    const openValue = openOpportunities.reduce(
+      (total, opportunity) => total + moneyToNumber(opportunity.estimatedValue),
+      0,
+    );
+
+    const highIntent = openOpportunities.filter(
+      (opportunity) => opportunity.priority === "High" || opportunity.priority === "Critical",
+    ).length;
+
+    const pendingValue = openOpportunities
       .filter((opportunity) => opportunity.currentStage === "Payment Pending")
       .reduce((total, opportunity) => total + moneyToNumber(opportunity.estimatedValue), 0);
-    const followUps = opportunities.filter((opportunity) => opportunity.currentStage === "Follow-up Needed").length;
-    const repeat = opportunities.filter((opportunity) => opportunity.currentStage === "Repeat Opportunity").length;
-    const atRisk = opportunities.filter((opportunity) => opportunity.dueStatus === "Overdue").length;
+
+    const followUps = openOpportunities.filter(
+      (opportunity) => opportunity.currentStage === "Follow-up Needed",
+    ).length;
+
+    const repeat = openOpportunities.filter(
+      (opportunity) => opportunity.currentStage === "Repeat Opportunity",
+    ).length;
+
+    const atRisk = openOpportunities.filter((opportunity) => opportunity.dueStatus === "Overdue").length;
 
     return [
       { label: "Open Pipeline Value", value: formatCompactMoney(openValue), caption: "Open recovery value", tone: "rose" },
@@ -14546,34 +16416,252 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
     ];
   }, [opportunities]);
 
-  function recordPipelineActivity(opportunity: RevenueOpportunity, title: string, status: string, nextAction = opportunity.nextAction) {
+  function addPipelineActivityLine(opportunityId: string, line: string) {
+    setPipelineActivityLog((currentLog) => {
+      const currentLines = currentLog[opportunityId] ?? [];
+      return {
+        ...currentLog,
+        [opportunityId]: [line, ...currentLines],
+      };
+    });
+  }
+
+  function setPipelineNotice(message: string, tone: Tone) {
+    setNotice(message);
+    setNoticeTone(tone);
+  }
+
+  function recordPipelineActivity(
+    opportunity: RevenueOpportunity,
+    title: string,
+    status: string,
+    nextAction = opportunity.nextAction,
+    tone: Tone = opportunity.tone,
+  ) {
     onActivity?.({
-      category: opportunity.currentStage === "Payment Pending" ? "Payments" : "Inquiries",
+      category:
+        opportunity.currentStage === "Payment Pending"
+          ? "Payments"
+          : opportunity.currentStage === "Recovered"
+            ? "Reports"
+            : "Team Actions",
       title,
-      description: `${opportunity.buyerName}'s ${opportunity.productContext.toLowerCase()} moved inside revenue recovery.`,
-      impactBadge: `${opportunity.revenueAtRisk} at risk`,
+      description: `${opportunity.buyerName}'s ${opportunity.productContext.toLowerCase()} was updated inside Revenue Pipeline.`,
+      impactBadge:
+        opportunity.currentStage === "Recovered"
+          ? `${opportunity.estimatedValue} recovered`
+          : `${opportunity.revenueAtRisk} at risk`,
       relatedRecord: `${opportunity.source} - ${opportunity.id}`,
       owner: opportunity.owner === "Unassigned" ? undefined : opportunity.owner,
       status,
       nextAction,
-      tone: opportunity.tone,
+      tone,
     });
   }
 
-  function updateSelectedOpportunity(updates: Partial<RevenueOpportunity>, title: string, status: string) {
-    const current = selectedOpportunity;
-    const next = { ...current, ...updates };
-
-    setOpportunities((records) =>
-      records.map((opportunity) => (opportunity.id === current.id ? next : opportunity)),
+  function openOpportunityDetails(opportunity: RevenueOpportunity) {
+    setSelectedOpportunity(opportunity);
+    setStageDraft(
+      opportunity.currentStage === "Recovered" || opportunity.currentStage === "Lost / Inactive"
+        ? "Follow-up Needed"
+        : opportunity.currentStage,
     );
-    setNotice(`${title} for ${current.buyerName}.`);
-    recordPipelineActivity(next, title, status, next.nextAction);
+  }
+
+  function updateOpportunity(
+    opportunity: RevenueOpportunity,
+    updates: Partial<RevenueOpportunity>,
+    noticeText: string,
+    activityTitle: string,
+    activityStatus: string,
+    tone: Tone,
+  ) {
+    const updatedOpportunity = {
+      ...opportunity,
+      ...updates,
+    };
+
+    setOpportunities((currentOpportunities) =>
+      currentOpportunities.map((currentOpportunity) =>
+        currentOpportunity.id === opportunity.id ? updatedOpportunity : currentOpportunity,
+      ),
+    );
+
+    setSelectedOpportunity(updatedOpportunity);
+    setPipelineNotice(noticeText, tone);
+    addPipelineActivityLine(opportunity.id, `${activityTitle}: ${activityStatus}`);
+    recordPipelineActivity(updatedOpportunity, activityTitle, activityStatus, updatedOpportunity.nextAction, tone);
+  }
+
+  function getFollowUpTypeFromOpportunity(opportunity: RevenueOpportunity): FollowUpType {
+    if (opportunity.currentStage === "First Reply Needed") return "First reply";
+    if (opportunity.currentStage === "Payment Pending") return "Payment reminder";
+    if (opportunity.currentStage === "Repeat Opportunity") return "Refill reminder";
+    if (opportunity.currentStage === "Delivered / Post-Purchase") return "Review request";
+    if (opportunity.currentStage === "Lost / Inactive") return "Reactivation";
+
+    return "Second nudge";
+  }
+
+  function createFollowUpFromOpportunity(opportunity: RevenueOpportunity) {
+    const followUpId = `FUP-PIPE-${opportunity.id}`;
+
+    const newFollowUp: FollowUpRecoveryItem = {
+      id: followUpId,
+      buyerName: opportunity.buyerName,
+      productContext: opportunity.productContext,
+      followUpType: getFollowUpTypeFromOpportunity(opportunity),
+      source: opportunity.source,
+      revenueAtRisk: opportunity.revenueAtRisk,
+      owner: opportunity.owner,
+      dueStatus: opportunity.dueStatus === "Overdue" ? "Overdue" : "Due today",
+      lastContact: opportunity.lastActivity,
+      attemptCount: 0,
+      buyerResponseStatus: "No reply yet",
+      recommendedNextAction: opportunity.nextAction,
+      messageTemplate: opportunity.recommendedMessage,
+      internalRecoveryNote: `Created from Revenue Pipeline case ${opportunity.id}.`,
+      tone: opportunity.tone,
+    };
+
+    onCreateFollowUp?.(newFollowUp);
+
+    setFollowUpTargetByOpportunity((currentTargets) => ({
+      ...currentTargets,
+      [opportunity.id]: followUpId,
+    }));
+
+    updateOpportunity(
+      opportunity,
+      {
+        currentStage: "Follow-up Needed",
+        dueStatus: opportunity.dueStatus === "Overdue" ? "Overdue" : "Due today",
+        lastActivity: "Follow-up recovery task created from pipeline",
+        lastAction: "Follow-up created",
+      },
+      `${opportunity.buyerName} follow-up created and added to Follow-up Recovery.`,
+      "Follow-up recovery task created",
+      "Created",
+      "emerald",
+    );
+
+    return followUpId;
+  }
+
+  function openFollowUpRecoveryForOpportunity(opportunity: RevenueOpportunity) {
+    const followUpId = followUpTargetByOpportunity[opportunity.id] ?? createFollowUpFromOpportunity(opportunity);
+
+    window.sessionStorage.setItem("altynx-open-followup-id", followUpId);
+    setPipelineNotice(`${opportunity.buyerName} follow-up opened in Follow-up Recovery.`, "emerald");
+    onNavigate?.("Follow-up Recovery");
+  }
+
+  function markPaymentPending(opportunity: RevenueOpportunity) {
+    updateOpportunity(
+      opportunity,
+      {
+        currentStage: "Payment Pending",
+        dueStatus: "Due today",
+        lastActivity: "Payment pending recovery status marked from pipeline",
+        lastAction: "Payment pending tag added",
+      },
+      `${opportunity.buyerName} is now highlighted as Payment Pending. Send the payment reminder from Payment Recovery if needed.`,
+      "Payment pending marked",
+      "Payment pending",
+      "amber",
+    );
+
+    setStageDraft("Payment Pending");
+    setActivePipelineFilter("Payment Pending");
+  }
+
+  function markRecovered(opportunity: RevenueOpportunity) {
+    updateOpportunity(
+      opportunity,
+      {
+        currentStage: "Recovered",
+        dueStatus: "Recovered",
+        revenueAtRisk: "$0",
+        lastActivity: "Revenue case marked recovered from pipeline",
+        lastAction: "Marked recovered",
+        tone: "emerald",
+      },
+      `${opportunity.buyerName} marked recovered and moved to the Recovered tab.`,
+      "Revenue case marked recovered",
+      "Recovered",
+      "emerald",
+    );
+
+    setStageDraft("Follow-up Needed");
+    setActivePipelineFilter("Recovered");
+  }
+
+  function markLost(opportunity: RevenueOpportunity) {
+    updateOpportunity(
+      opportunity,
+      {
+        currentStage: "Lost / Inactive",
+        dueStatus: "Lost",
+        lastActivity: "Lost / inactive tag added from pipeline",
+        lastAction: "Marked lost",
+        tone: "gray",
+      },
+      `${opportunity.buyerName} marked lost and moved to the Lost tab. The case was not deleted.`,
+      "Lost / inactive tag added",
+      "Lost",
+      "gray",
+    );
+
+    setStageDraft("Follow-up Needed");
+    setActivePipelineFilter("Lost");
+  }
+
+  function restoreToOpenPipeline(opportunity: RevenueOpportunity) {
+    updateOpportunity(
+      opportunity,
+      {
+        currentStage: "Follow-up Needed",
+        dueStatus: "Due today",
+        revenueAtRisk: opportunity.revenueAtRisk === "$0" ? opportunity.estimatedValue : opportunity.revenueAtRisk,
+        lastActivity: "Case restored to open revenue pipeline",
+        lastAction: "Restored to open pipeline",
+        tone: opportunity.priority === "Critical" || opportunity.priority === "High" ? "rose" : "cyan",
+      },
+      `${opportunity.buyerName} restored back to the main Revenue Pipeline.`,
+      "Case restored to open pipeline",
+      "Open again",
+      "cyan",
+    );
+
+    setStageDraft("Follow-up Needed");
+    setActivePipelineFilter("All");
+  }
+
+  function moveStage(opportunity: RevenueOpportunity) {
+    updateOpportunity(
+      opportunity,
+      {
+        currentStage: stageDraft,
+        dueStatus: stageDraft === "Payment Pending" || stageDraft === "Follow-up Needed" ? "Due today" : opportunity.dueStatus,
+        lastActivity: `Stage moved to ${stageDraft}`,
+        lastAction: `Moved to ${stageDraft}`,
+      },
+      `${opportunity.buyerName} moved to ${stageDraft}.`,
+      "Revenue pipeline stage moved",
+      `Moved to ${stageDraft}`,
+      "emerald",
+    );
+  }
+
+  function getStageCountLabel(stage: RevenueStage, count: number) {
+    if (stage === "Recovered") return `${count} recovered`;
+    if (stage === "Lost / Inactive") return `${count} lost`;
+    return `${count} open`;
   }
 
   return (
     <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
+      <section className="recovery-kpi-grid capture-kpi-grid">
         {pipelineKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
         ))}
@@ -14592,40 +16680,60 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredOpportunities.length} opportunities</Badge>
+
+        <Badge tone="cyan">{filteredOpportunities.length} pipeline records</Badge>
       </section>
 
-      <section className="recovery-workspace capture-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Revenue Pipeline</h2>
-              <p>Open revenue opportunities grouped by recovery stage, owner, value, and next best action.</p>
-            </div>
-            <Badge tone="rose">Open value</Badge>
+      {notice ? <div className={`pipeline-notice ${noticeTone}`}>{notice}</div> : null}
+
+      <section className="glass-card panel-card pipeline-full-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Revenue Pipeline</h2>
+            <p>
+              Open, recovered, and lost recovery cases grouped by stage, value, due status, source,
+              and next best revenue action.
+            </p>
           </div>
+          <Badge tone={activePipelineFilter === "Recovered" ? "emerald" : activePipelineFilter === "Lost" ? "gray" : "rose"}>
+            {activePipelineFilter === "Recovered" ? "Recovered value" : activePipelineFilter === "Lost" ? "Lost cases" : "Open value"}
+          </Badge>
+        </div>
 
-          <div className="revenue-stage-list">
-            {revenueStages.map((stage) => {
-              const stageItems = filteredOpportunities.filter((opportunity) => opportunity.currentStage === stage);
-              if (stageItems.length === 0) return null;
+        {activePipelineFilter === "Recovered" || activePipelineFilter === "Lost" ? (
+          <div className="pipeline-closed-helper">
+            <strong>{activePipelineFilter} cases</strong>
+            <p>
+              These records stay visible for review. If a case was marked by mistake, use
+              <strong> Back to revenue pipeline</strong> to restore it to the main open pipeline.
+            </p>
+          </div>
+        ) : null}
 
-              return (
-                <div className="revenue-stage-group" key={stage}>
-                  <div className="stage-heading">
-                    <h3>{stage}</h3>
-                    <span>{stageItems.length} open</span>
-                  </div>
-                  <div className="capture-card-list">
-                    {stageItems.map((opportunity) => (
-                      <button
-                        className={`pipeline-card inquiry-button ${opportunity.tone} ${
-                          selectedOpportunity.id === opportunity.id ? "selected" : ""
-                        }`}
-                        key={opportunity.id}
-                        onClick={() => setSelectedOpportunityId(opportunity.id)}
-                        type="button"
-                      >
+        <div className="pipeline-stage-list">
+          {pipelineStageOrder.map((stage) => {
+            const stageOpportunities = filteredOpportunities.filter(
+              (opportunity) => opportunity.currentStage === stage,
+            );
+
+            if (stageOpportunities.length === 0) {
+              return null;
+            }
+
+            return (
+              <section className="pipeline-stage-section" key={stage}>
+                <div className="pipeline-stage-heading">
+                  <h3>{stage.toUpperCase()}</h3>
+                  <span>{getStageCountLabel(stage, stageOpportunities.length)}</span>
+                </div>
+
+                <div className="pipeline-card-list">
+                  {stageOpportunities.map((opportunity) => {
+                    const isRecovered = opportunity.currentStage === "Recovered";
+                    const isLost = opportunity.currentStage === "Lost / Inactive";
+
+                    return (
+                      <article className={`pipeline-card ${opportunity.tone}`} key={opportunity.id}>
                         <div className="capture-card-main buyer-card-main">
                           <div className="buyer-identity">
                             <Avatar name={opportunity.buyerName} />
@@ -14633,8 +16741,12 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
                               <div className="recovery-row-title">
                                 <h3>{opportunity.buyerName}</h3>
                                 <Badge tone={opportunity.tone}>{opportunity.priority}</Badge>
+                                {isRecovered ? <Badge tone="emerald">Recovered</Badge> : null}
+                                {isLost ? <Badge tone="gray">Lost / Inactive</Badge> : null}
                               </div>
+
                               <p>{opportunity.productContext}</p>
+
                               <div className="recovery-meta">
                                 <span>{opportunity.industryType}</span>
                                 <span>{opportunity.source}</span>
@@ -14643,192 +16755,387 @@ function RevenuePipeline({ onActivity }: { onActivity: (activity: NewRecoveryAct
                               </div>
                             </div>
                           </div>
+
                           <div className="capture-value-stack">
                             <strong>{opportunity.estimatedValue}</strong>
-                            <span>{opportunity.revenueAtRisk} at risk</span>
+                            <span>
+                              {isRecovered
+                                ? "Recovered"
+                                : isLost
+                                  ? "Lost / inactive"
+                                  : `${opportunity.revenueAtRisk} at risk`}
+                            </span>
                           </div>
                         </div>
-                        <p className="queue-next-action">{opportunity.nextAction}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </article>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedOpportunity.buyerName} />
+                        <div className="pipeline-next-action">
+                          <span>Next recovery action</span>
+                          <p>{opportunity.nextAction}</p>
+                        </div>
+
+                        {opportunity.lastAction ? (
+                          <p className="segment-last-action">{opportunity.lastAction}</p>
+                        ) : null}
+
+                        <div className="capture-actions pipeline-card-actions">
+                          <button
+                            type="button"
+                            className="primary-btn"
+                            onClick={() => openOpportunityDetails(opportunity)}
+                          >
+                            View more
+                          </button>
+
+                          {isRecovered || isLost ? (
+                            <button
+                              type="button"
+                              className="secondary-btn"
+                              onClick={() => restoreToOpenPipeline(opportunity)}
+                            >
+                              Back to revenue pipeline
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="secondary-btn"
+                                onClick={() => createFollowUpFromOpportunity(opportunity)}
+                              >
+                                Create follow-up
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary-btn"
+                                onClick={() => markPaymentPending(opportunity)}
+                              >
+                                Mark payment pending
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary-btn"
+                                onClick={() => markRecovered(opportunity)}
+                              >
+                                Mark recovered
+                              </button>
+
+                              <button
+                                type="button"
+                                className="secondary-btn danger-segment-btn"
+                                onClick={() => markLost(opportunity)}
+                              >
+                                Mark lost
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </section>
+
+      {activeModalOpportunity ? (
+        <div className="buyer-modal-backdrop" role="dialog" aria-modal="true">
+          <article className="glass-card buyer-profile-modal pipeline-detail-modal">
+            <div className="buyer-modal-header">
               <div>
-                <h2>{selectedOpportunity.buyerName}</h2>
-                <p>{selectedOpportunity.productContext}</p>
+                <span className="eyebrow">Revenue Pipeline Case</span>
+                <h2>{activeModalOpportunity.buyerName}</h2>
+                <p>
+                  Recovery case context, stage movement, recent activity, and next action.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="buyer-modal-close"
+                onClick={() => setSelectedOpportunity(null)}
+                aria-label="Close revenue pipeline details"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="buyer-modal-kpis">
+              <div>
+                <span>Estimated Value</span>
+                <strong>{activeModalOpportunity.estimatedValue}</strong>
+              </div>
+              <div>
+                <span>Revenue At Risk</span>
+                <strong>{activeModalOpportunity.revenueAtRisk}</strong>
+              </div>
+              <div>
+                <span>Current Stage</span>
+                <strong>{activeModalOpportunity.currentStage}</strong>
+              </div>
+              <div>
+                <span>Due Status</span>
+                <strong>{activeModalOpportunity.dueStatus}</strong>
               </div>
             </div>
-            <strong>{selectedOpportunity.revenueAtRisk}</strong>
-          </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Current stage</span>
-              <strong>{selectedOpportunity.currentStage}</strong>
-            </div>
-            <div>
-              <span>Estimated value</span>
-              <strong>{selectedOpportunity.estimatedValue}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedOpportunity.owner}</strong>
-            </div>
-            <div>
-              <span>Due status</span>
-              <strong>{selectedOpportunity.dueStatus}</strong>
-            </div>
-            <div>
-              <span>Last activity</span>
-              <strong>{selectedOpportunity.lastActivity}</strong>
-            </div>
-            <div>
-              <span>Source</span>
-              <strong>{selectedOpportunity.source}</strong>
-            </div>
-          </div>
+            <div className="buyer-modal-grid">
+              <section className="buyer-modal-section">
+                <h3>Case Context</h3>
+                <div><span>Product Context</span><strong>{activeModalOpportunity.productContext}</strong></div>
+                <div><span>Industry</span><strong>{activeModalOpportunity.industryType}</strong></div>
+                <div><span>Source</span><strong>{activeModalOpportunity.source}</strong></div>
+                <div><span>Owner</span><strong>{activeModalOpportunity.owner}</strong></div>
+              </section>
 
-          <div className="detail-callout">
-            <span>Recommended message/action</span>
-            <p>{selectedOpportunity.recommendedMessage}</p>
-          </div>
+              {activeModalOpportunity.currentStage === "Recovered" ||
+              activeModalOpportunity.currentStage === "Lost / Inactive" ? (
+                <section className="buyer-modal-section">
+                  <h3>Closed Case Status</h3>
+                  <p>
+                    This case is currently in the {activeModalOpportunity.currentStage} tab.
+                    Use the button below if this was marked by mistake.
+                  </p>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => restoreToOpenPipeline(activeModalOpportunity)}
+                  >
+                    Back to revenue pipeline
+                  </button>
+                </section>
+              ) : (
+                <section className="buyer-modal-section">
+                  <h3>Pipeline Movement</h3>
+                  <label className="segment-form-field">
+                    <span>Move to stage</span>
+                    <select
+                      value={stageDraft}
+                      onChange={(event) => setStageDraft(event.target.value as RevenueStage)}
+                    >
+                      {movablePipelineStageOptions.map((stage) => (
+                        <option key={stage} value={stage}>
+                          {stage}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-          <p className="detail-notice">{notice}</p>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => moveStage(activeModalOpportunity)}
+                  >
+                    Save stage
+                  </button>
+                </section>
+              )}
 
-          <div className="detail-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() =>
-                updateSelectedOpportunity(
-                  {
-                    currentStage: getNextRevenueStage(selectedOpportunity.currentStage),
-                    lastAction: "Stage moved",
-                  },
-                  "Stage moved",
-                  "Moved",
-                )
-              }
-            >
-              Move stage
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedOpportunity(
-                  {
-                    owner: selectedOpportunity.owner === "Unassigned" ? "Amara Shah" : selectedOpportunity.owner,
-                    lastAction: "Owner assigned",
-                  },
-                  "Owner assigned",
-                  "Owner assigned",
-                )
-              }
-            >
-              Assign owner
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedOpportunity(
-                  {
-                    currentStage: "Follow-up Needed",
-                    dueStatus: "Due today",
-                    lastAction: "Follow-up created",
-                  },
-                  "Follow-up created",
-                  "Created",
-                )
-              }
-            >
-              Create follow-up
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedOpportunity(
-                  {
-                    currentStage: "Payment Pending",
-                    dueStatus: "Due today",
-                    lastAction: "Payment marked pending",
-                  },
-                  "Payment marked pending",
-                  "Payment pending",
-                )
-              }
-            >
-              Mark payment pending
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedOpportunity(
-                  {
-                    currentStage: "Order Confirmed",
-                    revenueAtRisk: "$0",
-                    dueStatus: "Monitoring",
-                    lastAction: "Marked recovered",
-                  },
-                  "Marked recovered",
-                  "Recovered",
-                )
-              }
-            >
-              Mark recovered
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedOpportunity(
-                  {
-                    currentStage: "Lost / Inactive",
-                    dueStatus: "Lost",
-                    lastAction: "Marked lost",
-                  },
-                  "Marked lost",
-                  "Lost",
-                )
-              }
-            >
-              Mark lost
-            </button>
-          </div>
-        </aside>
-      </section>
+              <section className="buyer-modal-section">
+                <h3>Recommended Message / Action</h3>
+                <p>{activeModalOpportunity.recommendedMessage}</p>
+              </section>
+
+              <section className="buyer-modal-section">
+                <h3>Latest Activity</h3>
+                <ul className="pipeline-activity-lines">
+                  {(pipelineActivityLog[activeModalOpportunity.id] ?? [
+                    activeModalOpportunity.lastActivity,
+                    activeModalOpportunity.nextAction,
+                  ]).map((line, index) => (
+                    <li key={`${activeModalOpportunity.id}-activity-${index}`}>{line}</li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+
+            <div className="pipeline-modal-actions">
+              {activeModalOpportunity.currentStage === "Recovered" ||
+              activeModalOpportunity.currentStage === "Lost / Inactive" ? (
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => restoreToOpenPipeline(activeModalOpportunity)}
+                >
+                  Back to revenue pipeline
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => createFollowUpFromOpportunity(activeModalOpportunity)}
+                  >
+                    Create follow-up
+                  </button>
+
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => {
+                      markPaymentPending(activeModalOpportunity);
+                      setStageDraft("Payment Pending");
+                    }}
+                  >
+                    Mark payment pending
+                  </button>
+
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => markRecovered(activeModalOpportunity)}
+                  >
+                    Mark recovered
+                  </button>
+
+                  <button
+                    type="button"
+                    className="secondary-btn danger-segment-btn"
+                    onClick={() => markLost(activeModalOpportunity)}
+                  >
+                    Mark lost
+                  </button>
+
+                  {onNavigate ? (
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => openFollowUpRecoveryForOpportunity(activeModalOpportunity)}
+                    >
+                      Open Follow-up Recovery
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryActivity) => void }) {
-  const [followUps, setFollowUps] = useState<FollowUpRecoveryItem[]>(followUpRecoveryItems);
-  const [activeFollowUpFilter, setActiveFollowUpFilter] = useState<FollowUpRecoveryFilter>("All");
-  const [selectedFollowUpId, setSelectedFollowUpId] = useState(followUpRecoveryItems[0].id);
-  const [notice, setNotice] = useState("Select a follow-up leak to review the next recovery touch.");
+function FollowUpRecovery({
+  onActivity,
+  extraFollowUps = [],
+  templates = messageTemplates,
+  onCreateTemplate,
+  onCreatePaymentCase,
+  onNavigate,
+}: {
+  onActivity: (activity: NewRecoveryActivity) => void;
+  extraFollowUps?: FollowUpRecoveryItem[];
+  templates?: MessageTemplate[];
+  onCreateTemplate?: (template: MessageTemplate) => void;
+  onCreatePaymentCase?: (item: PaymentRecoveryItem) => void;
+  onNavigate?: (page: string) => void;
+}) {
+  const [followUps, setFollowUps] = useState<FollowUpRecoveryItem[]>(() => [
+    ...extraFollowUps,
+    ...followUpRecoveryItems,
+  ]);
 
-  const filteredFollowUps = followUps.filter((item) => matchesFollowUpRecoveryFilter(item, activeFollowUpFilter));
+  const [activeFollowUpFilter, setActiveFollowUpFilter] = useState<FollowUpRecoveryFilter>("All");
+  const [selectedFollowUpId, setSelectedFollowUpId] = useState(
+    extraFollowUps[0]?.id ?? followUpRecoveryItems[0].id,
+  );
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isTemplateSuggestionOpen, setIsTemplateSuggestionOpen] = useState(false);
+  const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
+  const [selectedSuggestionId, setSelectedSuggestionId] = useState("");
+  const [notice, setNotice] = useState("Select View more to review a follow-up touch.");
+  const [highlightedFollowUpId, setHighlightedFollowUpId] = useState("");
+
+  const [templateDraft, setTemplateDraft] = useState({
+    templateName: "",
+    recoveryType: "Follow-up",
+    industryFit: "Hybrid" as MessageTemplate["industryFit"],
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
+
+  useEffect(() => {
+    setFollowUps((currentItems) => {
+      const currentIds = new Set(currentItems.map((item) => item.id));
+      const newItems = extraFollowUps.filter((item) => !currentIds.has(item.id));
+
+      if (newItems.length === 0) {
+        return currentItems;
+      }
+
+      return [...newItems, ...currentItems];
+    });
+  }, [extraFollowUps]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const targetFollowUpId = window.sessionStorage.getItem("altynx-open-followup-id");
+
+    if (!targetFollowUpId) return;
+
+    const targetExists = followUps.some((item) => item.id === targetFollowUpId);
+
+    if (!targetExists) return;
+
+    setSelectedFollowUpId(targetFollowUpId);
+    setActiveFollowUpFilter("All");
+    setIsDetailOpen(true);
+    setHighlightedFollowUpId(targetFollowUpId);
+    setNotice("Opened the follow-up action that was just added to the Recovery Queue.");
+
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-follow-up-id="${targetFollowUpId}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    const clearHighlight = window.setTimeout(() => {
+      setHighlightedFollowUpId("");
+    }, 6000);
+
+    window.sessionStorage.removeItem("altynx-open-followup-id");
+
+    return () => window.clearTimeout(clearHighlight);
+  }, [followUps]);
+
+  const filteredFollowUps = followUps.filter((item) =>
+    matchesFollowUpRecoveryFilter(item, activeFollowUpFilter),
+  );
+
   const selectedFollowUp =
     followUps.find((item) => item.id === selectedFollowUpId) ?? filteredFollowUps[0] ?? followUps[0];
+
+  const suggestedTemplates = selectedFollowUp
+    ? getFollowUpTemplateSuggestions(selectedFollowUp)
+    : [];
+
+  const selectedSuggestion =
+    suggestedTemplates.find((template) => template.id === selectedSuggestionId) ?? suggestedTemplates[0];
+
+  useEffect(() => {
+    if (!selectedFollowUp) return;
+
+    const firstSuggestion = getFollowUpTemplateSuggestions(selectedFollowUp)[0];
+
+    setSelectedSuggestionId(firstSuggestion?.id ?? "");
+    setTemplateDraft({
+      templateName: `${selectedFollowUp.followUpType} - ${selectedFollowUp.productContext}`,
+      recoveryType: getTemplateRecoveryTypeFromFollowUp(selectedFollowUp),
+      industryFit: getIndustryFitFromFollowUp(selectedFollowUp),
+      channel: getDefaultChannelFromSource(selectedFollowUp.source),
+      previewText: selectedFollowUp.messageTemplate,
+    });
+  }, [selectedFollowUp?.id, selectedFollowUp?.messageTemplate, selectedFollowUp?.followUpType, selectedFollowUp?.source]);
 
   const followUpKpis = useMemo<KPI[]>(() => {
     const dueToday = followUps.filter((item) => item.dueStatus === "Due today").length;
     const overdue = followUps.filter((item) => item.dueStatus === "Overdue").length;
     const highValue = followUps.filter((item) => moneyToNumber(item.revenueAtRisk) >= 500).length;
     const noReply = followUps.filter((item) => item.buyerResponseStatus === "No reply yet").length;
-    const unassigned = followUps.filter((item) => item.owner === "Unassigned").length;
+    const snoozed = followUps.filter((item) => item.dueStatus === "Snoozed").length;
     const risk = followUps.reduce((total, item) => total + moneyToNumber(item.revenueAtRisk), 0);
 
     return [
@@ -14836,13 +17143,100 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
       { label: "Overdue Follow-ups", value: `${overdue}`, caption: "Follow-up leakage", tone: "rose" },
       { label: "High-Value Follow-ups", value: `${highValue}`, caption: "Priority buyers", tone: "amber" },
       { label: "No Reply Yet", value: `${noReply}`, caption: "First reply watch", tone: "rose" },
-      { label: "Unassigned Follow-ups", value: `${unassigned}`, caption: "Owner needed", tone: "amber" },
+      { label: "Snoozed Follow-ups", value: `${snoozed}`, caption: "Paused follow-ups", tone: "amber" },
       { label: "Follow-up Revenue At Risk", value: formatCompactMoney(risk), caption: "Open follow-up value", tone: "rose" },
     ];
   }, [followUps]);
 
+  function getTemplateRecoveryTypeFromFollowUp(item: FollowUpRecoveryItem) {
+    const recoveryTypeMap: Record<FollowUpType, string> = {
+      "First reply": "First Reply",
+      "Second nudge": "Follow-up",
+      "Payment reminder": "Payment Reminder",
+      "Refill reminder": "Refill Reminder",
+      "Restock notification": "Restock Notice",
+      "Review request": "Review Request",
+      "UGC/referral request": "UGC Request",
+      "Order issue follow-up": "Order Issue",
+      Reactivation: "Winback",
+    };
+
+    return recoveryTypeMap[item.followUpType];
+  }
+
+  function getIndustryFitFromFollowUp(item: FollowUpRecoveryItem): MessageTemplate["industryFit"] {
+    const context = `${item.productContext} ${item.source}`.toLowerCase();
+
+    if (
+      context.includes("serum") ||
+      context.includes("skin") ||
+      context.includes("skincare") ||
+      context.includes("routine") ||
+      context.includes("lip") ||
+      context.includes("beauty")
+    ) {
+      return "Beauty / Skincare";
+    }
+
+    if (
+      context.includes("bridal") ||
+      context.includes("denim") ||
+      context.includes("jacket") ||
+      context.includes("knitwear") ||
+      context.includes("styling") ||
+      context.includes("fashion")
+    ) {
+      return "Fashion / Apparel";
+    }
+
+    return "Hybrid";
+  }
+
+  function getDefaultChannelFromSource(source: string): MessageTemplate["channel"] {
+    const normalizedSource = source.toLowerCase();
+
+    if (normalizedSource.includes("instagram")) return "Instagram DM";
+    if (normalizedSource.includes("whatsapp")) return "WhatsApp";
+    if (normalizedSource.includes("website") || normalizedSource.includes("shopify")) return "Email";
+
+    return "Manual Copy";
+  }
+
+  function getFollowUpTemplateSuggestions(item: FollowUpRecoveryItem) {
+    const targetRecoveryType = getTemplateRecoveryTypeFromFollowUp(item);
+    const targetIndustryFit = getIndustryFitFromFollowUp(item);
+
+    const directMatches = templates.filter((template) => {
+      const sameRecoveryType = template.recoveryType === targetRecoveryType;
+      const sameIndustry = template.industryFit === targetIndustryFit || template.industryFit === "Hybrid";
+
+      return sameRecoveryType && sameIndustry;
+    });
+
+    if (directMatches.length > 0) {
+      return directMatches;
+    }
+
+    return templates.filter((template) => {
+      const searchableText = `${template.templateName} ${template.linkedStageTag} ${template.recoveryType}`.toLowerCase();
+      const followUpKeyword = item.followUpType.toLowerCase().split(" ")[0];
+
+      return searchableText.includes(followUpKeyword) || template.industryFit === targetIndustryFit;
+    });
+  }
+
+  function renderTemplateText(text: string, item: FollowUpRecoveryItem) {
+    return text
+      .replaceAll("{{buyer_name}}", item.buyerName)
+      .replaceAll("{{product_name}}", item.productContext)
+      .replaceAll("{{owner_name}}", item.owner)
+      .replaceAll("{{refill_window}}", item.lastContact)
+      .replaceAll("{{restock_item}}", item.productContext)
+      .replaceAll("{{order_number}}", item.id);
+  }
+
   function recordFollowUpActivity(item: FollowUpRecoveryItem, title: string, status: string) {
-    onActivity?.({
+    onActivity({
       category: item.followUpType === "Payment reminder" ? "Payments" : "Team Actions",
       title,
       description: `${item.buyerName}'s ${item.followUpType.toLowerCase()} was updated for ${item.productContext}.`,
@@ -14855,12 +17249,164 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
     });
   }
 
-  function updateSelectedFollowUp(updates: Partial<FollowUpRecoveryItem>, title: string, status: string) {
-    const current = selectedFollowUp;
-    const next = { ...current, ...updates };
-    setFollowUps((items) => items.map((item) => (item.id === current.id ? next : item)));
-    setNotice(`${title} for ${current.buyerName}.`);
+  function updateSelectedFollowUp(
+    updates: Partial<FollowUpRecoveryItem>,
+    title: string,
+    status: string,
+  ) {
+    if (!selectedFollowUp) return;
+
+    const next = { ...selectedFollowUp, ...updates };
+
+    setFollowUps((items) => items.map((item) => (item.id === selectedFollowUp.id ? next : item)));
+    setNotice(`${title} for ${selectedFollowUp.buyerName}.`);
     recordFollowUpActivity(next, title, status);
+  }
+
+  function openFollowUpDetails(item: FollowUpRecoveryItem) {
+  setSelectedFollowUpId(item.id);
+  setIsDetailOpen(true);
+  setIsTemplateSuggestionOpen(false);
+  setIsCreateTemplateOpen(false);
+  setNotice(`Reviewing ${item.buyerName}'s next follow-up touch.`);
+}
+
+  async function copyTemplateText(text: string) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+      }
+
+      updateSelectedFollowUp({ templateCopied: true }, "Template copied", "Template copied");
+    } catch {
+      setNotice("Template preview is ready to copy manually.");
+    }
+  }
+
+  function useSuggestedTemplate(template: MessageTemplate) {
+    if (!selectedFollowUp) return;
+
+    const renderedText = renderTemplateText(template.previewText, selectedFollowUp);
+
+    updateSelectedFollowUp(
+      { messageTemplate: renderedText },
+      "Suggested template applied",
+      "Template selected",
+    );
+
+    setNotice(`${template.templateName} applied for ${selectedFollowUp.buyerName}.`);
+  }
+
+  function createTemplateFromDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedFollowUp) return;
+
+    const templateName = templateDraft.templateName.trim();
+    const previewText = templateDraft.previewText.trim();
+
+    if (!templateName || !previewText) {
+      setNotice("Template name and message text are required.");
+      return;
+    }
+
+    const newTemplate: MessageTemplate = {
+      id: `TPL-FUP-${Date.now()}`,
+      templateName,
+      recoveryType: templateDraft.recoveryType,
+      industryFit: templateDraft.industryFit,
+      channel: templateDraft.channel,
+      owner: selectedFollowUp.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: selectedFollowUp.followUpType,
+      previewText,
+      tone: selectedFollowUp.tone,
+    };
+
+    onCreateTemplate?.(newTemplate);
+
+    updateSelectedFollowUp(
+      { messageTemplate: renderTemplateText(newTemplate.previewText, selectedFollowUp) },
+      "Message template created",
+      "Template created",
+    );
+
+    setSelectedSuggestionId(newTemplate.id);
+    setIsCreateTemplateOpen(false);
+    setIsTemplateSuggestionOpen(true);
+    setNotice(`${newTemplate.templateName} was added to Setup > Templates and applied here.`);
+  }
+
+  function getPaymentSourceFromFollowUp(source: string) {
+    const normalizedSource = source.toLowerCase();
+
+    if (normalizedSource.includes("whatsapp")) return "WhatsApp Checkout";
+    if (normalizedSource.includes("shopify") || normalizedSource.includes("ecommerce")) return "Shopify / Ecommerce";
+
+    return source;
+  }
+
+  function getPaymentMethodFromFollowUp(source: string) {
+    const normalizedSource = source.toLowerCase();
+
+    if (normalizedSource.includes("whatsapp")) return "WhatsApp checkout link";
+    if (normalizedSource.includes("shopify") || normalizedSource.includes("ecommerce")) return "Ecommerce checkout";
+    if (normalizedSource.includes("website")) return "Invoice / website payment link";
+
+    return "Manual payment link";
+  }
+
+  function getPaymentRiskLevel(item: FollowUpRecoveryItem): Priority {
+    const value = moneyToNumber(item.revenueAtRisk);
+
+    if (value >= 1000) return "Critical";
+    if (value >= 500) return "High";
+    if (value >= 150) return "Medium";
+
+    return "Low";
+  }
+
+  function createPaymentRecoveryCase(item: FollowUpRecoveryItem) {
+    const paymentCaseId = `PAY-FUP-${item.id}`;
+
+    const newPaymentCase: PaymentRecoveryItem = {
+      id: paymentCaseId,
+      buyerName: item.buyerName,
+      productContext: item.productContext,
+      paymentAmount: item.revenueAtRisk,
+      recoveredAmount: "$0",
+      paymentStatus: item.dueStatus === "Overdue" ? "Overdue" : "Pending",
+      source: getPaymentSourceFromFollowUp(item.source),
+      paymentMethod: getPaymentMethodFromFollowUp(item.source),
+      owner: item.owner,
+      dueStatus: item.dueStatus === "Overdue" ? "Overdue" : "Due today",
+      lastReminder: item.lastContact,
+      reminderCount: item.attemptCount,
+      riskLevel: getPaymentRiskLevel(item),
+      recommendedNextAction: "Send payment reminder and confirm the payment blocker.",
+      paymentTemplate:
+        selectedSuggestion?.recoveryType === "Payment Reminder"
+          ? renderTemplateText(selectedSuggestion.previewText, item)
+          : `Hi ${item.buyerName}, your ${item.productContext} is still pending. I can resend the secure payment link or help if anything blocked the payment.`,
+      tone: "amber",
+    };
+
+    onCreatePaymentCase?.(newPaymentCase);
+
+    updateSelectedFollowUp(
+      {
+        followUpType: "Payment reminder",
+        buyerResponseStatus: "Monitoring",
+        recommendedNextAction: "Payment recovery case created. Send payment reminder from Payment Recovery.",
+      },
+      "Payment recovery case created",
+      "Payment case created",
+    );
+
+    window.sessionStorage.setItem("altynx-open-payment-id", paymentCaseId);
+    onNavigate?.("Payment Recovery");
   }
 
   return (
@@ -14884,217 +17430,546 @@ function FollowUpRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAc
             </button>
           ))}
         </div>
+
         <Badge tone="cyan">{filteredFollowUps.length} follow-ups</Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
+      <section className="follow-up-workspace">
+        <article className="glass-card panel-card follow-up-list-panel">
           <div className="panel-header">
             <div>
               <h2>Follow-up Recovery</h2>
-              <p>Buyers who need a reply, reminder, refill prompt, restock notice, or post-purchase touch.</p>
+              <p>Lightweight action queue. Revenue Pipeline stays the source of truth.</p>
             </div>
-            <Badge tone="rose">Follow-up leak</Badge>
+            <Badge tone="rose">Follow-up queue</Badge>
           </div>
 
-          <div className="recovery-list">
+          <div className="follow-up-wide-list">
             {filteredFollowUps.map((item) => (
-              <button
-                className={`follow-up-card recovery-task-card ${item.tone} ${
-                  selectedFollowUp.id === item.id ? "selected" : ""
+              <article
+                className={`follow-up-wide-card ${item.tone} ${
+                  selectedFollowUp?.id === item.id && isDetailOpen ? "selected" : ""
                 }`}
                 key={item.id}
-                onClick={() => setSelectedFollowUpId(item.id)}
-                type="button"
+                data-follow-up-id={item.id}
+                style={
+                  highlightedFollowUpId === item.id
+                    ? { outline: "2px solid #ff4500", boxShadow: "0 0 0 6px rgba(255, 69, 0, 0.08)" }
+                    : undefined
+                }
               >
-                <div className="recovery-task-main">
+                <div className="follow-up-wide-main">
                   <Avatar name={item.buyerName} />
+
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
                       <Badge tone={item.tone}>{item.followUpType}</Badge>
                     </div>
+
                     <p>{item.productContext}</p>
+
                     <div className="recovery-meta">
                       <span>{item.source}</span>
                       <span>{item.owner}</span>
                       <span>{item.dueStatus}</span>
-                      <span>{item.lastContact}</span>
                       <span>{item.attemptCount} attempts</span>
                       <span>{item.buyerResponseStatus}</span>
                     </div>
+
                     <small className="queue-next-action">{item.recommendedNextAction}</small>
                   </div>
                 </div>
-                <div className="task-money">
-                  <strong>{item.revenueAtRisk}</strong>
-                  <span>at risk</span>
+
+                <div className="follow-up-card-actions">
+                  <div className="task-money">
+                    <strong>{item.revenueAtRisk}</strong>
+                    <span>at risk</span>
+                  </div>
+
+                  <button
+  className="view-more-btn"
+  type="button"
+  onClick={(event) => {
+    event.stopPropagation();
+    openFollowUpDetails(item);
+  }}
+>
+  View more
+</button>
                 </div>
-              </button>
+              </article>
             ))}
           </div>
         </article>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedFollowUp.buyerName} />
-              <div>
-                <h2>{selectedFollowUp.buyerName}</h2>
-                <p>{selectedFollowUp.productContext}</p>
+        {isDetailOpen && selectedFollowUp ? (
+          <div
+  className="follow-up-modal-backdrop"
+  role="presentation"
+  onClick={() => setIsDetailOpen(false)}
+>
+  <article
+    className="glass-card panel-card follow-up-detail-modal"
+    role="dialog"
+    aria-modal="true"
+    onClick={(event) => event.stopPropagation()}
+  >
+            <div className="detail-heading">
+              <div className="detail-person">
+                <Avatar name={selectedFollowUp.buyerName} />
+                <div>
+                  <h2>{selectedFollowUp.buyerName}</h2>
+                  <p>{selectedFollowUp.productContext}</p>
+                </div>
+              </div>
+
+              <div className="follow-up-detail-header-actions">
+                <strong>{selectedFollowUp.revenueAtRisk}</strong>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={() => setIsDetailOpen(false)}
+                >
+                  Close details
+                </button>
               </div>
             </div>
-            <strong>{selectedFollowUp.revenueAtRisk}</strong>
-          </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Follow-up type</span>
-              <strong>{selectedFollowUp.followUpType}</strong>
+            <div className="detail-grid">
+              <div>
+                <span>Follow-up type</span>
+                <strong>{selectedFollowUp.followUpType}</strong>
+              </div>
+              <div>
+                <span>Owner</span>
+                <strong>{selectedFollowUp.owner}</strong>
+              </div>
+              <div>
+                <span>Due status</span>
+                <strong>{selectedFollowUp.dueStatus}</strong>
+              </div>
+              <div>
+                <span>Last contact</span>
+                <strong>{selectedFollowUp.lastContact}</strong>
+              </div>
+              <div>
+                <span>Attempts</span>
+                <strong>{selectedFollowUp.attemptCount}</strong>
+              </div>
+              <div>
+                <span>Buyer response</span>
+                <strong>{selectedFollowUp.buyerResponseStatus}</strong>
+              </div>
             </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedFollowUp.owner}</strong>
-            </div>
-            <div>
-              <span>Due status</span>
-              <strong>{selectedFollowUp.dueStatus}</strong>
-            </div>
-            <div>
-              <span>Last contact</span>
-              <strong>{selectedFollowUp.lastContact}</strong>
-            </div>
-            <div>
-              <span>Attempts</span>
-              <strong>{selectedFollowUp.attemptCount}</strong>
-            </div>
-            <div>
-              <span>Buyer response</span>
-              <strong>{selectedFollowUp.buyerResponseStatus}</strong>
-            </div>
-          </div>
 
-          <div className="template-box">
-            <div>
-              <span>Message template</span>
+            <div className="template-box follow-up-template-box">
+              <div className="follow-up-template-header">
+                <div>
+                  <span>Message template</span>
+                  <p>Use an approved suggestion or create a new template for Setup &gt; Templates.</p>
+                </div>
+
+                <div className="follow-up-template-actions">
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => setIsTemplateSuggestionOpen((current) => !current)}
+                  >
+                    {isTemplateSuggestionOpen ? "Hide suggestions" : "Show suggestions"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => setIsCreateTemplateOpen((current) => !current)}
+                  >
+                    {isCreateTemplateOpen ? "Cancel template" : "Create template"}
+                  </button>
+                </div>
+              </div>
+
+              <p>{selectedFollowUp.messageTemplate}</p>
+
+              {isTemplateSuggestionOpen ? (
+                <div className="template-suggestion-panel">
+                  {suggestedTemplates.length > 0 ? (
+                    <>
+                      <label className="segment-form-field">
+                        <span>Suggested template</span>
+                        <select
+                          value={selectedSuggestion?.id ?? ""}
+                          onChange={(event) => setSelectedSuggestionId(event.target.value)}
+                        >
+                          {suggestedTemplates.map((template) => (
+                            <option key={template.id} value={template.id}>
+                              {template.templateName} - {template.recoveryType}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {selectedSuggestion ? (
+                        <div className="template-suggestion-preview">
+                          <strong>{selectedSuggestion.templateName}</strong>
+                          <p>{renderTemplateText(selectedSuggestion.previewText, selectedFollowUp)}</p>
+
+                          <div className="recovery-meta">
+                            <span>{selectedSuggestion.recoveryType}</span>
+                            <span>{selectedSuggestion.industryFit}</span>
+                            <span>{selectedSuggestion.channel}</span>
+                            <span>{selectedSuggestion.approvalStatus}</span>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="capture-actions">
+                        <button
+                          type="button"
+                          className="primary-btn"
+                          disabled={!selectedSuggestion}
+                          onClick={() => selectedSuggestion && useSuggestedTemplate(selectedSuggestion)}
+                        >
+                          Use selected template
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          disabled={!selectedSuggestion}
+                          onClick={() =>
+                            selectedSuggestion &&
+                            copyTemplateText(renderTemplateText(selectedSuggestion.previewText, selectedFollowUp))
+                          }
+                        >
+                          Copy selected template
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p>No matching template found. Create one below and it will appear in Setup &gt; Templates.</p>
+                  )}
+                </div>
+              ) : null}
+
+              {isCreateTemplateOpen ? (
+                <form className="template-create-form" onSubmit={createTemplateFromDraft}>
+                  <label className="segment-form-field">
+                    <span>Template name</span>
+                    <input
+                      value={templateDraft.templateName}
+                      onChange={(event) =>
+                        setTemplateDraft((current) => ({
+                          ...current,
+                          templateName: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="template-create-grid">
+                    <label className="segment-form-field">
+                      <span>Recovery type</span>
+                      <select
+                        value={templateDraft.recoveryType}
+                        onChange={(event) =>
+                          setTemplateDraft((current) => ({
+                            ...current,
+                            recoveryType: event.target.value,
+                          }))
+                        }
+                      >
+                        {[
+                          "First Reply",
+                          "Follow-up",
+                          "Payment Reminder",
+                          "Refill Reminder",
+                          "Restock Notice",
+                          "Review Request",
+                          "Referral Request",
+                          "UGC Request",
+                          "Winback",
+                          "Order Issue",
+                        ].map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="segment-form-field">
+                      <span>Industry fit</span>
+                      <select
+                        value={templateDraft.industryFit}
+                        onChange={(event) =>
+                          setTemplateDraft((current) => ({
+                            ...current,
+                            industryFit: event.target.value as MessageTemplate["industryFit"],
+                          }))
+                        }
+                      >
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Fashion / Apparel">Fashion / Apparel</option>
+                        <option value="Beauty / Skincare">Beauty / Skincare</option>
+                      </select>
+                    </label>
+
+                    <label className="segment-form-field">
+                      <span>Channel</span>
+                      <select
+                        value={templateDraft.channel}
+                        onChange={(event) =>
+                          setTemplateDraft((current) => ({
+                            ...current,
+                            channel: event.target.value as MessageTemplate["channel"],
+                          }))
+                        }
+                      >
+                        <option value="Manual Copy">Manual Copy</option>
+                        <option value="Instagram DM">Instagram DM</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Email">Email</option>
+                        <option value="SMS">SMS</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="segment-form-field">
+                    <span>Template message</span>
+                    <textarea
+                      rows={4}
+                      value={templateDraft.previewText}
+                      onChange={(event) =>
+                        setTemplateDraft((current) => ({
+                          ...current,
+                          previewText: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="capture-actions">
+                    <button type="submit" className="primary-btn">
+                      Create and use template
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
+
+            <div className="detail-callout">
+              <span>Internal recovery note</span>
+              <p>{selectedFollowUp.internalRecoveryNote}</p>
+            </div>
+
+            <p className="detail-notice">{notice}</p>
+
+            <div className="detail-actions">
+
+              <button
+  type="button"
+  className="secondary-btn"
+  onClick={() => {
+    updateSelectedFollowUp(
+      {
+        dueStatus: "Snoozed",
+        buyerResponseStatus: "Monitoring",
+        lastContact: "Snoozed until tomorrow",
+        recommendedNextAction: "Follow-up snoozed. Review this buyer again tomorrow.",
+      },
+      "Follow-up snoozed until tomorrow",
+      "Snoozed",
+    );
+
+    setIsTemplateSuggestionOpen(false);
+    setIsCreateTemplateOpen(false);
+  }}
+>
+  Snooze until tomorrow
+</button>
+
               <button
                 type="button"
+                className="secondary-btn"
                 onClick={() =>
                   updateSelectedFollowUp(
-                    { templateCopied: true },
-                    "Template copied",
-                    "Template copied",
+                    { buyerResponseStatus: "No response" },
+                    "Marked no response",
+                    "No response",
                   )
                 }
               >
-                Copy Template
+                Mark no response
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => createPaymentRecoveryCase(selectedFollowUp)}
+              >
+                Create payment recovery case
               </button>
             </div>
-            <p>{selectedFollowUp.messageTemplate}</p>
-          </div>
-
-          <div className="detail-callout">
-            <span>Internal recovery note</span>
-            <p>{selectedFollowUp.internalRecoveryNote}</p>
-          </div>
-
-          <p className="detail-notice">{notice}</p>
-
-          <div className="detail-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() =>
-                updateSelectedFollowUp(
-                  {
-                    buyerResponseStatus: "Follow-up sent",
-                    dueStatus: "Monitoring",
-                    attemptCount: selectedFollowUp.attemptCount + 1,
-                  },
-                  "Marked followed up",
-                  "Sent",
-                )
-              }
-            >
-              Mark followed up
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedFollowUp({ dueStatus: "Snoozed" }, "Snoozed", "Snoozed")}
-            >
-              Snooze
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedFollowUp(
-                  { owner: selectedFollowUp.owner === "Unassigned" ? "Amara Shah" : selectedFollowUp.owner },
-                  "Reassigned",
-                  "Owner assigned",
-                )
-              }
-            >
-              Reassign
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedFollowUp({ buyerResponseStatus: "No response" }, "Marked no response", "No response")}
-            >
-              Mark no response
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedFollowUp({ followUpType: "Payment reminder" }, "Payment recovery case created", "Created")}
-            >
-              Create payment recovery case
-            </button>
-          </div>
-        </aside>
+             </article>
+        </div>
+        ) : null}
       </section>
     </div>
   );
 }
 
-function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryActivity) => void }) {
-  const [payments, setPayments] = useState<PaymentRecoveryItem[]>(paymentRecoveryItems);
+function PaymentRecovery({
+  onActivity,
+  extraPayments = [],
+  templates = messageTemplates,
+  onCreateTemplate,
+}: {
+  onActivity: (activity: NewRecoveryActivity) => void;
+  extraPayments?: PaymentRecoveryItem[];
+  templates?: MessageTemplate[];
+  onCreateTemplate?: (template: MessageTemplate) => void;
+}) {
+  const [payments, setPayments] = useState<PaymentRecoveryItem[]>(() => [
+    ...extraPayments,
+    ...paymentRecoveryItems,
+  ]);
+
   const [activePaymentFilter, setActivePaymentFilter] = useState<PaymentRecoveryFilter>("All");
-  const [selectedPaymentId, setSelectedPaymentId] = useState(paymentRecoveryItems[0].id);
-  const [notice, setNotice] = useState("Select a pending payment to review the recovery action.");
+  const [activePaymentModalId, setActivePaymentModalId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("Use the payment action buttons or open View more for details.");
+  const [isCreatePaymentTemplateOpen, setIsCreatePaymentTemplateOpen] = useState(false);
+const [paymentTemplateDraft, setPaymentTemplateDraft] = useState({
+  templateName: "Payment reminder template",
+  recoveryType: "Payment Reminder",
+  industryFit: "Hybrid" as MessageTemplate["industryFit"],
+  channel: "Manual Copy" as MessageTemplate["channel"],
+  previewText: "",
+});
+  useEffect(() => {
+    setPayments((currentPayments) => {
+      const currentIds = new Set(currentPayments.map((item) => item.id));
+      const newPayments = extraPayments.filter((item) => !currentIds.has(item.id));
 
-  const filteredPayments = payments.filter((item) => matchesPaymentRecoveryFilter(item, activePaymentFilter));
-  const selectedPayment =
-    payments.find((item) => item.id === selectedPaymentId) ?? filteredPayments[0] ?? payments[0];
+      if (newPayments.length === 0) {
+        return currentPayments;
+      }
 
-  const paymentKpis = useMemo<KPI[]>(() => {
-    const pendingValue = payments
-      .filter((item) => item.paymentStatus !== "Recovered" && item.paymentStatus !== "Cancelled / Lost")
-      .reduce((total, item) => total + moneyToNumber(item.paymentAmount), 0);
-    const pendingBuyers = payments.filter((item) => item.paymentStatus !== "Recovered" && item.paymentStatus !== "Cancelled / Lost").length;
-    const overdue = payments.filter((item) => item.dueStatus === "Overdue" || item.paymentStatus === "Overdue").length;
-    const remindersDue = payments.filter((item) => item.paymentStatus === "Pending" || item.paymentStatus === "Overdue").length;
-    const recovered = payments.reduce((total, item) => total + moneyToNumber(item.recoveredAmount), 0);
-    const failedPartial = payments.filter((item) => item.paymentStatus === "Failed payment" || item.paymentStatus === "Partial payment").length;
+      return [...newPayments, ...currentPayments];
+    });
+  }, [extraPayments]);
+
+  useEffect(() => {
+    const targetPaymentId = window.sessionStorage.getItem("altynx-open-payment-id");
+
+    if (!targetPaymentId) return;
+
+    const targetExists = payments.some((item) => item.id === targetPaymentId);
+
+    if (!targetExists) return;
+
+    setActivePaymentFilter("All");
+    setActivePaymentModalId(targetPaymentId);
+    setNotice("Opened the payment recovery case created from Follow-up Recovery.");
+    window.sessionStorage.removeItem("altynx-open-payment-id");
+  }, [payments]);
+
+  const filteredPayments = payments.filter((item) =>
+    matchesPaymentRecoveryFilter(item, activePaymentFilter),
+  );
+
+  const activePaymentModal = activePaymentModalId
+    ? payments.find((item) => item.id === activePaymentModalId) ?? null
+    : null;
+
+  useEffect(() => {
+  if (!activePaymentModal) return;
+
+  setPaymentTemplateDraft({
+    templateName: `${activePaymentModal.paymentStatus} - ${activePaymentModal.productContext}`,
+    recoveryType: "Payment Reminder",
+    industryFit: getPaymentIndustryFit(activePaymentModal),
+    channel: getPaymentTemplateChannel(activePaymentModal),
+    previewText: activePaymentModal.paymentTemplate,
+  });
+
+  setIsCreatePaymentTemplateOpen(false);
+}, [activePaymentModal?.id]);
+
+  const paymentKpis = useMemo((): KPI[] => {
+    const openPayments = payments.filter(
+      (item) => item.paymentStatus !== "Recovered" && item.paymentStatus !== "Cancelled / Lost",
+    );
+
+    const pendingValue = openPayments.reduce(
+      (total, item) => total + moneyToNumber(item.paymentAmount),
+      0,
+    );
+
+    const pendingBuyers = openPayments.length;
+    const overdue = payments.filter(
+      (item) => item.dueStatus === "Overdue" || item.paymentStatus === "Overdue",
+    ).length;
+    const remindersDue = payments.filter(
+      (item) => item.paymentStatus === "Pending" || item.paymentStatus === "Overdue",
+    ).length;
+    const recovered = payments.reduce(
+      (total, item) => total + moneyToNumber(item.recoveredAmount),
+      0,
+    );
+    const failedPartial = payments.filter(
+      (item) => item.paymentStatus === "Failed payment" || item.paymentStatus === "Partial payment",
+    ).length;
 
     return [
-      { label: "Pending Payment Value", value: formatCompactMoney(pendingValue), caption: "Unpaid recovery value", tone: "amber" },
-      { label: "Buyers Pending Payment", value: `${pendingBuyers}`, caption: "Said yes, not paid", tone: "rose" },
-      { label: "Overdue Payments", value: `${overdue}`, caption: "Needs reminder", tone: "rose" },
-      { label: "Payment Reminders Due", value: `${remindersDue}`, caption: "Reminder queue", tone: "cyan" },
-      { label: "Recovered Payments This Month", value: formatCompactMoney(recovered), caption: "Marked recovered here", tone: "emerald" },
-      { label: "Failed / Partial Payments", value: `${failedPartial}`, caption: "Needs payment fix", tone: "amber" },
+      {
+        label: "Pending Payment Value",
+        value: formatCompactMoney(pendingValue),
+        caption: "Unpaid recovery value",
+        tone: "amber",
+      },
+      {
+        label: "Buyers Pending Payment",
+        value: `${pendingBuyers}`,
+        caption: "Said yes, not paid",
+        tone: "rose",
+      },
+      {
+        label: "Overdue Payments",
+        value: `${overdue}`,
+        caption: "Needs reminder",
+        tone: "rose",
+      },
+      {
+        label: "Payment Reminders Due",
+        value: `${remindersDue}`,
+        caption: "Reminder queue",
+        tone: "cyan",
+      },
+      {
+        label: "Recovered Payments This Month",
+        value: formatCompactMoney(recovered),
+        caption: "Marked recovered here",
+        tone: "emerald",
+      },
+      {
+        label: "Failed / Partial Payments",
+        value: `${failedPartial}`,
+        caption: "Needs payment fix",
+        tone: "amber",
+      },
     ];
   }, [payments]);
 
   function recordPaymentActivity(item: PaymentRecoveryItem, title: string, status: string) {
-    onActivity?.({
+    onActivity({
       category: "Payments",
       title,
-      description: `${item.buyerName}'s ${item.productContext.toLowerCase()} payment recovery was updated.`,
-      impactBadge: `${item.paymentAmount} payment value`,
+      description: `${item.buyerName}'s payment recovery case was updated for ${item.productContext}.`,
+      impactBadge:
+        item.paymentStatus === "Recovered"
+          ? `${item.recoveredAmount} recovered`
+          : `${item.paymentAmount} pending`,
       relatedRecord: `${item.source} - ${item.id}`,
       owner: item.owner === "Unassigned" ? undefined : item.owner,
       status,
@@ -15103,16 +17978,208 @@ function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAct
     });
   }
 
-  function updateSelectedPayment(updates: Partial<PaymentRecoveryItem>, title: string, status: string) {
-    const current = selectedPayment;
-    const next = { ...current, ...updates };
-    setPayments((items) => items.map((item) => (item.id === current.id ? next : item)));
-    setNotice(`${title} for ${current.buyerName}.`);
-    recordPaymentActivity(next, title, status);
+  function updatePaymentItem(
+    item: PaymentRecoveryItem,
+    updates: Partial<PaymentRecoveryItem>,
+    title: string,
+    status: string,
+  ) {
+    const nextItem: PaymentRecoveryItem = {
+      ...item,
+      ...updates,
+    };
+
+    setPayments((currentPayments) =>
+      currentPayments.map((payment) => (payment.id === item.id ? nextItem : payment)),
+    );
+
+    setNotice(`${title} for ${item.buyerName}.`);
+    recordPaymentActivity(nextItem, title, status);
+  }
+
+  function setPaymentReminder(item: PaymentRecoveryItem) {
+    updatePaymentItem(
+      item,
+      {
+        paymentStatus: "Reminder sent",
+        dueStatus: "Monitoring",
+        lastReminder: "Reminder set just now",
+        reminderCount: item.reminderCount + 1,
+        recommendedNextAction: "Payment reminder set. Monitor buyer payment completion.",
+        tone: "amber",
+      },
+      "Payment reminder set",
+      "Reminder set",
+    );
+  }
+
+  function markPaymentRecovered(item: PaymentRecoveryItem) {
+    updatePaymentItem(
+      item,
+      {
+        paymentStatus: "Recovered",
+        dueStatus: "Recovered",
+        recoveredAmount: item.paymentAmount,
+        recommendedNextAction: "Payment recovered. Record the recovered value in reporting.",
+        tone: "emerald",
+      },
+      "Payment marked recovered",
+      "Recovered",
+    );
+
+    setActivePaymentFilter("Recovered");
+  }
+
+  function markPaymentFailed(item: PaymentRecoveryItem) {
+    updatePaymentItem(
+      item,
+      {
+        paymentStatus: "Failed payment",
+        dueStatus: "Monitoring",
+        recommendedNextAction: "Payment failed. Confirm blocker or offer another payment method.",
+        tone: "rose",
+      },
+      "Payment marked failed",
+      "Failed",
+    );
+
+    setActivePaymentFilter("Partial / Failed");
+  }
+
+  function snoozePaymentReminder(item: PaymentRecoveryItem) {
+    updatePaymentItem(
+      item,
+      {
+        dueStatus: "Monitoring",
+        lastReminder: "Snoozed until tomorrow",
+        recommendedNextAction: "Payment reminder snoozed. Review this buyer again tomorrow.",
+        tone: "amber",
+      },
+      "Payment reminder snoozed until tomorrow",
+      "Snoozed",
+    );
+  }
+
+  function movePaymentToLost(item: PaymentRecoveryItem) {
+    updatePaymentItem(
+      item,
+      {
+        paymentStatus: "Cancelled / Lost",
+        dueStatus: "Lost",
+        recoveredAmount: "$0",
+        recommendedNextAction: "Payment moved to lost. Keep record for reporting and source leakage review.",
+        tone: "gray",
+      },
+      "Payment moved to lost",
+      "Lost",
+    );
+
+    setActivePaymentFilter("Lost");
+    setActivePaymentModalId(null);
+  }
+
+function getPaymentIndustryFit(item: PaymentRecoveryItem): MessageTemplate["industryFit"] {
+  const context = `${item.productContext} ${item.source}`.toLowerCase();
+
+  if (
+    context.includes("serum") ||
+    context.includes("skin") ||
+    context.includes("skincare") ||
+    context.includes("routine") ||
+    context.includes("lip") ||
+    context.includes("beauty")
+  ) {
+    return "Beauty / Skincare";
+  }
+
+  if (
+    context.includes("bridal") ||
+    context.includes("denim") ||
+    context.includes("jacket") ||
+    context.includes("knitwear") ||
+    context.includes("fashion") ||
+    context.includes("appointment")
+  ) {
+    return "Fashion / Apparel";
+  }
+
+  return "Hybrid";
+}
+
+function getPaymentTemplateChannel(item: PaymentRecoveryItem): MessageTemplate["channel"] {
+  const source = `${item.source} ${item.paymentMethod}`.toLowerCase();
+
+  if (source.includes("whatsapp")) return "WhatsApp";
+  if (source.includes("instagram")) return "Instagram DM";
+  if (source.includes("email") || source.includes("website") || source.includes("invoice")) return "Email";
+
+  return "Manual Copy";
+}
+
+function createPaymentTemplateFromDraft(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+
+  if (!activePaymentModal) return;
+
+  const templateName = paymentTemplateDraft.templateName.trim();
+  const previewText = paymentTemplateDraft.previewText.trim();
+
+  if (!templateName || !previewText) {
+    setNotice("Template name and payment message are required.");
+    return;
+  }
+
+  const newTemplate: MessageTemplate = {
+    id: `TPL-PAY-${Date.now()}`,
+    templateName,
+    recoveryType: paymentTemplateDraft.recoveryType,
+    industryFit: paymentTemplateDraft.industryFit,
+    channel: paymentTemplateDraft.channel,
+    owner: activePaymentModal.owner,
+    approvalStatus: "Draft",
+    lastUpdated: "Just now",
+    usageCount: 0,
+    linkedStageTag: "Payment Recovery",
+    previewText,
+    tone: "amber",
+  };
+
+  onCreateTemplate?.(newTemplate);
+
+  updatePaymentItem(
+    activePaymentModal,
+    {
+      paymentTemplate: previewText,
+      recommendedNextAction: "New payment reminder template created and applied to this payment case.",
+    },
+    "Payment template created",
+    "Template created",
+  );
+
+  setIsCreatePaymentTemplateOpen(false);
+  setNotice(`${newTemplate.templateName} was added to Setup > Templates and applied here.`);
+}
+
+  async function copyPaymentTemplate(item: PaymentRecoveryItem) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(item.paymentTemplate);
+      }
+
+      setNotice(`Payment template copied for ${item.buyerName}.`);
+      recordPaymentActivity(item, "Payment template copied", "Template copied");
+    } catch {
+      setNotice("Template is ready to copy manually.");
+    }
+  }
+
+  function openPaymentDetails(item: PaymentRecoveryItem) {
+    setActivePaymentModalId(item.id);
+    setNotice(`Reviewing ${item.buyerName}'s payment recovery case.`);
   }
 
   return (
-    <div className="recovery-page">
+    <div className="recovery-page payment-recovery-page">
       <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
         {paymentKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
@@ -15132,238 +18199,660 @@ function PaymentRecovery({ onActivity }: { onActivity: (activity: NewRecoveryAct
             </button>
           ))}
         </div>
+
         <Badge tone="cyan">{filteredPayments.length} payment records</Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Payment Recovery</h2>
-              <p>Buyers who said yes but have not completed payment, deposit, COD confirmation, or invoice balance.</p>
-            </div>
-            <Badge tone="amber">Payment pending</Badge>
+      <section className="glass-card panel-card payment-list-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Payment Recovery</h2>
+            <p>Buyers who said yes but have not completed payment, deposit, COD confirmation, or invoice balance.</p>
           </div>
+          <Badge tone="amber">Payment queue</Badge>
+        </div>
 
-          <div className="recovery-list">
-            {filteredPayments.map((item) => (
-              <button
-                className={`payment-card recovery-task-card ${item.tone} ${
-                  selectedPayment.id === item.id ? "selected" : ""
-                }`}
-                key={item.id}
-                onClick={() => setSelectedPaymentId(item.id)}
-                type="button"
-              >
-                <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} />
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{item.buyerName}</h3>
-                      <Badge tone={item.tone}>{item.paymentStatus}</Badge>
-                    </div>
-                    <p>{item.productContext}</p>
-                    <div className="recovery-meta">
-                      <span>{item.source}</span>
-                      <span>{item.paymentMethod}</span>
-                      <span>{item.owner}</span>
-                      <span>{item.dueStatus}</span>
-                      <span>{item.lastReminder}</span>
-                      <span>{item.reminderCount} reminders</span>
-                    </div>
-                    <small className="queue-next-action">{item.recommendedNextAction}</small>
+        <div className="payment-wide-list">
+          {filteredPayments.map((item) => (
+            <article className={`payment-wide-card ${item.tone}`} key={item.id}>
+              <div className="payment-wide-main">
+                <Avatar name={item.buyerName} />
+
+                <div>
+                  <div className="recovery-row-title">
+                    <h3>{item.buyerName}</h3>
+                    <Badge tone={item.tone}>{item.paymentStatus}</Badge>
                   </div>
+
+                  <p>{item.productContext}</p>
+
+                  <div className="recovery-meta">
+                    <span>{item.source}</span>
+                    <span>{item.paymentMethod}</span>
+                    <span>{item.owner}</span>
+                    <span>{item.dueStatus}</span>
+                    <span>{item.lastReminder}</span>
+                    <span>{item.reminderCount} reminders</span>
+                  </div>
+
+                  <small className="queue-next-action">{item.recommendedNextAction}</small>
                 </div>
+              </div>
+
+              <div className="payment-card-actions">
                 <div className="task-money">
                   <strong>{item.paymentAmount}</strong>
                   <span>{item.riskLevel}</span>
                 </div>
-              </button>
-            ))}
-          </div>
-        </article>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedPayment.buyerName} />
-              <div>
-                <h2>{selectedPayment.buyerName}</h2>
-                <p>{selectedPayment.productContext}</p>
+                <div className="payment-inline-actions">
+                  <button
+                    className="payment-action-btn"
+                    type="button"
+                    onClick={() => setPaymentReminder(item)}
+                    disabled={item.paymentStatus === "Recovered" || item.paymentStatus === "Cancelled / Lost"}
+                  >
+                    Set reminder
+                  </button>
+
+                  <button
+                    className="payment-action-btn"
+                    type="button"
+                    onClick={() => markPaymentRecovered(item)}
+                    disabled={item.paymentStatus === "Recovered" || item.paymentStatus === "Cancelled / Lost"}
+                  >
+                    Mark recovered
+                  </button>
+
+                  <button
+                    className="payment-action-btn"
+                    type="button"
+                    onClick={() => markPaymentFailed(item)}
+                    disabled={item.paymentStatus === "Recovered" || item.paymentStatus === "Cancelled / Lost"}
+                  >
+                    Mark failed
+                  </button>
+
+                  <button
+                    className="payment-view-more-btn"
+                    type="button"
+                    onClick={() => openPaymentDetails(item)}
+                  >
+                    View more
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <p className="detail-notice payment-list-notice">{notice}</p>
+      </section>
+
+      {activePaymentModal ? (
+        <div
+          className="payment-modal-backdrop"
+          role="presentation"
+          onClick={() => setActivePaymentModalId(null)}
+        >
+          <article
+            className="glass-card panel-card payment-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="detail-heading">
+              <div className="detail-person">
+                <Avatar name={activePaymentModal.buyerName} />
+                <div>
+                  <h2>{activePaymentModal.buyerName}</h2>
+                  <p>{activePaymentModal.productContext}</p>
+                </div>
+              </div>
+
+              <div className="payment-modal-amount">
+                <strong>{activePaymentModal.paymentAmount}</strong>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setActivePaymentModalId(null)}
+                >
+                  Close
+                </button>
               </div>
             </div>
-            <strong>{selectedPayment.paymentAmount}</strong>
-          </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Payment status</span>
-              <strong>{selectedPayment.paymentStatus}</strong>
+            <div className="detail-grid">
+              <div>
+                <span>Payment status</span>
+                <strong>{activePaymentModal.paymentStatus}</strong>
+              </div>
+              <div>
+                <span>Recovered amount</span>
+                <strong>{activePaymentModal.recoveredAmount}</strong>
+              </div>
+              <div>
+                <span>Payment method</span>
+                <strong>{activePaymentModal.paymentMethod}</strong>
+              </div>
+              <div>
+                <span>Owner</span>
+                <strong>{activePaymentModal.owner}</strong>
+              </div>
+              <div>
+                <span>Last reminder</span>
+                <strong>{activePaymentModal.lastReminder}</strong>
+              </div>
+              <div>
+                <span>Reminder count</span>
+                <strong>{activePaymentModal.reminderCount}</strong>
+              </div>
+              <div>
+                <span>Due status</span>
+                <strong>{activePaymentModal.dueStatus}</strong>
+              </div>
+              <div>
+                <span>Risk level</span>
+                <strong>{activePaymentModal.riskLevel}</strong>
+              </div>
             </div>
-            <div>
-              <span>Recovered amount</span>
-              <strong>{selectedPayment.recoveredAmount}</strong>
-            </div>
-            <div>
-              <span>Payment method</span>
-              <strong>{selectedPayment.paymentMethod}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedPayment.owner}</strong>
-            </div>
-            <div>
-              <span>Last reminder</span>
-              <strong>{selectedPayment.lastReminder}</strong>
-            </div>
-            <div>
-              <span>Reminder count</span>
-              <strong>{selectedPayment.reminderCount}</strong>
-            </div>
-          </div>
 
-          <div className="template-box">
-            <div>
-              <span>Payment reminder template</span>
-              <button type="button" onClick={() => setNotice(`Payment template copied for ${selectedPayment.buyerName}.`)}>
-                Copy Template
+            <div className="template-box payment-template-box">
+  <div className="payment-template-header">
+  <span>Payment reminder template</span>
+  <p>Create a reusable payment reminder and save it into Setup &gt; Templates.</p>
+</div>
+
+<p>{activePaymentModal.paymentTemplate}</p>
+
+<div className="payment-template-actions payment-template-actions-below">
+  <button type="button" onClick={() => copyPaymentTemplate(activePaymentModal)}>
+    Copy Template
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setIsCreatePaymentTemplateOpen((current) => !current)}
+  >
+    {isCreatePaymentTemplateOpen ? "Cancel template" : "Create Template"}
+  </button>
+</div>
+
+  {isCreatePaymentTemplateOpen ? (
+    <form className="payment-template-create-form" onSubmit={createPaymentTemplateFromDraft}>
+      <label className="segment-form-field">
+        <span>Template name</span>
+        <input
+          value={paymentTemplateDraft.templateName}
+          onChange={(event) =>
+            setPaymentTemplateDraft((current) => ({
+              ...current,
+              templateName: event.target.value,
+            }))
+          }
+        />
+      </label>
+
+      <div className="payment-template-create-grid">
+        <label className="segment-form-field">
+          <span>Recovery type</span>
+          <select
+            value={paymentTemplateDraft.recoveryType}
+            onChange={(event) =>
+              setPaymentTemplateDraft((current) => ({
+                ...current,
+                recoveryType: event.target.value,
+              }))
+            }
+          >
+            <option value="Payment Reminder">Payment Reminder</option>
+            <option value="Deposit Reminder">Deposit Reminder</option>
+            <option value="COD Confirmation">COD Confirmation</option>
+            <option value="Failed Payment">Failed Payment</option>
+            <option value="Partial Payment">Partial Payment</option>
+          </select>
+        </label>
+
+        <label className="segment-form-field">
+          <span>Industry fit</span>
+          <select
+            value={paymentTemplateDraft.industryFit}
+            onChange={(event) =>
+              setPaymentTemplateDraft((current) => ({
+                ...current,
+                industryFit: event.target.value as MessageTemplate["industryFit"],
+              }))
+            }
+          >
+            <option value="Hybrid">Hybrid</option>
+            <option value="Fashion / Apparel">Fashion / Apparel</option>
+            <option value="Beauty / Skincare">Beauty / Skincare</option>
+          </select>
+        </label>
+
+        <label className="segment-form-field">
+          <span>Channel</span>
+          <select
+            value={paymentTemplateDraft.channel}
+            onChange={(event) =>
+              setPaymentTemplateDraft((current) => ({
+                ...current,
+                channel: event.target.value as MessageTemplate["channel"],
+              }))
+            }
+          >
+            <option value="Manual Copy">Manual Copy</option>
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Instagram DM">Instagram DM</option>
+            <option value="Email">Email</option>
+            <option value="SMS">SMS</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="segment-form-field">
+        <span>Payment message</span>
+        <textarea
+          rows={4}
+          value={paymentTemplateDraft.previewText}
+          onChange={(event) =>
+            setPaymentTemplateDraft((current) => ({
+              ...current,
+              previewText: event.target.value,
+            }))
+          }
+        />
+      </label>
+
+      <div className="capture-actions">
+        <button type="submit" className="primary-btn">
+          Create and use template
+        </button>
+      </div>
+    </form>
+  ) : null}
+</div>
+
+            <div className="detail-callout">
+              <span>Recommended next action</span>
+              <p>{activePaymentModal.recommendedNextAction}</p>
+            </div>
+
+            <p className="detail-notice">{notice}</p>
+
+            <div className="detail-actions payment-modal-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => snoozePaymentReminder(activePaymentModal)}
+                disabled={activePaymentModal.paymentStatus === "Recovered" || activePaymentModal.paymentStatus === "Cancelled / Lost"}
+              >
+                Snooze payment reminder
+              </button>
+
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => movePaymentToLost(activePaymentModal)}
+                disabled={activePaymentModal.paymentStatus === "Recovered" || activePaymentModal.paymentStatus === "Cancelled / Lost"}
+              >
+                Move to lost
               </button>
             </div>
-            <p>{selectedPayment.paymentTemplate}</p>
-          </div>
-
-          <p className="detail-notice">{notice}</p>
-
-          <div className="detail-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() =>
-                updateSelectedPayment(
-                  {
-                    paymentStatus: "Reminder sent",
-                    lastReminder: "Just now",
-                    reminderCount: selectedPayment.reminderCount + 1,
-                  },
-                  "Reminder sent",
-                  "Sent",
-                )
-              }
-            >
-              Send reminder
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedPayment(
-                  {
-                    paymentStatus: "Recovered",
-                    dueStatus: "Recovered",
-                    recoveredAmount: selectedPayment.paymentAmount,
-                  },
-                  "Marked recovered",
-                  "Recovered",
-                )
-              }
-            >
-              Mark recovered
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedPayment({ paymentStatus: "Failed payment" }, "Marked failed", "Failed")}
-            >
-              Mark failed
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedPayment({ dueStatus: "Due soon" }, "Payment reminder snoozed", "Snoozed")}
-            >
-              Snooze payment reminder
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedPayment(
-                  { owner: selectedPayment.owner === "Unassigned" ? "Tessa Nguyen" : selectedPayment.owner },
-                  "Owner reassigned",
-                  "Owner assigned",
-                )
-              }
-            >
-              Reassign owner
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedPayment({ paymentStatus: "Cancelled / Lost", dueStatus: "Lost" }, "Moved to lost", "Lost")}
-            >
-              Move to lost
-            </button>
-          </div>
-        </aside>
-      </section>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function RecoveredRevenue() {
+function RecoveredRevenue({ onNavigate }: { onNavigate: (page: string) => void }) {
+  type LocalRecoveredRevenueItem = RecoveredRevenueItem & {
+    reviewed?: boolean;
+    noteHistory: string[];
+  };
+
   const [activeRecoveredFilter, setActiveRecoveredFilter] = useState<RecoveredRevenueFilter>("All");
-  const filteredRecovered = recoveredRevenueItems.filter((item) =>
+  const [recoveredRecords, setRecoveredRecords] = useState<LocalRecoveredRevenueItem[]>(() =>
+    recoveredRevenueItems.map((item) => ({
+      ...item,
+      reviewed: false,
+      noteHistory: item.notes ? [item.notes] : [],
+    })),
+  );
+
+  const [relatedCasePreview, setRelatedCasePreview] = useState<LocalRecoveredRevenueItem | null>(null);
+  const [activeNoteCaseId, setActiveNoteCaseId] = useState<string | null>(null);
+  const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [notice, setNotice] = useState("Recovered Revenue is a proof-of-value page. Keep actions lightweight.");
+
+  const filteredRecovered = recoveredRecords.filter((item) =>
     matchesRecoveredRevenueFilter(item, activeRecoveredFilter),
   );
 
-  const recoveredKpis = useMemo<KPI[]>(() => {
-    const recoveredThisMonth = recoveredRevenueItems.reduce((total, item) => total + moneyToNumber(item.recoveredAmount), 0);
-    const payments = recoveredRevenueItems
+  const recoveredKpis = useMemo((): KPI[] => {
+    const recoveredThisMonth = recoveredRecords.reduce(
+      (total, item) => total + moneyToNumber(item.recoveredAmount),
+      0,
+    );
+
+    const payments = recoveredRecords
       .filter((item) => item.recoveryType === "Payment recovered")
       .reduce((total, item) => total + moneyToNumber(item.recoveredAmount), 0);
-    const followUps = recoveredRevenueItems
+
+    const followUps = recoveredRecords
       .filter((item) => item.recoveryType === "Follow-up converted")
       .reduce((total, item) => total + moneyToNumber(item.recoveredAmount), 0);
-    const repeat = recoveredRevenueItems
-      .filter((item) => item.recoveryType.includes("recovered") && item.recoveryType !== "Payment recovered" && item.recoveryType !== "Follow-up converted")
+
+    const repeat = recoveredRecords
+      .filter(
+        (item) =>
+          item.recoveryType === "Repeat purchase recovered" ||
+          item.recoveryType === "Refill reorder recovered" ||
+          item.recoveryType === "Restock purchase recovered" ||
+          item.recoveryType === "Reactivated buyer",
+      )
       .reduce((total, item) => total + moneyToNumber(item.recoveredAmount), 0);
-    const postPurchase = recoveredRevenueItems
-      .filter((item) => item.recoveryType === "Post-purchase upsell" || item.recoveryType === "Referral/UGC influenced sale")
+
+    const postPurchase = recoveredRecords
+      .filter(
+        (item) =>
+          item.recoveryType === "Post-purchase upsell" ||
+          item.recoveryType === "Referral/UGC influenced sale",
+      )
       .reduce((total, item) => total + moneyToNumber(item.recoveredAmount), 0);
-    const originalRisk = recoveredRevenueItems.reduce((total, item) => total + moneyToNumber(item.originalRevenueAtRisk), 0);
+
+    const originalRisk = recoveredRecords.reduce(
+      (total, item) => total + moneyToNumber(item.originalRevenueAtRisk),
+      0,
+    );
+
     const recoveryRate = originalRisk > 0 ? Math.round((recoveredThisMonth / originalRisk) * 100) : 0;
 
     return [
-      { label: "Recovered This Month", value: formatCompactMoney(recoveredThisMonth), caption: "Visible recovered cases", tone: "emerald" },
-      { label: "Recovered Payments", value: formatCompactMoney(payments), caption: "Payment leak recovered", tone: "amber" },
-      { label: "Recovered Follow-ups", value: formatCompactMoney(followUps), caption: "Follow-up converted", tone: "rose" },
-      { label: "Repeat Revenue Recovered", value: formatCompactMoney(repeat), caption: "Refill, restock, repeat", tone: "emerald" },
-      { label: "Post-Purchase Revenue", value: formatCompactMoney(postPurchase), caption: "Review and referral value", tone: "cyan" },
-      { label: "Recovery Rate", value: `${recoveryRate}%`, caption: "Recovered vs original risk", tone: "cyan" },
+      {
+        label: "Recovered This Month",
+        value: formatCompactMoney(recoveredThisMonth),
+        caption: "Visible recovered cases",
+        tone: "emerald",
+      },
+      {
+        label: "Recovered Payments",
+        value: formatCompactMoney(payments),
+        caption: "Payment leak recovered",
+        tone: "amber",
+      },
+      {
+        label: "Recovered Follow-ups",
+        value: formatCompactMoney(followUps),
+        caption: "Follow-up converted",
+        tone: "rose",
+      },
+      {
+        label: "Repeat Revenue Recovered",
+        value: formatCompactMoney(repeat),
+        caption: "Refill, restock, repeat",
+        tone: "emerald",
+      },
+      {
+        label: "Post-Purchase Revenue",
+        value: formatCompactMoney(postPurchase),
+        caption: "Review and referral value",
+        tone: "cyan",
+      },
+      {
+        label: "Recovery Rate",
+        value: `${recoveryRate}%`,
+        caption: "Recovered vs original risk",
+        tone: "cyan",
+      },
     ];
-  }, []);
+  }, [recoveredRecords]);
 
-  const bySource = Array.from(
-    recoveredRevenueItems.reduce((map, item) => {
-      map.set(item.source, (map.get(item.source) ?? 0) + moneyToNumber(item.recoveredAmount));
-      return map;
-    }, new Map<string, number>()),
+  const recoveredBySource = useMemo(
+    () => aggregateRecoveredRevenue(recoveredRecords, (item) => item.source),
+    [recoveredRecords],
   );
-  const byOwner = Array.from(
-    recoveredRevenueItems.reduce((map, item) => {
-      map.set(item.owner, (map.get(item.owner) ?? 0) + moneyToNumber(item.recoveredAmount));
-      return map;
-    }, new Map<string, number>()),
+
+  const recoveredByOwner = useMemo(
+    () => aggregateRecoveredRevenue(recoveredRecords, (item) => item.owner),
+    [recoveredRecords],
   );
-  const byLeakType = Array.from(
-    recoveredRevenueItems.reduce((map, item) => {
-      map.set(item.leakType, (map.get(item.leakType) ?? 0) + moneyToNumber(item.recoveredAmount));
-      return map;
-    }, new Map<string, number>()),
+
+  const recoveredByLeakType = useMemo(
+    () => aggregateRecoveredRevenue(recoveredRecords, (item) => item.leakType),
+    [recoveredRecords],
   );
+
+  function aggregateRecoveredRevenue(
+    records: LocalRecoveredRevenueItem[],
+    getKey: (item: LocalRecoveredRevenueItem) => string,
+  ) {
+    const grouped = records.reduce<Record<string, number>>((groups, item) => {
+      const key = getKey(item);
+      groups[key] = (groups[key] ?? 0) + moneyToNumber(item.recoveredAmount);
+      return groups;
+    }, {});
+
+    return Object.entries(grouped)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  }
+
+  function getRelatedCaseTarget(item: RecoveredRevenueItem) {
+    if (item.recoveryType === "Payment recovered") {
+      return {
+        page: "Payment Recovery",
+        reason: "This recovered value came from a pending payment or payment reminder case.",
+      };
+    }
+
+    if (item.recoveryType === "Follow-up converted") {
+      return {
+        page: "Follow-up Recovery",
+        reason: "This recovered value came from a follow-up action or buyer nudge.",
+      };
+    }
+
+    if (item.recoveryType === "Refill reorder recovered") {
+      return {
+        page: "Refill Opportunities",
+        reason: "This recovered value came from a refill timing opportunity.",
+      };
+    }
+
+    if (item.recoveryType === "Restock purchase recovered") {
+      return {
+        page: "Restock Waitlist",
+        reason: "This recovered value came from a restock or back-in-stock recovery case.",
+      };
+    }
+
+    if (item.recoveryType === "Reactivated buyer") {
+      return {
+        page: "Inactive Buyer Recovery",
+        reason: "This recovered value came from a buyer reactivation or winback case.",
+      };
+    }
+
+    if (
+      item.recoveryType === "Post-purchase upsell" ||
+      item.recoveryType === "Referral/UGC influenced sale"
+    ) {
+      return {
+        page: "Reviews / Referrals / UGC",
+        reason: "This recovered value came from a post-purchase, referral, review, or UGC opportunity.",
+      };
+    }
+
+    return {
+      page: "Revenue Pipeline",
+      reason: "This recovered value is connected to the main revenue recovery pipeline.",
+    };
+  }
+
+  function openRelatedCasePreview(item: LocalRecoveredRevenueItem) {
+    setRelatedCasePreview(item);
+    setNotice(`Previewing related case ${item.relatedCase} for ${item.buyerName}.`);
+  }
+
+  function viewRelatedCaseDetails(item: LocalRecoveredRevenueItem) {
+    const target = getRelatedCaseTarget(item);
+
+    window.sessionStorage.setItem("altynx-related-recovered-case", item.relatedCase);
+    window.sessionStorage.setItem("altynx-related-recovered-buyer", item.buyerName);
+
+    setRelatedCasePreview(null);
+    setNotice(`Opening ${target.page} for ${item.buyerName}.`);
+    onNavigate(target.page);
+  }
+
+  function openAddRecoveryNote(item: LocalRecoveredRevenueItem) {
+    setActiveNoteCaseId(item.id);
+    setEditingNoteIndex(null);
+    setNoteDraft("");
+    setNotice(`Adding recovery proof note for ${item.buyerName}.`);
+  }
+
+  function openEditRecoveryNote(item: LocalRecoveredRevenueItem, noteIndex: number) {
+    setActiveNoteCaseId(item.id);
+    setEditingNoteIndex(noteIndex);
+    setNoteDraft(item.noteHistory[noteIndex] ?? "");
+    setNotice(`Editing note for ${item.buyerName}.`);
+  }
+
+  function cancelRecoveryNote() {
+    setActiveNoteCaseId(null);
+    setEditingNoteIndex(null);
+    setNoteDraft("");
+    setNotice("Recovered Revenue proof page is ready.");
+  }
+
+  function saveRecoveryNote(item: LocalRecoveredRevenueItem) {
+    const cleanNote = noteDraft.trim();
+
+    if (!cleanNote) {
+      setNotice("Write a note before saving.");
+      return;
+    }
+
+    setRecoveredRecords((records) =>
+      records.map((record) => {
+        if (record.id !== item.id) return record;
+
+        const nextNotes =
+          editingNoteIndex === null
+            ? [...record.noteHistory, cleanNote]
+            : record.noteHistory.map((note, index) =>
+                index === editingNoteIndex ? cleanNote : note,
+              );
+
+        return {
+          ...record,
+          notes: nextNotes[0] ?? "",
+          noteHistory: nextNotes,
+        };
+      }),
+    );
+
+    setNotice(
+      editingNoteIndex === null
+        ? `Recovery note added for ${item.buyerName}.`
+        : `Recovery note updated for ${item.buyerName}.`,
+    );
+
+    setActiveNoteCaseId(null);
+    setEditingNoteIndex(null);
+    setNoteDraft("");
+  }
+
+  function deleteRecoveryNote(item: LocalRecoveredRevenueItem, noteIndex: number) {
+    setRecoveredRecords((records) =>
+      records.map((record) => {
+        if (record.id !== item.id) return record;
+
+        const nextNotes = record.noteHistory.filter((_, index) => index !== noteIndex);
+
+        return {
+          ...record,
+          notes: nextNotes[0] ?? "",
+          noteHistory: nextNotes,
+        };
+      }),
+    );
+
+    setNotice(`Recovery note deleted for ${item.buyerName}.`);
+  }
+
+  function markRecoveredCaseReviewed(item: LocalRecoveredRevenueItem) {
+    setRecoveredRecords((records) =>
+      records.map((record) =>
+        record.id === item.id
+          ? {
+              ...record,
+              reviewed: true,
+            }
+          : record,
+      ),
+    );
+
+    setNotice(`${item.buyerName}'s recovered case marked reviewed.`);
+  }
+
+  function exportRecoveredReport(item?: LocalRecoveredRevenueItem) {
+    const recordsToExport = item ? [item] : filteredRecovered;
+    const totalRecovered = recordsToExport.reduce(
+      (total, record) => total + moneyToNumber(record.recoveredAmount),
+      0,
+    );
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text(item ? "Recovered Revenue Case Report" : "Recovered Revenue Report", 14, 18);
+
+    doc.setFontSize(10);
+    doc.text("Altynx Revenue Recovery System - proof-of-value export", 14, 26);
+
+    doc.setFontSize(12);
+    doc.text(`Total recovered: ${formatCompactMoney(totalRecovered)}`, 14, 38);
+    doc.text(`Cases included: ${recordsToExport.length}`, 14, 46);
+
+    let y = 60;
+
+    recordsToExport.forEach((record, index) => {
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`${index + 1}. ${record.buyerName} - ${record.recoveredAmount}`, 14, y);
+
+      doc.setFontSize(9);
+      doc.text(`Recovery type: ${record.recoveryType}`, 18, y + 8);
+      doc.text(`Source: ${record.source}`, 18, y + 15);
+      doc.text(`Owner: ${record.owner}`, 18, y + 22);
+      doc.text(`Original risk: ${record.originalRevenueAtRisk}`, 18, y + 29);
+      doc.text(`Related case: ${record.relatedCase}`, 18, y + 36);
+      doc.text(`Recovered on: ${record.dateRecovered} | Time to recovery: ${record.timeToRecovery}`, 18, y + 43);
+      doc.text(`Action: ${record.actionThatRecoveredIt}`, 18, y + 50);
+
+      const noteText = record.noteHistory.length > 0 ? record.noteHistory.join(" | ") : "No notes added.";
+      doc.text(`Notes: ${noteText}`, 18, y + 57, { maxWidth: 170 });
+
+      y += 76;
+    });
+
+    doc.save(item ? `altynx-recovered-case-${item.relatedCase}.pdf` : "altynx-recovered-revenue-report.pdf");
+
+    setNotice(item ? `Exported report for ${item.buyerName}.` : "Recovered revenue report exported.");
+  }
 
   return (
-    <div className="recovery-page">
+    <div className="recovery-page recovered-proof-page">
+
       <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
         {recoveredKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
@@ -15383,34 +18872,37 @@ function RecoveredRevenue() {
             </button>
           ))}
         </div>
+
         <Badge tone="cyan">{filteredRecovered.length} recovered cases</Badge>
       </section>
 
-      <section className="summary-breakdown-grid">
+      <section className="summary-breakdown-grid recovered-breakdown-grid">
         <article className="summary-breakdown-card">
           <h3>Recovered by Source</h3>
-          {bySource.map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{formatCompactMoney(value)}</strong>
+          {recoveredBySource.map((source) => (
+            <div key={source.label}>
+              <span>{source.label}</span>
+              <strong>{formatCompactMoney(source.value)}</strong>
             </div>
           ))}
         </article>
+
         <article className="summary-breakdown-card">
           <h3>Recovered by Owner</h3>
-          {byOwner.map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{formatCompactMoney(value)}</strong>
+          {recoveredByOwner.map((owner) => (
+            <div key={owner.label}>
+              <span>{owner.label}</span>
+              <strong>{formatCompactMoney(owner.value)}</strong>
             </div>
           ))}
         </article>
+
         <article className="summary-breakdown-card">
           <h3>Recovered by Leak Type</h3>
-          {byLeakType.map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{formatCompactMoney(value)}</strong>
+          {recoveredByLeakType.map((leak) => (
+            <div key={leak.label}>
+              <span>{leak.label}</span>
+              <strong>{formatCompactMoney(leak.value)}</strong>
             </div>
           ))}
         </article>
@@ -15420,93 +18912,631 @@ function RecoveredRevenue() {
         <div className="panel-header">
           <div>
             <h2>Recent Recovered Cases</h2>
-            <p>Recovered revenue by leak type, source, owner, action, and related recovery case.</p>
+            <p>Traceable proof by buyer, source, owner, action, original risk, notes, and related case.</p>
           </div>
           <Badge tone="emerald">Recovered revenue proof</Badge>
         </div>
 
-        <div className="capture-card-list">
+        <div className="capture-card-list recovered-case-list">
           {filteredRecovered.map((item) => (
-            <article className={`recovered-card ${item.tone}`} key={item.id}>
-              <div className="capture-card-main buyer-card-main">
-                <div className="buyer-identity">
+            <article className={`product-card recovered-proof-card ${item.tone}`} key={item.id}>
+              <div className="capture-card-main recovered-case-main">
+                <div className="recovered-case-left">
                   <Avatar name={item.buyerName} />
+
                   <div>
                     <div className="recovery-row-title">
                       <h3>{item.buyerName}</h3>
                       <Badge tone={item.tone}>{item.recoveryType}</Badge>
+                      {item.reviewed ? <Badge tone="emerald">Reviewed</Badge> : null}
                     </div>
+
                     <p>{item.actionThatRecoveredIt}</p>
+
                     <div className="recovery-meta">
                       <span>{item.source}</span>
                       <span>{item.owner}</span>
                       <span>{item.dateRecovered}</span>
                       <span>{item.timeToRecovery}</span>
                       <span>{item.relatedCase}</span>
+                      <span>{item.leakType}</span>
                     </div>
                   </div>
                 </div>
+
                 <div className="capture-value-stack">
                   <strong>{item.recoveredAmount}</strong>
                   <span>{item.originalRevenueAtRisk} original risk</span>
                 </div>
               </div>
 
-              <div className="detail-callout source-fix-callout">
-                <span>Notes</span>
-                <p>{item.notes}</p>
+              <div className="recovered-note-panel">
+                <div className="recovered-note-heading">
+                  <span>Notes</span>
+                  <small>{item.noteHistory.length} note{item.noteHistory.length === 1 ? "" : "s"}</small>
+                </div>
+
+                {item.noteHistory.length > 0 ? (
+                  <div className="recovered-note-list">
+                    {item.noteHistory.map((note, index) => (
+                      <div className="recovered-note-row" key={`${item.id}-note-${index}`}>
+                        <p>{note}</p>
+
+                        <div className="recovered-note-actions">
+                          <button type="button" onClick={() => openEditRecoveryNote(item, index)}>
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => deleteRecoveryNote(item, index)}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-note-text">No recovery note added yet.</p>
+                )}
+
+                {activeNoteCaseId === item.id ? (
+                  <div className="recovered-note-editor">
+                    <textarea
+                      rows={3}
+                      value={noteDraft}
+                      onChange={(event) => setNoteDraft(event.target.value)}
+                      placeholder="Write a short proof note for this recovered case..."
+                    />
+
+                    <div className="recovered-note-editor-actions">
+                      <button type="button" className="primary-btn" onClick={() => saveRecoveryNote(item)}>
+                        Save note
+                      </button>
+                      <button type="button" className="secondary-btn" onClick={cancelRecoveryNote}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Open related case</button>
-                <button type="button" className="secondary-btn">Export recovered report</button>
-                <button type="button" className="secondary-btn">Add recovery note</button>
-                <button type="button" className="secondary-btn">Mark reviewed</button>
+              <div className="capture-actions recovered-proof-actions">
+                <button type="button" className="primary-btn" onClick={() => openRelatedCasePreview(item)}>
+                  Open related case
+                </button>
+
+                <button type="button" className="secondary-btn" onClick={() => exportRecoveredReport(item)}>
+                  Export recovered report
+                </button>
+
+                <button type="button" className="secondary-btn" onClick={() => openAddRecoveryNote(item)}>
+                  Add recovery note
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => markRecoveredCaseReviewed(item)}
+                  disabled={item.reviewed}
+                >
+                  {item.reviewed ? "Reviewed" : "Mark reviewed"}
+                </button>
               </div>
             </article>
           ))}
         </div>
+
+        <p className="detail-notice">{notice}</p>
       </section>
+
+      {relatedCasePreview ? (
+        <div
+          className="recovered-modal-backdrop"
+          role="presentation"
+          onClick={() => setRelatedCasePreview(null)}
+        >
+          <article
+            className="glass-card panel-card recovered-related-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="detail-heading">
+              <div className="detail-person">
+                <Avatar name={relatedCasePreview.buyerName} />
+                <div>
+                  <h2>{relatedCasePreview.buyerName}</h2>
+                  <p>{relatedCasePreview.actionThatRecoveredIt}</p>
+                </div>
+              </div>
+
+              <div className="recovered-modal-amount">
+                <strong>{relatedCasePreview.recoveredAmount}</strong>
+                <button type="button" className="secondary-btn" onClick={() => setRelatedCasePreview(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="detail-grid">
+              <div>
+                <span>Related case</span>
+                <strong>{relatedCasePreview.relatedCase}</strong>
+              </div>
+              <div>
+                <span>Target page</span>
+                <strong>{getRelatedCaseTarget(relatedCasePreview).page}</strong>
+              </div>
+              <div>
+                <span>Recovery type</span>
+                <strong>{relatedCasePreview.recoveryType}</strong>
+              </div>
+              <div>
+                <span>Original risk</span>
+                <strong>{relatedCasePreview.originalRevenueAtRisk}</strong>
+              </div>
+              <div>
+                <span>Source</span>
+                <strong>{relatedCasePreview.source}</strong>
+              </div>
+              <div>
+                <span>Owner</span>
+                <strong>{relatedCasePreview.owner}</strong>
+              </div>
+              <div>
+                <span>Date recovered</span>
+                <strong>{relatedCasePreview.dateRecovered}</strong>
+              </div>
+              <div>
+                <span>Time to recovery</span>
+                <strong>{relatedCasePreview.timeToRecovery}</strong>
+              </div>
+            </div>
+
+            <div className="detail-callout">
+              <span>Why this opens there</span>
+              <p>{getRelatedCaseTarget(relatedCasePreview).reason}</p>
+            </div>
+
+            <div className="detail-callout">
+              <span>Recovery proof notes</span>
+              {relatedCasePreview.noteHistory.length > 0 ? (
+                relatedCasePreview.noteHistory.map((note, index) => (
+                  <p key={`${relatedCasePreview.id}-modal-note-${index}`}>{note}</p>
+                ))
+              ) : (
+                <p>No note added yet.</p>
+              )}
+            </div>
+
+            <div className="detail-actions recovered-modal-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => viewRelatedCaseDetails(relatedCasePreview)}
+              >
+                View details
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => exportRecoveredReport(relatedCasePreview)}
+              >
+                Export this case
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function OrderRiskMonitor() {
+function OrderRiskMonitor({
+  templates = messageTemplates,
+  onCreateTemplate,
+  onNavigate,
+  onMoveToPostPurchase,
+}: {
+  templates?: MessageTemplate[];
+  onCreateTemplate?: (template: MessageTemplate) => void;
+  onNavigate?: (page: string) => void;
+  onMoveToPostPurchase?: (item: OrderRiskItem) => DeliveryFollowUpItem;
+}) {
+  const ORDER_RISK_PAGE_SIZE = 25;
+
   const [orderRisks, setOrderRisks] = useState<OrderRiskItem[]>(orderRiskItems);
   const [activeOrderRiskFilter, setActiveOrderRiskFilter] = useState<OrderRiskFilter>("All");
-  const [selectedOrderRiskId, setSelectedOrderRiskId] = useState(orderRiskItems[0].id);
-  const [notice, setNotice] = useState("Select an order risk to review the next required action.");
+  const [activeOrderRiskModalId, setActiveOrderRiskModalId] = useState<string | null>(null);
+  const [currentOrderRiskPage, setCurrentOrderRiskPage] = useState(1);
+  const [notice, setNotice] = useState("Use list actions or View more for order-risk details.");
+  const [reopenRiskPrompt, setReopenRiskPrompt] = useState<OrderRiskItem | null>(null);
 
-  const filteredOrderRisks = orderRisks.filter((item) => matchesOrderRiskFilter(item, activeOrderRiskFilter));
-  const selectedOrderRisk =
-    orderRisks.find((item) => item.id === selectedOrderRiskId) ?? filteredOrderRisks[0] ?? orderRisks[0];
+  const [isCreateOrderTemplateOpen, setIsCreateOrderTemplateOpen] = useState(false);
+  const [selectedOrderTemplateId, setSelectedOrderTemplateId] = useState("");
+  const [orderTemplateDraft, setOrderTemplateDraft] = useState({
+    templateName: "Order risk message template",
+    recoveryType: "Order Risk",
+    industryFit: "Hybrid" as MessageTemplate["industryFit"],
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
 
-  const orderRiskKpis = useMemo<KPI[]>(() => {
+  const filteredOrderRisks = orderRisks.filter((item) =>
+    matchesOrderRiskFilter(item, activeOrderRiskFilter),
+  );
+
+  const totalOrderRiskPages = Math.max(
+    1,
+    Math.ceil(filteredOrderRisks.length / ORDER_RISK_PAGE_SIZE),
+  );
+
+  const paginatedOrderRisks = filteredOrderRisks.slice(
+    (currentOrderRiskPage - 1) * ORDER_RISK_PAGE_SIZE,
+    currentOrderRiskPage * ORDER_RISK_PAGE_SIZE,
+  );
+
+  const activeOrderRiskModal = activeOrderRiskModalId
+    ? orderRisks.find((item) => item.id === activeOrderRiskModalId) ?? null
+    : null;
+
+  const suggestedOrderTemplates = activeOrderRiskModal
+    ? getOrderRiskTemplateSuggestions(activeOrderRiskModal)
+    : [];
+
+  const selectedOrderTemplate =
+    suggestedOrderTemplates.find((template) => template.id === selectedOrderTemplateId) ??
+    suggestedOrderTemplates[0];
+
+  useEffect(() => {
+    setCurrentOrderRiskPage(1);
+  }, [activeOrderRiskFilter]);
+
+  useEffect(() => {
+    if (currentOrderRiskPage > totalOrderRiskPages) {
+      setCurrentOrderRiskPage(totalOrderRiskPages);
+    }
+  }, [currentOrderRiskPage, totalOrderRiskPages]);
+
+  useEffect(() => {
+    if (!activeOrderRiskModal) return;
+
+    const firstSuggestion = getOrderRiskTemplateSuggestions(activeOrderRiskModal)[0];
+
+    setSelectedOrderTemplateId(firstSuggestion?.id ?? "");
+    setOrderTemplateDraft({
+      templateName: `${activeOrderRiskModal.riskType} - ${activeOrderRiskModal.orderContext}`,
+      recoveryType: getOrderRiskRecoveryType(activeOrderRiskModal),
+      industryFit: activeOrderRiskModal.industryType,
+      channel: getOrderRiskChannel(activeOrderRiskModal),
+      previewText: activeOrderRiskModal.suggestedMessage,
+    });
+
+    setIsCreateOrderTemplateOpen(false);
+  }, [activeOrderRiskModal?.id]);
+
+  const orderRiskKpis = useMemo((): KPI[] => {
     const activeRisks = orderRisks.filter((item) => !item.resolved);
     const riskValue = activeRisks.reduce((total, item) => total + moneyToNumber(item.orderValue), 0);
-    const addressDelivery = activeRisks.filter((item) => item.riskType === "Address Issue" || item.riskType === "Delivery Delay").length;
+    const addressDelivery = activeRisks.filter(
+      (item) => item.riskType === "Address Issue" || item.riskType === "Delivery Delay",
+    ).length;
     const paymentMismatch = activeRisks.filter((item) => item.riskType === "Payment Issue").length;
     const returnRisk = activeRisks.filter((item) => item.riskType === "Return / Exchange Risk").length;
     const unassigned = activeRisks.filter((item) => item.owner === "Unassigned").length;
 
     return [
-      { label: "Orders At Risk", value: `${activeRisks.length}`, caption: "Needs next required action", tone: "rose" },
-      { label: "Revenue In Order Risk", value: formatCompactMoney(riskValue), caption: "Revenue to protect", tone: "amber" },
-      { label: "Address / Delivery Issues", value: `${addressDelivery}`, caption: "Delivery leak watch", tone: "cyan" },
-      { label: "Payment-Order Mismatches", value: `${paymentMismatch}`, caption: "Payment/order risk", tone: "rose" },
-      { label: "Return / Exchange Risk", value: `${returnRisk}`, caption: "Experience recovery", tone: "amber" },
-      { label: "Unassigned Order Actions", value: `${unassigned}`, caption: "Owner needed", tone: "rose" },
+      {
+        label: "Orders At Risk",
+        value: `${activeRisks.length}`,
+        caption: "Needs next required action",
+        tone: "rose",
+      },
+      {
+        label: "Revenue In Order Risk",
+        value: formatCompactMoney(riskValue),
+        caption: "Revenue to protect",
+        tone: "amber",
+      },
+      {
+        label: "Address / Delivery Issues",
+        value: `${addressDelivery}`,
+        caption: "Delivery leak watch",
+        tone: "cyan",
+      },
+      {
+        label: "Payment-Order Mismatches",
+        value: `${paymentMismatch}`,
+        caption: "Payment/order risk",
+        tone: "rose",
+      },
+      {
+        label: "Return / Exchange Risk",
+        value: `${returnRisk}`,
+        caption: "Experience recovery",
+        tone: "amber",
+      },
+      {
+        label: "Unassigned Order Actions",
+        value: `${unassigned}`,
+        caption: "Owner needed",
+        tone: "rose",
+      },
     ];
   }, [orderRisks]);
 
-  function updateSelectedOrderRisk(updates: Partial<OrderRiskItem>, message: string) {
-    const current = selectedOrderRisk;
-    setOrderRisks((items) => items.map((item) => (item.id === current.id ? { ...item, ...updates } : item)));
-    setNotice(`${message} for ${current.buyerName}.`);
+  function updateOrderRiskItem(
+    item: OrderRiskItem,
+    updates: Partial<OrderRiskItem>,
+    message: string,
+  ) {
+    const nextItem = { ...item, ...updates };
+
+    setOrderRisks((items) =>
+      items.map((currentItem) => (currentItem.id === item.id ? nextItem : currentItem)),
+    );
+
+    setNotice(`${message} for ${item.buyerName}.`);
+  }
+
+  function markOrderResolved(item: OrderRiskItem) {
+  if (item.resolved) {
+    setReopenRiskPrompt(item);
+    return;
+  }
+
+  updateOrderRiskItem(
+    item,
+    {
+      resolved: true,
+      dueStatus: "Monitoring",
+      nextRequiredAction: "Order risk resolved. Monitor post-purchase experience.",
+      lastUpdate: "Resolved just now",
+      tone: "emerald",
+    },
+    "Order marked resolved",
+  );
+
+  setActiveOrderRiskFilter("Resolved");
+}
+
+function reopenResolvedOrderRisk(item: OrderRiskItem) {
+  updateOrderRiskItem(
+    item,
+    {
+      resolved: false,
+      dueStatus: "Due today",
+      nextRequiredAction:
+        "Order risk reopened. Review if payment, address, delivery, return, or operations issue still exists.",
+      lastUpdate: "Order risk reopened just now",
+      tone: item.riskType === "Return / Exchange Risk" ? "amber" : "rose",
+    },
+    "Order risk reopened",
+  );
+
+  setReopenRiskPrompt(null);
+  setActiveOrderRiskFilter("All");
+}
+
+  function markOrderReturnRisk(item: OrderRiskItem) {
+  updateOrderRiskItem(
+    item,
+    {
+      resolved: false,
+      riskType: "Return / Exchange Risk",
+      dueStatus: "Due today",
+      nextRequiredAction: "Review return/exchange concern and protect customer experience.",
+      lastUpdate: item.resolved
+        ? "Resolved order moved back to return risk just now"
+        : "Return risk marked just now",
+      tone: "amber",
+    },
+    item.resolved ? "Resolved order moved back to return risk" : "Return risk marked",
+  );
+
+  setReopenRiskPrompt(null);
+  setActiveOrderRiskFilter("Return / Exchange Risk");
+}
+
+  function moveOrderToPostPurchase(item: OrderRiskItem) {
+  const postPurchaseItem = onMoveToPostPurchase?.(item);
+
+  updateOrderRiskItem(
+    item,
+    {
+      resolved: true,
+      dueStatus: "Monitoring",
+      nextRequiredAction:
+        "Moved to post-purchase follow-up. Monitor delivery, review, referral, or second-purchase action.",
+      lastUpdate: "Moved to post-purchase just now",
+      tone: "emerald",
+    },
+    "Moved to post-purchase",
+  );
+
+  if (postPurchaseItem) {
+    window.sessionStorage.setItem("altynx-open-delivery-id", postPurchaseItem.id);
+  }
+
+  setActiveOrderRiskModalId(null);
+  onNavigate?.("Delivery Follow-up");
+}
+
+  function escalateOrderToOperations(item: OrderRiskItem) {
+    updateOrderRiskItem(
+      item,
+      {
+        riskType: "Needs Ops Review",
+        dueStatus: "Overdue",
+        nextRequiredAction:
+          "Operations escalation created. Review the blocker before the order creates lost revenue.",
+        lastUpdate: "Escalated to operations just now",
+        tone: "rose",
+      },
+      "Escalated to operations",
+    );
+
+    setActiveOrderRiskFilter("Needs Ops Review");
+  }
+
+  function openOrderRiskDetails(item: OrderRiskItem) {
+    setActiveOrderRiskModalId(item.id);
+    setNotice(`Reviewing ${item.buyerName}'s order risk.`);
+  }
+
+  function getOrderRiskRecoveryType(item: OrderRiskItem) {
+    if (item.riskType === "Payment Issue") return "Order Payment Issue";
+    if (item.riskType === "Address Issue") return "Address Verification";
+    if (item.riskType === "Delivery Delay") return "Delivery Delay";
+    if (item.riskType === "Return / Exchange Risk") return "Return / Exchange Risk";
+    if (item.riskType === "Complaint") return "Complaint Recovery";
+    if (item.riskType === "Needs Ops Review") return "Operations Escalation";
+
+    return "Order Risk";
+  }
+
+  function getOrderRiskChannel(item: OrderRiskItem): MessageTemplate["channel"] {
+    const source = item.source.toLowerCase();
+
+    if (source.includes("whatsapp")) return "WhatsApp";
+    if (source.includes("instagram")) return "Instagram DM";
+    if (source.includes("website") || source.includes("shopify")) return "Email";
+
+    return "Manual Copy";
+  }
+
+  function getOrderRiskTemplateSuggestions(item: OrderRiskItem) {
+    const targetRecoveryType = getOrderRiskRecoveryType(item);
+
+    const directMatches = templates.filter((template) => {
+      const sameRecoveryType =
+        template.recoveryType === targetRecoveryType ||
+        template.recoveryType === "Order Risk" ||
+        template.linkedStageTag === "Order Risk";
+
+      const sameIndustry =
+        template.industryFit === item.industryType || template.industryFit === "Hybrid";
+
+      return sameRecoveryType && sameIndustry;
+    });
+
+    if (directMatches.length > 0) return directMatches;
+
+    return templates.filter((template) => {
+      const searchableText = `${template.templateName} ${template.recoveryType} ${template.linkedStageTag}`.toLowerCase();
+
+      return (
+        searchableText.includes("order") ||
+        searchableText.includes("delivery") ||
+        searchableText.includes("payment") ||
+        searchableText.includes("return") ||
+        template.industryFit === item.industryType
+      );
+    });
+  }
+
+  function renderOrderRiskTemplate(text: string, item: OrderRiskItem) {
+    return text
+      .replaceAll("{{buyer_name}}", item.buyerName)
+      .replaceAll("{{order_context}}", item.orderContext)
+      .replaceAll("{{order_value}}", item.orderValue)
+      .replaceAll("{{payment_status}}", item.paymentStatus)
+      .replaceAll("{{delivery_status}}", item.deliveryStatus)
+      .replaceAll("{{next_action}}", item.nextRequiredAction)
+      .replaceAll("{{owner_name}}", item.owner);
+  }
+
+  async function copyOrderRiskMessage(item: OrderRiskItem) {
+    const messageToCopy = selectedOrderTemplate
+      ? renderOrderRiskTemplate(selectedOrderTemplate.previewText, item)
+      : item.suggestedMessage;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(messageToCopy);
+      }
+
+      setNotice(`Suggested order-risk message copied for ${item.buyerName}.`);
+    } catch {
+      setNotice("Message is ready to copy manually.");
+    }
+  }
+
+
+function openOrderRiskTemplateCreator(item: OrderRiskItem) {
+  setOrderTemplateDraft({
+    templateName: `${item.riskType} - ${item.orderContext}`,
+    recoveryType: getOrderRiskRecoveryType(item),
+    industryFit: item.industryType,
+    channel: getOrderRiskChannel(item),
+    previewText: item.suggestedMessage,
+  });
+
+  setIsCreateOrderTemplateOpen(true);
+  setNotice(`Creating a reusable order-risk template for ${item.buyerName}.`);
+}
+
+function closeOrderRiskTemplateCreator() {
+  setIsCreateOrderTemplateOpen(false);
+  setNotice("Template creator closed.");
+}
+
+  function useSuggestedOrderTemplate(template: MessageTemplate, item: OrderRiskItem) {
+    updateOrderRiskItem(
+      item,
+      {
+        suggestedMessage: renderOrderRiskTemplate(template.previewText, item),
+        lastUpdate: "Suggested message updated just now",
+      },
+      "Suggested template applied",
+    );
+  }
+
+  function createOrderRiskTemplateFromDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!activeOrderRiskModal) return;
+
+    const templateName = orderTemplateDraft.templateName.trim();
+    const previewText = orderTemplateDraft.previewText.trim();
+
+    if (!templateName || !previewText) {
+      setNotice("Template name and message text are required.");
+      return;
+    }
+
+    const newTemplate: MessageTemplate = {
+      id: `TPL-ORDER-${Date.now()}`,
+      templateName,
+      recoveryType: orderTemplateDraft.recoveryType,
+      industryFit: orderTemplateDraft.industryFit,
+      channel: orderTemplateDraft.channel,
+      owner: activeOrderRiskModal.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: "Order Risk",
+      previewText,
+      tone: activeOrderRiskModal.tone,
+    };
+
+    onCreateTemplate?.(newTemplate);
+
+    updateOrderRiskItem(
+      activeOrderRiskModal,
+      {
+        suggestedMessage: renderOrderRiskTemplate(newTemplate.previewText, activeOrderRiskModal),
+        lastUpdate: "Order-risk template created just now",
+      },
+      "Order-risk message template created",
+    );
+
+    setSelectedOrderTemplateId(newTemplate.id);
+    setIsCreateOrderTemplateOpen(false);
+    setNotice(`${newTemplate.templateName} was added to Setup > Templates and applied here.`);
   }
 
   return (
-    <div className="recovery-page">
+    <div className="recovery-page order-risk-page">
       <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
         {orderRiskKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
@@ -15526,176 +19556,869 @@ function OrderRiskMonitor() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredOrderRisks.length} order risks</Badge>
+
+        <Badge tone="cyan">
+          {filteredOrderRisks.length} order risks · {ORDER_RISK_PAGE_SIZE} per page
+        </Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Order Risk Monitor</h2>
-              <p>Orders that could delay revenue, create complaints, trigger returns, or block post-purchase recovery.</p>
-            </div>
-            <Badge tone="rose">Order risk</Badge>
+      <section className="glass-card panel-card order-risk-list-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Order Risk Monitor</h2>
+            <p>
+              Full list of orders that may delay revenue, create complaints, trigger returns,
+              or block post-purchase recovery.
+            </p>
           </div>
+          <Badge tone="rose">Order risk queue</Badge>
+        </div>
 
-          <div className="recovery-list">
-            {filteredOrderRisks.map((item) => (
-              <button
-                className={`order-risk-card recovery-task-card ${item.tone} ${
-                  selectedOrderRisk.id === item.id ? "selected" : ""
-                }`}
-                key={item.id}
-                onClick={() => setSelectedOrderRiskId(item.id)}
-                type="button"
-              >
-                <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} />
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{item.buyerName}</h3>
-                      <Badge tone={item.tone}>{item.riskType}</Badge>
-                    </div>
-                    <p>{item.orderContext}</p>
-                    <div className="recovery-meta">
-                      <span>{item.industryType}</span>
-                      <span>{item.paymentStatus}</span>
-                      <span>{item.deliveryStatus}</span>
-                      <span>{item.source}</span>
-                      <span>{item.owner}</span>
-                      <span>{item.dueStatus}</span>
-                    </div>
-                    <small className="queue-next-action">{item.nextRequiredAction}</small>
+        <div className="order-risk-wide-list">
+          {paginatedOrderRisks.map((item) => (
+            <article className={`order-risk-wide-card ${item.tone}`} key={item.id}>
+              <div className="order-risk-wide-main">
+                <Avatar name={item.buyerName} />
+
+                <div>
+                  <div className="recovery-row-title">
+                    <h3>{item.buyerName}</h3>
+                    <Badge tone={item.tone}>{item.riskType}</Badge>
+                    {item.resolved ? <Badge tone="emerald">Resolved</Badge> : null}
                   </div>
+
+                  <p>{item.orderContext}</p>
+
+                  <div className="recovery-meta">
+                    <span>{item.industryType}</span>
+                    <span>{item.paymentStatus}</span>
+                    <span>{item.deliveryStatus}</span>
+                    <span>{item.source}</span>
+                    <span>{item.owner}</span>
+                    <span>{item.dueStatus}</span>
+                  </div>
+
+                  <small className="queue-next-action">{item.nextRequiredAction}</small>
                 </div>
+              </div>
+
+              <div className="order-risk-card-actions">
                 <div className="task-money">
                   <strong>{item.orderValue}</strong>
                   <span>{item.priority}</span>
                 </div>
-              </button>
-            ))}
-          </div>
-        </article>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedOrderRisk.buyerName} />
-              <div>
-                <h2>{selectedOrderRisk.buyerName}</h2>
-                <p>{selectedOrderRisk.orderContext}</p>
+                <div className="order-risk-inline-actions">
+                  <button
+  className={`order-risk-action-btn ${item.resolved ? "resolved" : ""}`}
+  type="button"
+  onClick={() => markOrderResolved(item)}
+>
+  {item.resolved ? "Order resolved" : "Mark order resolved"}
+</button>
+
+                  <button
+  className="order-risk-action-btn"
+  type="button"
+  onClick={() => markOrderReturnRisk(item)}
+>
+  Mark return risk
+</button>
+                  <button
+                    className="order-risk-view-more-btn"
+                    type="button"
+                    onClick={() => openOrderRiskDetails(item)}
+                  >
+                    View more
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="order-risk-pagination">
+          <span>
+            Showing {paginatedOrderRisks.length} of {filteredOrderRisks.length} order risks
+          </span>
+
+          <div>
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentOrderRiskPage === 1}
+              onClick={() => setCurrentOrderRiskPage((page) => Math.max(1, page - 1))}
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {currentOrderRiskPage} of {totalOrderRiskPages}
+            </span>
+
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentOrderRiskPage === totalOrderRiskPages}
+              onClick={() => setCurrentOrderRiskPage((page) => Math.min(totalOrderRiskPages, page + 1))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+
+        <p className="detail-notice">{notice}</p>
+      </section>
+
+      {activeOrderRiskModal ? (
+        <div
+          className="order-risk-modal-backdrop"
+          role="presentation"
+          onClick={() => setActiveOrderRiskModalId(null)}
+        >
+          <article
+           className="order-risk-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="detail-heading">
+              <div className="detail-person">
+                <Avatar name={activeOrderRiskModal.buyerName} />
+                <div>
+                  <h2>{activeOrderRiskModal.buyerName}</h2>
+                  <p>{activeOrderRiskModal.orderContext}</p>
+                </div>
+              </div>
+
+              <div className="order-risk-modal-amount">
+                <strong>{activeOrderRiskModal.orderValue}</strong>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setActiveOrderRiskModalId(null)}
+                >
+                  Close
+                </button>
               </div>
             </div>
-            <strong>{selectedOrderRisk.orderValue}</strong>
-          </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Payment status</span>
-              <strong>{selectedOrderRisk.paymentStatus}</strong>
+            <div className="detail-grid">
+              <div>
+                <span>Payment status</span>
+                <strong>{activeOrderRiskModal.paymentStatus}</strong>
+              </div>
+              <div>
+                <span>Delivery status</span>
+                <strong>{activeOrderRiskModal.deliveryStatus}</strong>
+              </div>
+              <div>
+                <span>Risk type</span>
+                <strong>{activeOrderRiskModal.riskType}</strong>
+              </div>
+              <div>
+                <span>Owner</span>
+                <strong>{activeOrderRiskModal.owner}</strong>
+              </div>
+              <div>
+                <span>Last update</span>
+                <strong>{activeOrderRiskModal.lastUpdate}</strong>
+              </div>
+              <div>
+                <span>Due status</span>
+                <strong>{activeOrderRiskModal.dueStatus}</strong>
+              </div>
             </div>
-            <div>
-              <span>Delivery status</span>
-              <strong>{selectedOrderRisk.deliveryStatus}</strong>
-            </div>
-            <div>
-              <span>Risk type</span>
-              <strong>{selectedOrderRisk.riskType}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedOrderRisk.owner}</strong>
-            </div>
-            <div>
-              <span>Last update</span>
-              <strong>{selectedOrderRisk.lastUpdate}</strong>
-            </div>
-            <div>
-              <span>Due status</span>
-              <strong>{selectedOrderRisk.dueStatus}</strong>
-            </div>
-          </div>
 
-          <div className="detail-callout">
-            <span>Next required action</span>
-            <p>{selectedOrderRisk.nextRequiredAction}</p>
-          </div>
+            <div className="detail-callout">
+              <span>Next required action</span>
+              <p>{activeOrderRiskModal.nextRequiredAction}</p>
+            </div>
 
-          <div className="template-box">
-            <div>
-              <span>Suggested buyer message</span>
-              <button type="button" onClick={() => setNotice(`Message copied for ${selectedOrderRisk.buyerName}.`)}>
-                Copy Message
+            <div className="template-box order-risk-template-box">
+              <div className="order-risk-template-header">
+                <div>
+                  <span>Suggested buyer message</span>
+                  <p>
+                    Use a suggested template or create a reusable order-risk template for
+                    Setup &gt; Templates.
+                  </p>
+                </div>
+
+                <div className="order-risk-template-actions">
+  <button type="button" onClick={() => copyOrderRiskMessage(activeOrderRiskModal)}>
+    Copy Message
+  </button>
+</div>
+              </div>
+
+              <p>{activeOrderRiskModal.suggestedMessage}</p>
+
+              {suggestedOrderTemplates.length > 0 ? (
+                <div className="order-risk-template-suggestions">
+                  <label className="segment-form-field">
+                    <span>Recommended template</span>
+                    <select
+                      value={selectedOrderTemplate?.id ?? ""}
+                      onChange={(event) => setSelectedOrderTemplateId(event.target.value)}
+                    >
+                      {suggestedOrderTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.templateName} - {template.recoveryType}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {selectedOrderTemplate ? (
+                    <div className="template-suggestion-preview">
+                      <strong>{selectedOrderTemplate.templateName}</strong>
+                      <p>{renderOrderRiskTemplate(selectedOrderTemplate.previewText, activeOrderRiskModal)}</p>
+                      <div className="recovery-meta">
+                        <span>{selectedOrderTemplate.recoveryType}</span>
+                        <span>{selectedOrderTemplate.industryFit}</span>
+                        <span>{selectedOrderTemplate.channel}</span>
+                        <span>{selectedOrderTemplate.approvalStatus}</span>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="order-risk-template-suggestion-actions">
+  <button
+    type="button"
+    className="primary-btn"
+    disabled={!selectedOrderTemplate}
+    onClick={() =>
+      selectedOrderTemplate &&
+      useSuggestedOrderTemplate(selectedOrderTemplate, activeOrderRiskModal)
+    }
+  >
+    Use recommended template
+  </button>
+
+  <button
+    type="button"
+    className="order-risk-create-template-btn"
+    onClick={() => {
+      if (isCreateOrderTemplateOpen) {
+        closeOrderRiskTemplateCreator();
+        return;
+      }
+
+      openOrderRiskTemplateCreator(activeOrderRiskModal);
+    }}
+  >
+    {isCreateOrderTemplateOpen ? "Cancel template" : "Create Template"}
+  </button>
+</div>
+                </div>
+              ) : null}
+
+              {isCreateOrderTemplateOpen ? (
+                <form className="order-risk-template-create-form" onSubmit={createOrderRiskTemplateFromDraft}>
+                  <label className="segment-form-field">
+                    <span>Template name</span>
+                    <input
+                      value={orderTemplateDraft.templateName}
+                      onChange={(event) =>
+                        setOrderTemplateDraft((current) => ({
+                          ...current,
+                          templateName: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="order-risk-template-create-grid">
+                    <label className="segment-form-field">
+                      <span>Recovery type</span>
+                      <select
+                        value={orderTemplateDraft.recoveryType}
+                        onChange={(event) =>
+                          setOrderTemplateDraft((current) => ({
+                            ...current,
+                            recoveryType: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="Order Risk">Order Risk</option>
+                        <option value="Order Payment Issue">Order Payment Issue</option>
+                        <option value="Address Verification">Address Verification</option>
+                        <option value="Delivery Delay">Delivery Delay</option>
+                        <option value="Return / Exchange Risk">Return / Exchange Risk</option>
+                        <option value="Complaint Recovery">Complaint Recovery</option>
+                        <option value="Operations Escalation">Operations Escalation</option>
+                      </select>
+                    </label>
+
+                    <label className="segment-form-field">
+                      <span>Industry fit</span>
+                      <select
+                        value={orderTemplateDraft.industryFit}
+                        onChange={(event) =>
+                          setOrderTemplateDraft((current) => ({
+                            ...current,
+                            industryFit: event.target.value as MessageTemplate["industryFit"],
+                          }))
+                        }
+                      >
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Fashion / Apparel">Fashion / Apparel</option>
+                        <option value="Beauty / Skincare">Beauty / Skincare</option>
+                      </select>
+                    </label>
+
+                    <label className="segment-form-field">
+                      <span>Channel</span>
+                      <select
+                        value={orderTemplateDraft.channel}
+                        onChange={(event) =>
+                          setOrderTemplateDraft((current) => ({
+  ...current,
+  channel: event.target.value as MessageTemplate["channel"],
+}))
+                        }
+                      >
+                        <option value="Manual Copy">Manual Copy</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Instagram DM">Instagram DM</option>
+                        <option value="Email">Email</option>
+                        <option value="SMS">SMS</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="segment-form-field">
+                    <span>Buyer message</span>
+                    <textarea
+                      rows={4}
+                      value={orderTemplateDraft.previewText}
+                      onChange={(event) =>
+                        setOrderTemplateDraft((current) => ({
+                          ...current,
+                          previewText: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="capture-actions">
+                    <button type="submit" className="primary-btn">
+                      Create and use template
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
+
+            <div className="detail-callout">
+              <span>Internal order note</span>
+              <p>{activeOrderRiskModal.internalOrderNote}</p>
+            </div>
+
+            <p className="detail-notice">{notice}</p>
+
+            <div className="detail-actions order-risk-modal-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => moveOrderToPostPurchase(activeOrderRiskModal)}
+                disabled={activeOrderRiskModal.resolved}
+              >
+                Move to post-purchase
+              </button>
+
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => escalateOrderToOperations(activeOrderRiskModal)}
+                disabled={activeOrderRiskModal.resolved}
+              >
+                Escalate to operations
               </button>
             </div>
-            <p>{selectedOrderRisk.suggestedMessage}</p>
-          </div>
+          </article>
+        </div>
+      ) : null}
+            {reopenRiskPrompt ? (
+        <div
+          className="order-risk-modal-backdrop"
+          role="presentation"
+          onClick={() => setReopenRiskPrompt(null)}
+        >
+          <article
+            className="order-risk-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="detail-heading">
+              <div>
+                <h2>Does this order risk still exist?</h2>
+                <p>
+                  {reopenRiskPrompt.buyerName} is already marked resolved. Confirm if this order
+                  should be moved back into the active Order Risk Monitor.
+                </p>
+              </div>
+            </div>
 
-          <div className="detail-callout">
-            <span>Internal order note</span>
-            <p>{selectedOrderRisk.internalOrderNote}</p>
-          </div>
+            <div className="detail-grid">
+              <div>
+                <span>Buyer</span>
+                <strong>{reopenRiskPrompt.buyerName}</strong>
+              </div>
+              <div>
+                <span>Risk type</span>
+                <strong>{reopenRiskPrompt.riskType}</strong>
+              </div>
+              <div>
+                <span>Order value</span>
+                <strong>{reopenRiskPrompt.orderValue}</strong>
+              </div>
+              <div>
+                <span>Last update</span>
+                <strong>{reopenRiskPrompt.lastUpdate}</strong>
+              </div>
+            </div>
 
-          <p className="detail-notice">{notice}</p>
+            <div className="detail-actions order-risk-modal-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => reopenResolvedOrderRisk(reopenRiskPrompt)}
+              >
+                Yes, reopen risk
+              </button>
 
-          <div className="detail-actions">
-            <button type="button" className="primary-btn" onClick={() => updateSelectedOrderRisk({ resolved: true, dueStatus: "Monitoring" }, "Order marked resolved")}>
-              Mark order resolved
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => updateSelectedOrderRisk({ owner: selectedOrderRisk.owner === "Unassigned" ? "Tessa Nguyen" : selectedOrderRisk.owner }, "Owner assigned")}>
-              Assign owner
-            </button>
-            <button type="button" className="secondary-btn">Create follow-up</button>
-            <button type="button" className="secondary-btn" onClick={() => updateSelectedOrderRisk({ riskType: "Return / Exchange Risk" }, "Return risk marked")}>
-              Mark return risk
-            </button>
-            <button type="button" className="secondary-btn">Move to post-purchase</button>
-            <button type="button" className="secondary-btn">Escalate to operations</button>
-          </div>
-        </aside>
-      </section>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  setReopenRiskPrompt(null);
+                  setNotice("Order stayed resolved.");
+                }}
+              >
+                No, keep resolved
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function DeliveryFollowUp() {
-  const [deliveryItems, setDeliveryItems] = useState<DeliveryFollowUpItem[]>(deliveryFollowUpItems);
+function DeliveryFollowUp({
+  extraDeliveryItems = [],
+  templates = messageTemplates,
+  onCreateTemplate,
+}: {
+  extraDeliveryItems?: DeliveryFollowUpItem[];
+  templates?: MessageTemplate[];
+  onCreateTemplate?: (template: MessageTemplate) => void;
+}) {
+  const DELIVERY_PAGE_SIZE = 25;
+
+  const [deliveryItems, setDeliveryItems] = useState<DeliveryFollowUpItem[]>(() => [
+    ...extraDeliveryItems,
+    ...deliveryFollowUpItems,
+  ]);
   const [activeDeliveryFilter, setActiveDeliveryFilter] = useState<DeliveryFollowUpFilter>("All");
-  const [selectedDeliveryId, setSelectedDeliveryId] = useState(deliveryFollowUpItems[0].id);
-  const [notice, setNotice] = useState("Select a delivery follow-up to review the post-purchase step.");
+  const [activeDeliveryModalId, setActiveDeliveryModalId] = useState<string | null>(
+    extraDeliveryItems[0]?.id ?? null,
+  );
+  const [currentDeliveryPage, setCurrentDeliveryPage] = useState(1);
+  const [notice, setNotice] = useState("Open View more to review the post-purchase follow-up action.");
+
+  const [deliveryActionFeedback, setDeliveryActionFeedback] = useState<{
+    tone: "green" | "yellow";
+    title: string;
+    message: string;
+  } | null>(null);
+
+  const [isCreateDeliveryTemplateOpen, setIsCreateDeliveryTemplateOpen] = useState(false);
+  const [deliveryTemplateDraft, setDeliveryTemplateDraft] = useState({
+    templateName: "Delivery follow-up message template",
+    recoveryType: "Delivery Follow-up",
+    industryFit: "Hybrid" as MessageTemplate["industryFit"],
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
+
+  useEffect(() => {
+    setDeliveryItems((currentItems) => {
+      const currentIds = new Set(currentItems.map((item) => item.id));
+      const newItems = extraDeliveryItems.filter((item) => !currentIds.has(item.id));
+
+      if (newItems.length === 0) {
+        return currentItems;
+      }
+
+      return [...newItems, ...currentItems];
+    });
+  }, [extraDeliveryItems]);
+
+  useEffect(() => {
+    const targetDeliveryId = window.sessionStorage.getItem("altynx-open-delivery-id");
+
+    if (!targetDeliveryId) return;
+
+    const targetExists = deliveryItems.some((item) => item.id === targetDeliveryId);
+
+    if (!targetExists) return;
+
+    setActiveDeliveryModalId(targetDeliveryId);
+    setActiveDeliveryFilter("All");
+    setNotice("Opened the post-purchase follow-up created from Order Risk Monitor.");
+    window.sessionStorage.removeItem("altynx-open-delivery-id");
+  }, [deliveryItems]);
 
   const filteredDeliveryItems = deliveryItems.filter((item) =>
     matchesDeliveryFollowUpFilter(item, activeDeliveryFilter),
   );
-  const selectedDelivery =
-    deliveryItems.find((item) => item.id === selectedDeliveryId) ?? filteredDeliveryItems[0] ?? deliveryItems[0];
 
-  const deliveryKpis = useMemo<KPI[]>(() => {
-    const needingFollowUp = deliveryItems.filter((item) => item.postDeliveryStage !== "Completed").length;
-    const deliveredToday = deliveryItems.filter((item) => item.deliveryTiming.toLowerCase().includes("today")).length;
-    const delayed = deliveryItems.filter((item) => item.postDeliveryStage === "Delivery delayed").length;
-    const satisfaction = deliveryItems.filter((item) => item.postDeliveryStage === "Satisfaction check due").length;
-    const secondPurchase = deliveryItems.filter((item) => item.postDeliveryStage === "Second purchase prompt").length;
+  const totalDeliveryPages = Math.max(1, Math.ceil(filteredDeliveryItems.length / DELIVERY_PAGE_SIZE));
+
+  const paginatedDeliveryItems = filteredDeliveryItems.slice(
+    (currentDeliveryPage - 1) * DELIVERY_PAGE_SIZE,
+    currentDeliveryPage * DELIVERY_PAGE_SIZE,
+  );
+
+  const activeDelivery = activeDeliveryModalId
+    ? deliveryItems.find((item) => item.id === activeDeliveryModalId) ?? null
+    : null;
+
+  const reviewRequestCreated = activeDelivery?.postDeliveryStage === "Review request ready";
+  const refillReminderCreated = activeDelivery?.postDeliveryStage === "Refill timing started";
+  const issueEscalated =
+    activeDelivery?.postDeliveryStage === "Issue follow-up needed" &&
+    activeDelivery?.opportunityType === "Post-delivery issue escalation";
+  const followUpSent = activeDelivery?.postDeliveryStage === "Completed";
+
+  useEffect(() => {
+    setCurrentDeliveryPage(1);
+  }, [activeDeliveryFilter]);
+
+  useEffect(() => {
+    if (currentDeliveryPage > totalDeliveryPages) {
+      setCurrentDeliveryPage(totalDeliveryPages);
+    }
+  }, [currentDeliveryPage, totalDeliveryPages]);
+
+  useEffect(() => {
+    if (!deliveryActionFeedback) return;
+
+    const timer = window.setTimeout(() => {
+      setDeliveryActionFeedback(null);
+    }, 3600);
+
+    return () => window.clearTimeout(timer);
+  }, [deliveryActionFeedback]);
+
+  useEffect(() => {
+    if (!activeDelivery) return;
+
+    setIsCreateDeliveryTemplateOpen(false);
+    setDeliveryTemplateDraft({
+      templateName: `${activeDelivery.postDeliveryStage} - ${activeDelivery.orderContext}`,
+      recoveryType: getDeliveryTemplateRecoveryType(activeDelivery),
+      industryFit: getDeliveryIndustryFit(activeDelivery),
+      channel: getDeliveryTemplateChannel(activeDelivery),
+      previewText: activeDelivery.messageTemplate,
+    });
+  }, [activeDelivery?.id, activeDelivery?.messageTemplate, activeDelivery?.postDeliveryStage]);
+
+  const deliveryKpis = useMemo((): KPI[] => {
+    const openItems = deliveryItems.filter((item) => item.postDeliveryStage !== "Completed");
+    const needingFollowUp = openItems.length;
+    const deliveredToday = deliveryItems.filter((item) =>
+      item.deliveryTiming.toLowerCase().includes("today"),
+    ).length;
+    const delayed = openItems.filter((item) => item.postDeliveryStage === "Delivery delayed").length;
+    const satisfaction = openItems.filter((item) => item.postDeliveryStage === "Satisfaction check due").length;
+    const secondPurchase = openItems.filter((item) => item.postDeliveryStage === "Second purchase prompt").length;
     const protectedValue = deliveryItems.reduce((total, item) => total + moneyToNumber(item.orderValue), 0);
 
     return [
-      { label: "Deliveries Needing Follow-up", value: `${needingFollowUp}`, caption: "Open post-purchase actions", tone: "rose" },
-      { label: "Delivered Today", value: `${deliveredToday}`, caption: "Fresh satisfaction checks", tone: "cyan" },
-      { label: "Delayed Deliveries", value: `${delayed}`, caption: "Delivery issue recovery", tone: "amber" },
-      { label: "Satisfaction Checks Due", value: `${satisfaction}`, caption: "Protect buyer experience", tone: "rose" },
-      { label: "Second-Purchase Prompts", value: `${secondPurchase}`, caption: "Repeat revenue timing", tone: "emerald" },
-      { label: "Delivery Revenue Protected", value: formatCompactMoney(protectedValue), caption: "Orders under follow-up", tone: "emerald" },
+      {
+        label: "Deliveries Needing Follow-up",
+        value: `${needingFollowUp}`,
+        caption: "Open post-purchase actions",
+        tone: "rose",
+      },
+      {
+        label: "Delivered Today",
+        value: `${deliveredToday}`,
+        caption: "Fresh satisfaction checks",
+        tone: "cyan",
+      },
+      {
+        label: "Delayed Deliveries",
+        value: `${delayed}`,
+        caption: "Delivery issue recovery",
+        tone: "amber",
+      },
+      {
+        label: "Satisfaction Checks Due",
+        value: `${satisfaction}`,
+        caption: "Protect buyer experience",
+        tone: "rose",
+      },
+      {
+        label: "Second-Purchase Prompts",
+        value: `${secondPurchase}`,
+        caption: "Repeat revenue timing",
+        tone: "emerald",
+      },
+      {
+        label: "Delivery Revenue Protected",
+        value: formatCompactMoney(protectedValue),
+        caption: "Orders under follow-up",
+        tone: "emerald",
+      },
     ];
   }, [deliveryItems]);
 
-  function updateSelectedDelivery(updates: Partial<DeliveryFollowUpItem>, message: string) {
-    const current = selectedDelivery;
-    setDeliveryItems((items) => items.map((item) => (item.id === current.id ? { ...item, ...updates } : item)));
-    setNotice(`${message} for ${current.buyerName}.`);
+  function updateDeliveryItem(
+    item: DeliveryFollowUpItem,
+    updates: Partial<DeliveryFollowUpItem>,
+    message: string,
+  ) {
+    setDeliveryItems((items) =>
+      items.map((currentItem) =>
+        currentItem.id === item.id
+          ? {
+              ...currentItem,
+              ...updates,
+            }
+          : currentItem,
+      ),
+    );
+
+    setNotice(`${message} for ${item.buyerName}.`);
+  }
+
+  function showDeliveryFeedback(tone: "green" | "yellow", title: string, message: string) {
+    setDeliveryActionFeedback({
+      tone,
+      title,
+      message,
+    });
+  }
+
+  function getDeliveryTemplateRecoveryType(item: DeliveryFollowUpItem) {
+    if (item.postDeliveryStage === "Review request ready") return "Review Request";
+    if (item.postDeliveryStage === "Refill timing started") return "Refill / Restock Reminder";
+    if (item.postDeliveryStage === "Issue follow-up needed") return "Post-Delivery Issue";
+    if (item.postDeliveryStage === "Second purchase prompt") return "Second Purchase";
+    return "Delivery Follow-up";
+  }
+
+  function getDeliveryIndustryFit(item: DeliveryFollowUpItem): MessageTemplate["industryFit"] {
+    const text = `${item.orderContext} ${item.opportunityType} ${item.notes}`.toLowerCase();
+
+    if (
+      text.includes("serum") ||
+      text.includes("skin") ||
+      text.includes("lip") ||
+      text.includes("routine") ||
+      text.includes("shade")
+    ) {
+      return "Beauty / Skincare";
+    }
+
+    if (
+      text.includes("denim") ||
+      text.includes("bridal") ||
+      text.includes("capsule") ||
+      text.includes("fit") ||
+      text.includes("styling")
+    ) {
+      return "Fashion / Apparel";
+    }
+
+    return "Hybrid";
+  }
+
+  function getDeliveryTemplateChannel(item: DeliveryFollowUpItem): MessageTemplate["channel"] {
+    const source = item.source.toLowerCase();
+
+    if (source.includes("whatsapp")) return "WhatsApp";
+    if (source.includes("instagram")) return "Instagram DM";
+    if (source.includes("website") || source.includes("shopify") || source.includes("delivery")) return "Email";
+
+    return "Manual Copy";
+  }
+
+  async function copyDeliveryMessage(item: DeliveryFollowUpItem) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(item.messageTemplate);
+      }
+
+      setNotice(`Delivery message copied for ${item.buyerName}.`);
+    } catch {
+      setNotice("Message is ready to copy manually.");
+    }
+  }
+
+  function openDeliveryTemplateCreator(item: DeliveryFollowUpItem) {
+    setDeliveryTemplateDraft({
+      templateName: `${item.postDeliveryStage} - ${item.orderContext}`,
+      recoveryType: getDeliveryTemplateRecoveryType(item),
+      industryFit: getDeliveryIndustryFit(item),
+      channel: getDeliveryTemplateChannel(item),
+      previewText: item.messageTemplate,
+    });
+
+    setIsCreateDeliveryTemplateOpen(true);
+    setNotice(`Creating a reusable delivery follow-up template for ${item.buyerName}.`);
+  }
+
+  function closeDeliveryTemplateCreator() {
+    setIsCreateDeliveryTemplateOpen(false);
+    setNotice("Template creator closed.");
+  }
+
+  function createDeliveryTemplateFromDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!activeDelivery) return;
+
+    const templateName = deliveryTemplateDraft.templateName.trim();
+    const previewText = deliveryTemplateDraft.previewText.trim();
+
+    if (!templateName || !previewText) {
+      setNotice("Template name and message text are required.");
+      return;
+    }
+
+    const newTemplate: MessageTemplate = {
+      id: `TPL-DELIVERY-${Date.now()}`,
+      templateName,
+      recoveryType: deliveryTemplateDraft.recoveryType,
+      industryFit: deliveryTemplateDraft.industryFit,
+      channel: deliveryTemplateDraft.channel,
+      owner: activeDelivery.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: "Delivery Follow-up",
+      previewText,
+      tone: activeDelivery.tone,
+    };
+
+    onCreateTemplate?.(newTemplate);
+
+    updateDeliveryItem(
+      activeDelivery,
+      {
+        messageTemplate: newTemplate.previewText,
+        notes: `${activeDelivery.notes} New delivery template created just now.`,
+      },
+      "Delivery message template created",
+    );
+
+    setIsCreateDeliveryTemplateOpen(false);
+    showDeliveryFeedback(
+      "green",
+      "Template created",
+      `${newTemplate.templateName} was saved into Setup > Templates and applied here.`,
+    );
+  }
+
+  function markDeliveryFollowUpSent(item: DeliveryFollowUpItem) {
+    updateDeliveryItem(
+      item,
+      {
+        postDeliveryStage: "Completed",
+        nextAction: "Follow-up sent. Monitor buyer response and reopen if a delivery or product issue appears.",
+        notes: `${item.notes} Follow-up sent just now.`,
+        tone: "emerald",
+      },
+      "Follow-up marked sent",
+    );
+
+    showDeliveryFeedback(
+      "green",
+      "Follow-up sent",
+      `The follow-up for ${item.buyerName} has been marked as sent. Monitor buyer response next.`,
+    );
+  }
+
+  function createDeliveryReviewRequest(item: DeliveryFollowUpItem) {
+    updateDeliveryItem(
+      item,
+      {
+        postDeliveryStage: "Review request ready",
+        opportunityType: "Review request",
+        nextAction: "Send the review request while delivery experience is fresh.",
+        messageTemplate: `Hi ${item.buyerName.split(" ")[0]}, your order has been delivered. Could you share if everything arrived as expected and leave a quick review when you have a moment?`,
+        notes: `Your review request has been created. ${item.notes}`,
+        tone: "emerald",
+      },
+      "Review request created",
+    );
+
+    showDeliveryFeedback(
+      "green",
+      "Review request created",
+      `Your review request has been created for ${item.buyerName}. The message template has been updated below.`,
+    );
+  }
+
+  function createDeliveryRefillRestockReminder(item: DeliveryFollowUpItem) {
+    updateDeliveryItem(
+      item,
+      {
+        postDeliveryStage: "Refill timing started",
+        opportunityType: "Refill / restock timing",
+        nextAction: "Start refill/restock timing and follow up when reorder window opens.",
+        messageTemplate: `Hi ${item.buyerName.split(" ")[0]}, checking in after your recent order. I can also remind you when it is time to refill or when matching restock options are available.`,
+        notes: `${item.notes} Refill/restock reminder created just now.`,
+        tone: "cyan",
+      },
+      "Refill/restock reminder created",
+    );
+
+    showDeliveryFeedback(
+      "green",
+      "Refill/restock reminder created",
+      `Your refill/restock reminder has been created for ${item.buyerName}. The message template has been updated below.`,
+    );
+  }
+
+  function escalateDeliveryIssue(item: DeliveryFollowUpItem) {
+    updateDeliveryItem(
+      item,
+      {
+        postDeliveryStage: "Issue follow-up needed",
+        opportunityType: "Post-delivery issue escalation",
+        nextAction: "Review delivery, fit, product experience, or return/exchange issue before it becomes lost revenue.",
+        messageTemplate: `Hi ${item.buyerName.split(" ")[0]}, I want to make sure we fix this quickly. Can you confirm what happened with the delivery or product experience so we can help right away?`,
+        notes: `${item.notes} Post-delivery issue escalated just now.`,
+        tone: "amber",
+      },
+      "Post-delivery issue escalated",
+    );
+
+    setActiveDeliveryFilter("Issue Follow-up");
+
+    showDeliveryFeedback(
+      "yellow",
+      "Post-delivery issue escalated",
+      `${item.buyerName}'s delivery follow-up is now flagged for issue recovery. Review before it becomes a return or lost revenue.`,
+    );
+  }
+
+  function openDeliveryDetails(item: DeliveryFollowUpItem) {
+    setActiveDeliveryModalId(item.id);
+    setDeliveryActionFeedback(null);
+    setNotice(`Reviewing post-purchase follow-up for ${item.buyerName}.`);
   }
 
   return (
-    <div className="recovery-page">
+    <div className="recovery-page delivery-followup-page">
       <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
         {deliveryKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
@@ -15715,168 +20438,1050 @@ function DeliveryFollowUp() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredDeliveryItems.length} delivery follow-ups</Badge>
+
+        <Badge tone="cyan">
+          {filteredDeliveryItems.length} delivery follow-ups · {DELIVERY_PAGE_SIZE} per page
+        </Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Delivery Follow-up</h2>
-              <p>Turn delivery into satisfaction, issue recovery, reviews, referrals, UGC, and repeat-purchase timing.</p>
-            </div>
-            <Badge tone="emerald">Post-purchase recovery</Badge>
+      <section className="glass-card panel-card delivery-followup-list-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Delivery Follow-up</h2>
+            <p>
+              Full list of delivered or recently shipped orders ready for satisfaction checks,
+              issue recovery, reviews, referrals, UGC, and next-purchase timing.
+            </p>
           </div>
+          <Badge tone="emerald">Post-purchase recovery</Badge>
+        </div>
 
-          <div className="recovery-list">
-            {filteredDeliveryItems.map((item) => (
-              <button
-                className={`delivery-card recovery-task-card ${item.tone} ${
-                  selectedDelivery.id === item.id ? "selected" : ""
-                }`}
-                key={item.id}
-                onClick={() => setSelectedDeliveryId(item.id)}
-                type="button"
-              >
-                <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} />
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{item.buyerName}</h3>
-                      <Badge tone={item.tone}>{item.postDeliveryStage}</Badge>
-                    </div>
-                    <p>{item.orderContext}</p>
-                    <div className="recovery-meta">
-                      <span>{item.deliveryStatus}</span>
-                      <span>{item.deliveryTiming}</span>
-                      <span>{item.source}</span>
-                      <span>{item.owner}</span>
-                      <span>{item.opportunityType}</span>
-                    </div>
-                    <small className="queue-next-action">{item.nextAction}</small>
+        <div className="delivery-followup-wide-list">
+          {paginatedDeliveryItems.map((item) => (
+            <article className={`delivery-followup-wide-card ${item.tone}`} key={item.id}>
+              <div className="delivery-followup-wide-main">
+                <Avatar name={item.buyerName} />
+
+                <div>
+                  <div className="recovery-row-title">
+                    <h3>{item.buyerName}</h3>
+                    <Badge tone={item.tone}>{item.postDeliveryStage}</Badge>
                   </div>
+
+                  <p>{item.orderContext}</p>
+
+                  <div className="recovery-meta">
+                    <span>{item.deliveryStatus}</span>
+                    <span>{item.deliveryTiming}</span>
+                    <span>{item.source}</span>
+                    <span>{item.owner}</span>
+                    <span>{item.opportunityType}</span>
+                  </div>
+
+                  <small className="queue-next-action">{item.nextAction}</small>
                 </div>
+              </div>
+
+              <div className="delivery-followup-card-actions">
                 <div className="task-money">
                   <strong>{item.orderValue}</strong>
-                  <span>protected</span>
+                  <span>{item.postDeliveryStage === "Completed" ? "completed" : "protected"}</span>
                 </div>
-              </button>
-            ))}
-          </div>
-        </article>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedDelivery.buyerName} />
-              <div>
-                <h2>{selectedDelivery.buyerName}</h2>
-                <p>{selectedDelivery.orderContext}</p>
+                <button
+                  className="delivery-followup-view-more-btn"
+                  type="button"
+                  onClick={() => openDeliveryDetails(item)}
+                >
+                  View more
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="delivery-followup-pagination">
+          <span>
+            Showing {paginatedDeliveryItems.length} of {filteredDeliveryItems.length} delivery follow-ups
+          </span>
+
+          <div>
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentDeliveryPage === 1}
+              onClick={() => setCurrentDeliveryPage((page) => Math.max(1, page - 1))}
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {currentDeliveryPage} of {totalDeliveryPages}
+            </span>
+
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentDeliveryPage === totalDeliveryPages}
+              onClick={() => setCurrentDeliveryPage((page) => Math.min(totalDeliveryPages, page + 1))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+
+        <p className="detail-notice">{notice}</p>
+      </section>
+
+      {activeDelivery ? (
+        <div
+          className="delivery-followup-modal-backdrop"
+          role="presentation"
+          onClick={() => setActiveDeliveryModalId(null)}
+        >
+          <article
+            className="delivery-followup-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="detail-heading">
+              <div className="detail-person">
+                <Avatar name={activeDelivery.buyerName} />
+                <div>
+                  <h2>{activeDelivery.buyerName}</h2>
+                  <p>{activeDelivery.orderContext}</p>
+                </div>
+              </div>
+
+              <div className="delivery-followup-modal-amount">
+                <strong>{activeDelivery.orderValue}</strong>
+                <button type="button" className="secondary-btn" onClick={() => setActiveDeliveryModalId(null)}>
+                  Close
+                </button>
               </div>
             </div>
-            <strong>{selectedDelivery.orderValue}</strong>
-          </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Delivery status</span>
-              <strong>{selectedDelivery.deliveryStatus}</strong>
-            </div>
-            <div>
-              <span>Delivery timing</span>
-              <strong>{selectedDelivery.deliveryTiming}</strong>
-            </div>
-            <div>
-              <span>Post-delivery stage</span>
-              <strong>{selectedDelivery.postDeliveryStage}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedDelivery.owner}</strong>
-            </div>
-            <div>
-              <span>Source</span>
-              <strong>{selectedDelivery.source}</strong>
-            </div>
-            <div>
-              <span>Opportunity type</span>
-              <strong>{selectedDelivery.opportunityType}</strong>
-            </div>
-          </div>
+            {deliveryActionFeedback ? (
+              <div className={`delivery-action-feedback ${deliveryActionFeedback.tone}`}>
+                <strong>{deliveryActionFeedback.title}</strong>
+                <p>{deliveryActionFeedback.message}</p>
+              </div>
+            ) : null}
 
-          <div className="template-box">
-            <div>
-              <span>Delivery message template</span>
-              <button type="button" onClick={() => setNotice(`Delivery message copied for ${selectedDelivery.buyerName}.`)}>
-                Copy Message
+            <div className="detail-grid">
+              <div>
+                <span>Delivery status</span>
+                <strong>{activeDelivery.deliveryStatus}</strong>
+              </div>
+              <div>
+                <span>Delivery timing</span>
+                <strong>{activeDelivery.deliveryTiming}</strong>
+              </div>
+              <div>
+                <span>Post-delivery stage</span>
+                <strong>{activeDelivery.postDeliveryStage}</strong>
+              </div>
+              <div>
+                <span>Owner</span>
+                <strong>{activeDelivery.owner}</strong>
+              </div>
+              <div>
+                <span>Source</span>
+                <strong>{activeDelivery.source}</strong>
+              </div>
+              <div>
+                <span>Opportunity type</span>
+                <strong>{activeDelivery.opportunityType}</strong>
+              </div>
+            </div>
+
+            <div className="detail-callout">
+              <span>Next action</span>
+              <p>{activeDelivery.nextAction}</p>
+            </div>
+
+            <div className="template-box delivery-followup-template-box">
+              <div>
+                <span>Delivery message template</span>
+                <div className="delivery-template-actions">
+                  <button type="button" onClick={() => copyDeliveryMessage(activeDelivery)}>
+                    Copy Message
+                  </button>
+
+                  <button
+                    type="button"
+                    className="delivery-create-template-btn"
+                    onClick={() => {
+                      if (isCreateDeliveryTemplateOpen) {
+                        closeDeliveryTemplateCreator();
+                        return;
+                      }
+
+                      openDeliveryTemplateCreator(activeDelivery);
+                    }}
+                  >
+                    {isCreateDeliveryTemplateOpen ? "Cancel template" : "Create new template"}
+                  </button>
+                </div>
+              </div>
+
+              <p>{activeDelivery.messageTemplate}</p>
+
+              {isCreateDeliveryTemplateOpen ? (
+                <form className="delivery-template-create-form" onSubmit={createDeliveryTemplateFromDraft}>
+                  <label className="segment-form-field">
+                    <span>Template name</span>
+                    <input
+                      value={deliveryTemplateDraft.templateName}
+                      onChange={(event) =>
+                        setDeliveryTemplateDraft((current) => ({
+                          ...current,
+                          templateName: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="delivery-template-create-grid">
+                    <label className="segment-form-field">
+                      <span>Recovery type</span>
+                      <select
+                        value={deliveryTemplateDraft.recoveryType}
+                        onChange={(event) =>
+                          setDeliveryTemplateDraft((current) => ({
+                            ...current,
+                            recoveryType: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="Delivery Follow-up">Delivery Follow-up</option>
+                        <option value="Review Request">Review Request</option>
+                        <option value="Refill / Restock Reminder">Refill / Restock Reminder</option>
+                        <option value="Post-Delivery Issue">Post-Delivery Issue</option>
+                        <option value="Second Purchase">Second Purchase</option>
+                      </select>
+                    </label>
+
+                    <label className="segment-form-field">
+                      <span>Industry fit</span>
+                      <select
+                        value={deliveryTemplateDraft.industryFit}
+                        onChange={(event) =>
+                          setDeliveryTemplateDraft((current) => ({
+                            ...current,
+                            industryFit: event.target.value as MessageTemplate["industryFit"],
+                          }))
+                        }
+                      >
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Fashion / Apparel">Fashion / Apparel</option>
+                        <option value="Beauty / Skincare">Beauty / Skincare</option>
+                      </select>
+                    </label>
+
+                    <label className="segment-form-field">
+                      <span>Channel</span>
+                      <select
+                        value={deliveryTemplateDraft.channel}
+                        onChange={(event) =>
+                          setDeliveryTemplateDraft((current) => ({
+                            ...current,
+                            channel: event.target.value as MessageTemplate["channel"],
+                          }))
+                        }
+                      >
+                        <option value="Manual Copy">Manual Copy</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Instagram DM">Instagram DM</option>
+                        <option value="Email">Email</option>
+                        <option value="SMS">SMS</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="segment-form-field">
+                    <span>Buyer message</span>
+                    <textarea
+                      rows={4}
+                      value={deliveryTemplateDraft.previewText}
+                      onChange={(event) =>
+                        setDeliveryTemplateDraft((current) => ({
+                          ...current,
+                          previewText: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="capture-actions">
+                    <button type="submit" className="primary-btn">
+                      Create and use template
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
+
+            <div className="detail-callout">
+              <span>Notes</span>
+              <p>{activeDelivery.notes}</p>
+            </div>
+
+            <p className="detail-notice">{notice}</p>
+
+            <div className="detail-actions delivery-followup-modal-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => markDeliveryFollowUpSent(activeDelivery)}
+                disabled={followUpSent}
+              >
+                {followUpSent ? "Follow-up sent" : "Mark follow-up sent"}
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => createDeliveryReviewRequest(activeDelivery)}
+              >
+                {reviewRequestCreated ? "Request created" : "Create review request"}
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => createDeliveryRefillRestockReminder(activeDelivery)}
+              >
+                {refillReminderCreated ? "Reminder created" : "Create refill/restock reminder"}
+              </button>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => escalateDeliveryIssue(activeDelivery)}
+              >
+                {issueEscalated ? "Issue escalated" : "Escalate post-delivery issue"}
               </button>
             </div>
-            <p>{selectedDelivery.messageTemplate}</p>
-          </div>
-
-          <div className="detail-callout">
-            <span>Notes</span>
-            <p>{selectedDelivery.notes}</p>
-          </div>
-
-          <p className="detail-notice">{notice}</p>
-
-          <div className="detail-actions">
-            <button type="button" className="primary-btn" onClick={() => updateSelectedDelivery({ postDeliveryStage: "Completed" }, "Follow-up marked sent")}>
-              Mark follow-up sent
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => updateSelectedDelivery({ postDeliveryStage: "Review request ready" }, "Review request created")}>
-              Create review request
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => updateSelectedDelivery({ postDeliveryStage: "Refill timing started" }, "Refill/restock reminder created")}>
-              Create refill/restock reminder
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => updateSelectedDelivery({ postDeliveryStage: "Issue follow-up needed" }, "Issue escalated")}>
-              Escalate issue
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => updateSelectedDelivery({ postDeliveryStage: "Completed" }, "Delivery follow-up completed")}>
-              Mark completed
-            </button>
-            <button type="button" className="secondary-btn" onClick={() => updateSelectedDelivery({ owner: selectedDelivery.owner === "Unassigned" ? "Luis Park" : selectedDelivery.owner }, "Owner reassigned")}>
-              Reassign owner
-            </button>
-          </div>
-        </aside>
-      </section>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function ReviewsReferralsUGC() {
+function ReviewsReferralsUGC({
+  onCreateTemplate,
+}: {
+  onCreateTemplate?: (template: MessageTemplate) => void;
+}) {
+  type SocialProofActionType = "review" | "referral" | "ugc" | "note";
+
+  type SocialProofNote = {
+    id: string;
+    text: string;
+    createdAt: string;
+  };
+
+  type SocialProofAuditTrail = {
+    id: string;
+    title: string;
+    description: string;
+    owner: string;
+    timestamp: string;
+    tone: Tone;
+  };
+
+  const SOCIAL_PROOF_PAGE_SIZE = 25;
+  const ownerOptions = ["Amara Shah", "Mina Cole", "Luis Park", "Tessa Nguyen"];
+
+  const [opportunities, setOpportunities] = useState<PostPurchaseOpportunity[]>(postPurchaseOpportunities);
   const [activePostPurchaseFilter, setActivePostPurchaseFilter] = useState<PostPurchaseFilter>("All");
-  const filteredOpportunities = postPurchaseOpportunities.filter((item) =>
+  const [currentSocialProofPage, setCurrentSocialProofPage] = useState(1);
+
+  const [expandedAction, setExpandedAction] = useState<{
+    id: string;
+    type: SocialProofActionType;
+  } | null>(null);
+
+  const [copiedTemplateKey, setCopiedTemplateKey] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [editingNote, setEditingNote] = useState<{ itemId: string; noteId: string } | null>(null);
+  const [notesByItemId, setNotesByItemId] = useState<Record<string, SocialProofNote[]>>({});
+  const [auditTrailsByItemId, setAuditTrailsByItemId] = useState<Record<string, SocialProofAuditTrail[]>>({});
+  const [auditTrailItemId, setAuditTrailItemId] = useState<string | null>(null);
+
+  const [notice, setNotice] = useState("Choose a social-proof action from the list.");
+  const [secondPurchaseItemId, setSecondPurchaseItemId] = useState<string | null>(null);
+  const [isAddOpportunityOpen, setIsAddOpportunityOpen] = useState(false);
+
+  const [templateCreator, setTemplateCreator] = useState<{
+    itemId: string;
+    type: Exclude<SocialProofActionType, "note">;
+  } | null>(null);
+
+  const [templateDraft, setTemplateDraft] = useState({
+    templateName: "",
+    recoveryType: "Review Request",
+    industryFit: "Hybrid" as MessageTemplate["industryFit"],
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
+
+  const [secondPurchaseDraft, setSecondPurchaseDraft] = useState({
+    offerType: "Matching product",
+    timing: "This week",
+    channel: "Manual Copy",
+    message:
+      "Your recent order is a great match for this next piece. I can send the recommendation while it is still available.",
+  });
+
+  const [manualOpportunityDraft, setManualOpportunityDraft] = useState({
+    buyerName: "",
+    orderContext: "",
+    source: "Manual Entry",
+    owner: ownerOptions[0],
+    requestStatus: "Not sent" as PostPurchaseOpportunity["requestStatus"],
+    industryType: "Fashion / Apparel" as PostPurchaseOpportunity["industryType"],
+    opportunityType: "Review request" as PostPurchaseOpportunity["opportunityType"],
+    orderValue: "$0",
+    buyerStatus: "Manual social-proof opportunity",
+  });
+
+  const filteredOpportunities = opportunities.filter((item) =>
     matchesPostPurchaseFilter(item, activePostPurchaseFilter),
   );
 
-  const postPurchaseKpis = useMemo<KPI[]>(() => {
-    const reviewDue = postPurchaseOpportunities.filter((item) => item.opportunityType.includes("Review") || item.opportunityType.includes("feedback")).length;
-    const referrals = postPurchaseOpportunities.filter((item) => item.opportunityType.includes("Referral") || item.opportunityType.includes("referral")).length;
-    const ugc = postPurchaseOpportunities.filter((item) => item.opportunityType.includes("UGC") || item.opportunityType.includes("content") || item.opportunityType.includes("photo")).length;
-    const opportunityValue = postPurchaseOpportunities.reduce((total, item) => total + moneyToNumber(item.orderValue), 0);
-    const sent = postPurchaseOpportunities.filter((item) => item.requestStatus === "Sent" || item.requestStatus === "Completed").length;
-    const open = postPurchaseOpportunities.filter((item) => item.requestStatus !== "Completed").length;
+  const totalSocialProofPages = Math.max(
+    1,
+    Math.ceil(filteredOpportunities.length / SOCIAL_PROOF_PAGE_SIZE),
+  );
+
+  const paginatedOpportunities = filteredOpportunities.slice(
+    (currentSocialProofPage - 1) * SOCIAL_PROOF_PAGE_SIZE,
+    currentSocialProofPage * SOCIAL_PROOF_PAGE_SIZE,
+  );
+
+  const auditTrailItem = auditTrailItemId
+    ? opportunities.find((item) => item.id === auditTrailItemId) ?? null
+    : null;
+
+  useEffect(() => {
+    setCurrentSocialProofPage(1);
+  }, [activePostPurchaseFilter]);
+
+  useEffect(() => {
+    if (currentSocialProofPage > totalSocialProofPages) {
+      setCurrentSocialProofPage(totalSocialProofPages);
+    }
+  }, [currentSocialProofPage, totalSocialProofPages]);
+
+  const postPurchaseKpis = useMemo((): KPI[] => {
+    const reviewDue = opportunities.filter(
+      (item) => item.opportunityType.includes("Review") || item.opportunityType.includes("feedback"),
+    ).length;
+
+    const referrals = opportunities.filter(
+      (item) => item.opportunityType.includes("Referral") || item.opportunityType.includes("referral"),
+    ).length;
+
+    const ugc = opportunities.filter(
+      (item) =>
+        item.opportunityType.includes("UGC") ||
+        item.opportunityType.includes("content") ||
+        item.opportunityType.includes("photo") ||
+        item.opportunityType.includes("testimonial"),
+    ).length;
+
+    const opportunityValue = opportunities.reduce(
+      (total, item) => total + moneyToNumber(item.orderValue),
+      0,
+    );
+
+    const sent = opportunities.filter(
+      (item) => item.requestStatus === "Sent" || item.requestStatus === "Completed",
+    ).length;
+
+    const open = opportunities.filter((item) => item.requestStatus !== "Completed").length;
 
     return [
-      { label: "Review Requests Due", value: `${reviewDue}`, caption: "Social proof ready", tone: "rose" },
-      { label: "Referral Opportunities", value: `${referrals}`, caption: "Referral value open", tone: "emerald" },
-      { label: "UGC Candidates", value: `${ugc}`, caption: "Content ask ready", tone: "cyan" },
-      { label: "Post-Purchase Revenue Opportunity", value: formatCompactMoney(opportunityValue), caption: "Visible order value", tone: "amber" },
-      { label: "Requests Sent This Month", value: `${sent}`, caption: "Post-purchase asks sent", tone: "emerald" },
-      { label: "Social Proof Actions Open", value: `${open}`, caption: "Needs owner action", tone: "rose" },
+      {
+        label: "Review Requests Due",
+        value: `${reviewDue}`,
+        caption: "Social proof ready",
+        tone: "rose",
+      },
+      {
+        label: "Referral Opportunities",
+        value: `${referrals}`,
+        caption: "Referral value open",
+        tone: "emerald",
+      },
+      {
+        label: "UGC Candidates",
+        value: `${ugc}`,
+        caption: "Content ask ready",
+        tone: "cyan",
+      },
+      {
+        label: "Post-Purchase Revenue Opportunity",
+        value: formatCompactMoney(opportunityValue),
+        caption: "Visible order value",
+        tone: "amber",
+      },
+      {
+        label: "Requests Sent This Month",
+        value: `${sent}`,
+        caption: "Post-purchase asks sent",
+        tone: "emerald",
+      },
+      {
+        label: "Social Proof Actions Open",
+        value: `${open}`,
+        caption: "Needs owner action",
+        tone: "rose",
+      },
     ];
-  }, []);
+  }, [opportunities]);
 
-  const reviewCount = postPurchaseOpportunities.filter((item) => item.opportunityType.includes("Review") || item.opportunityType.includes("feedback")).length;
-  const referralCount = postPurchaseOpportunities.filter((item) => item.opportunityType.includes("Referral") || item.opportunityType.includes("referral")).length;
-  const ugcCount = postPurchaseOpportunities.filter((item) => item.opportunityType.includes("UGC") || item.opportunityType.includes("content") || item.opportunityType.includes("photo")).length;
+  const reviewPipeline = useMemo(
+    () => [
+      {
+        label: "Review opportunities",
+        value: opportunities.filter((item) => item.opportunityType.includes("Review")).length,
+      },
+      {
+        label: "Not sent",
+        value: opportunities.filter((item) => item.requestStatus === "Not sent").length,
+      },
+      {
+        label: "Completed",
+        value: opportunities.filter((item) => item.requestStatus === "Completed").length,
+      },
+    ],
+    [opportunities],
+  );
+
+  const referralPipeline = useMemo(
+    () => [
+      {
+        label: "Referral opportunities",
+        value: opportunities.filter((item) => item.opportunityType.includes("Referral")).length,
+      },
+      {
+        label: "Needs follow-up",
+        value: opportunities.filter((item) => item.requestStatus === "Needs follow-up").length,
+      },
+      {
+        label: "Sent",
+        value: opportunities.filter((item) => item.requestStatus === "Sent").length,
+      },
+    ],
+    [opportunities],
+  );
+
+  const ugcPipeline = useMemo(
+    () => [
+      {
+        label: "UGC candidates",
+        value: opportunities.filter(
+          (item) =>
+            item.opportunityType.includes("UGC") ||
+            item.opportunityType.includes("photo") ||
+            item.opportunityType.includes("testimonial"),
+        ).length,
+      },
+      {
+        label: "VIP buyers",
+        value: opportunities.filter((item) => item.buyerStatus.toLowerCase().includes("vip")).length,
+      },
+      {
+        label: "High value",
+        value: opportunities.filter((item) => moneyToNumber(item.orderValue) >= 500).length,
+      },
+    ],
+    [opportunities],
+  );
+
+  function addAuditTrail(
+    item: PostPurchaseOpportunity,
+    title: string,
+    description: string,
+    tone: Tone = "emerald",
+  ) {
+    setAuditTrailsByItemId((current) => ({
+      ...current,
+      [item.id]: [
+        {
+          id: `AUDIT-${Date.now()}`,
+          title,
+          description,
+          owner: item.owner,
+          timestamp: "Just now",
+          tone,
+        },
+        ...(current[item.id] ?? []),
+      ],
+    }));
+  }
+
+  function updateOpportunity(
+    itemId: string,
+    updates: Partial<PostPurchaseOpportunity>,
+    message: string,
+  ) {
+    setOpportunities((items) =>
+      items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              ...updates,
+            }
+          : item,
+      ),
+    );
+
+    setNotice(message);
+  }
+
+  function getActionLabel(actionType: SocialProofActionType) {
+    if (actionType === "review") return "Review request";
+    if (actionType === "referral") return "Referral request";
+    if (actionType === "ugc") return "UGC request";
+
+    return "Internal note";
+  }
+
+  function getActionRecoveryType(actionType: Exclude<SocialProofActionType, "note">) {
+    if (actionType === "review") return "Review Request";
+    if (actionType === "referral") return "Referral Request";
+
+    return "UGC Request";
+  }
+
+  function getActionTemplate(item: PostPurchaseOpportunity, actionType: Exclude<SocialProofActionType, "note">) {
+    const firstName = item.buyerName.split(" ")[0];
+
+    if (actionType === "review") {
+      return `Hi ${firstName}, how did your ${item.orderContext} work for you? A quick review would help other buyers decide with more confidence.`;
+    }
+
+    if (actionType === "referral") {
+      return `Hi ${firstName}, if you know someone who would love ${item.orderContext}, I can send you a referral note or code to share with them.`;
+    }
+
+    return `Hi ${firstName}, your ${item.orderContext} would be perfect for a quick photo, try-on, routine clip, or styling note. Would you like to share one?`;
+  }
+
+  function getActionOpportunityType(
+    actionType: Exclude<SocialProofActionType, "note">,
+  ): PostPurchaseOpportunity["opportunityType"] {
+    if (actionType === "review") return "Review request";
+    if (actionType === "referral") return "Referral request";
+
+    return "UGC request";
+  }
+
+  function openActionPanel(item: PostPurchaseOpportunity, actionType: SocialProofActionType) {
+    setExpandedAction((current) =>
+      current?.id === item.id && current.type === actionType ? null : { id: item.id, type: actionType },
+    );
+
+    setCopiedTemplateKey(null);
+    setTemplateCreator(null);
+
+    if (actionType !== "note") {
+      const template = getActionTemplate(item, actionType);
+
+      updateOpportunity(
+        item.id,
+        {
+          messageTemplate: template,
+          opportunityType: getActionOpportunityType(actionType),
+          recommendedNextAction: `${getActionLabel(actionType)} is ready. Review the template, copy it, create a reusable template, or send it now.`,
+        },
+        `${getActionLabel(actionType)} opened for ${item.buyerName}.`,
+      );
+
+      addAuditTrail(
+        item,
+        `${getActionLabel(actionType)} opened`,
+        `${item.owner} opened the ${getActionLabel(actionType).toLowerCase()} action panel.`,
+        "cyan",
+      );
+    }
+
+    if (actionType === "note") {
+      setNoteDraft("");
+      setEditingNote(null);
+      setNotice(`Adding internal note for ${item.buyerName}.`);
+    }
+  }
+
+  async function copyActionTemplate(
+    item: PostPurchaseOpportunity,
+    actionType: Exclude<SocialProofActionType, "note">,
+    templateText: string,
+  ) {
+    const copyKey = `${item.id}-${actionType}`;
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(templateText);
+      }
+
+      setCopiedTemplateKey(copyKey);
+      setNotice(`${getActionLabel(actionType)} template copied for ${item.buyerName}.`);
+      addAuditTrail(
+        item,
+        "Template copied",
+        `${getActionLabel(actionType)} template was copied.`,
+        "emerald",
+      );
+    } catch {
+      setNotice("Template is ready to copy manually.");
+    }
+  }
+
+  async function copyTemplate(item: PostPurchaseOpportunity) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(item.messageTemplate);
+      }
+
+      setNotice(`Template copied for ${item.buyerName}.`);
+      addAuditTrail(item, "Template copied", "Current message template was copied.", "emerald");
+    } catch {
+      setNotice("Template is ready to copy manually.");
+    }
+  }
+
+  function sendActionRequest(item: PostPurchaseOpportunity, actionType: Exclude<SocialProofActionType, "note">) {
+    const template = getActionTemplate(item, actionType);
+
+    updateOpportunity(
+      item.id,
+      {
+        requestStatus: "Sent",
+        opportunityType: getActionOpportunityType(actionType),
+        messageTemplate: template,
+        recommendedNextAction: `${getActionLabel(actionType)} sent. Monitor response and mark completed when received.`,
+        tone: actionType === "review" ? "emerald" : actionType === "referral" ? "cyan" : "indigo",
+      },
+      `${getActionLabel(actionType)} sent for ${item.buyerName}.`,
+    );
+
+    addAuditTrail(
+      item,
+      `${getActionLabel(actionType)} sent`,
+      `${getActionLabel(actionType)} was marked sent from the social-proof queue.`,
+      actionType === "ugc" ? "indigo" : "emerald",
+    );
+  }
+
+  function openTemplateCreator(item: PostPurchaseOpportunity, actionType: Exclude<SocialProofActionType, "note">) {
+    const template = getActionTemplate(item, actionType);
+
+    setTemplateCreator({ itemId: item.id, type: actionType });
+    setTemplateDraft({
+      templateName: `${getActionLabel(actionType)} - ${item.orderContext}`,
+      recoveryType: getActionRecoveryType(actionType),
+      industryFit: item.industryType,
+      channel:
+        item.source.toLowerCase().includes("instagram")
+          ? "Instagram DM"
+          : item.source.toLowerCase().includes("whatsapp")
+            ? "WhatsApp"
+            : "Manual Copy",
+      previewText: template,
+    });
+
+    setNotice(`Creating ${getActionLabel(actionType).toLowerCase()} template for ${item.buyerName}.`);
+  }
+
+  function createTemplateFromDraft(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!templateCreator) return;
+
+    const item = opportunities.find((opportunity) => opportunity.id === templateCreator.itemId);
+
+    if (!item) return;
+
+    const templateName = templateDraft.templateName.trim();
+    const previewText = templateDraft.previewText.trim();
+
+    if (!templateName || !previewText) {
+      setNotice("Template name and message text are required.");
+      return;
+    }
+
+    const newTemplate: MessageTemplate = {
+      id: `TPL-SOCIAL-${Date.now()}`,
+      templateName,
+      recoveryType: templateDraft.recoveryType,
+      industryFit: templateDraft.industryFit,
+      channel: templateDraft.channel,
+      owner: item.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: "Reviews / Referrals / UGC",
+      previewText,
+      tone: item.tone,
+    };
+
+    onCreateTemplate?.(newTemplate);
+
+    updateOpportunity(
+      item.id,
+      {
+        messageTemplate: newTemplate.previewText,
+        recommendedNextAction: `${getActionLabel(templateCreator.type)} template saved. Send or copy it from this action panel.`,
+      },
+      `${newTemplate.templateName} added to Setup > Templates.`,
+    );
+
+    addAuditTrail(
+      item,
+      "Template created",
+      `${newTemplate.templateName} was created and saved into Setup > Templates.`,
+      "emerald",
+    );
+
+    setTemplateCreator(null);
+  }
+
+  function markSent(item: PostPurchaseOpportunity) {
+    updateOpportunity(
+      item.id,
+      {
+        requestStatus: "Sent",
+        recommendedNextAction: "Request sent. Monitor response and complete when buyer replies or submits proof.",
+        tone: "emerald",
+      },
+      `Request marked sent for ${item.buyerName}.`,
+    );
+
+    addAuditTrail(item, "Marked sent", "Social-proof request was marked sent.", "emerald");
+  }
+
+  function toggleCompleted(item: PostPurchaseOpportunity) {
+    const isCompleted = item.requestStatus === "Completed";
+
+    updateOpportunity(
+      item.id,
+      {
+        requestStatus: isCompleted ? "Sent" : "Completed",
+        recommendedNextAction: isCompleted
+          ? "Completion reverted. Monitor buyer response again."
+          : "Social proof action completed. Add proof or link if available.",
+        tone: isCompleted ? "amber" : "emerald",
+      },
+      isCompleted
+        ? `Completion reverted for ${item.buyerName}.`
+        : `${item.buyerName} marked completed.`,
+    );
+
+    addAuditTrail(
+      item,
+      isCompleted ? "Completion reverted" : "Marked completed",
+      isCompleted
+        ? "Completed badge was removed and the case returned to sent status."
+        : "Completed badge was added to the social-proof opportunity.",
+      isCompleted ? "amber" : "emerald",
+    );
+  }
+
+  function saveInternalNote(item: PostPurchaseOpportunity) {
+    const cleanedNote = noteDraft.trim();
+
+    if (!cleanedNote) {
+      setNotice("Write a note first.");
+      return;
+    }
+
+    setNotesByItemId((current) => {
+      const existingNotes = current[item.id] ?? [];
+
+      if (editingNote?.itemId === item.id) {
+        return {
+          ...current,
+          [item.id]: existingNotes.map((note) =>
+            note.id === editingNote.noteId
+              ? {
+                  ...note,
+                  text: cleanedNote,
+                }
+              : note,
+          ),
+        };
+      }
+
+      return {
+        ...current,
+        [item.id]: [
+          ...existingNotes,
+          {
+            id: `NOTE-${Date.now()}`,
+            text: cleanedNote,
+            createdAt: "Just now",
+          },
+        ],
+      };
+    });
+
+    addAuditTrail(
+      item,
+      editingNote ? "Internal note updated" : "Internal note added",
+      cleanedNote,
+      "cyan",
+    );
+
+    setNoteDraft("");
+    setEditingNote(null);
+    setNotice(`Internal note saved for ${item.buyerName}.`);
+  }
+
+  function editInternalNote(itemId: string, note: SocialProofNote) {
+    setExpandedAction({ id: itemId, type: "note" });
+    setEditingNote({ itemId, noteId: note.id });
+    setNoteDraft(note.text);
+  }
+
+  function deleteInternalNote(itemId: string, noteId: string) {
+    const item = opportunities.find((opportunity) => opportunity.id === itemId);
+
+    setNotesByItemId((current) => ({
+      ...current,
+      [itemId]: (current[itemId] ?? []).filter((note) => note.id !== noteId),
+    }));
+
+    if (item) {
+      addAuditTrail(item, "Internal note deleted", "An internal note was deleted.", "rose");
+    }
+
+    setNotice("Internal note deleted.");
+  }
+
+  function openSecondPurchasePopup(item: PostPurchaseOpportunity) {
+    setSecondPurchaseItemId(item.id);
+    setSecondPurchaseDraft({
+      offerType: "Matching product",
+      timing: "This week",
+      channel: "Manual Copy",
+      message:
+        "Your recent order is a great match for this next piece. I can send the recommendation while it is still available.",
+    });
+  }
+
+  function createSecondPurchaseAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const item = opportunities.find((opportunity) => opportunity.id === secondPurchaseItemId);
+
+    if (!item) return;
+
+    updateOpportunity(
+      item.id,
+      {
+        opportunityType: "Second-purchase prompt",
+        requestStatus: "Needs follow-up",
+        recommendedNextAction: `Send ${secondPurchaseDraft.offerType.toLowerCase()} prompt via ${secondPurchaseDraft.channel} ${secondPurchaseDraft.timing.toLowerCase()}.`,
+        messageTemplate: secondPurchaseDraft.message,
+        potentialValue: `${item.orderValue} second-purchase potential`,
+        tone: "emerald",
+      },
+      `Second-purchase action created for ${item.buyerName}.`,
+    );
+
+    addAuditTrail(
+      item,
+      "Second-purchase action created",
+      `${secondPurchaseDraft.offerType} prompt created for ${secondPurchaseDraft.timing}.`,
+      "emerald",
+    );
+
+    setSecondPurchaseItemId(null);
+  }
+
+  function addManualOpportunity(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const buyerName = manualOpportunityDraft.buyerName.trim();
+    const orderContext = manualOpportunityDraft.orderContext.trim();
+
+    if (!buyerName || !orderContext) {
+      setNotice("Buyer name and order/product context are required.");
+      return;
+    }
+
+    const newOpportunity: PostPurchaseOpportunity = {
+      id: `PP-MANUAL-${Date.now()}`,
+      buyerName,
+      orderContext,
+      opportunityType: manualOpportunityDraft.opportunityType,
+      orderValue: manualOpportunityDraft.orderValue.trim() || "$0",
+      buyerStatus: manualOpportunityDraft.buyerStatus.trim() || "Manual social-proof opportunity",
+      deliveryDate: "Manual entry",
+      source: manualOpportunityDraft.source,
+      owner: manualOpportunityDraft.owner,
+      requestStatus: manualOpportunityDraft.requestStatus,
+      potentialValue: `${manualOpportunityDraft.orderValue.trim() || "$0"} social proof`,
+      recommendedNextAction: "Review this manually added social-proof opportunity and send the right request.",
+      messageTemplate: `Hi ${buyerName.split(" ")[0]}, I wanted to follow up on your ${orderContext}. Would you like to share a quick review, referral, or content note?`,
+      industryType: manualOpportunityDraft.industryType,
+      tone: "cyan",
+    };
+
+    setOpportunities((items) => [newOpportunity, ...items]);
+    setAuditTrailsByItemId((current) => ({
+      ...current,
+      [newOpportunity.id]: [
+        {
+          id: `AUDIT-${Date.now()}`,
+          title: "Manual opportunity created",
+          description: `${buyerName} was manually added to Reviews / Referrals / UGC.`,
+          owner: manualOpportunityDraft.owner,
+          timestamp: "Just now",
+          tone: "cyan",
+        },
+      ],
+    }));
+
+    setIsAddOpportunityOpen(false);
+    setNotice(`${buyerName} added to Reviews / Referrals / UGC.`);
+
+    setManualOpportunityDraft({
+      buyerName: "",
+      orderContext: "",
+      source: "Manual Entry",
+      owner: ownerOptions[0],
+      requestStatus: "Not sent",
+      industryType: "Fashion / Apparel",
+      opportunityType: "Review request",
+      orderValue: "$0",
+      buyerStatus: "Manual social-proof opportunity",
+    });
+  }
+
+  function renderPipelineCard(title: string, rows: { label: string; value: number }[]) {
+    return (
+      <article className="glass-card social-proof-chart-card">
+        <h3>{title}</h3>
+        {rows.map((row) => (
+          <div className="social-proof-chart-row" key={`${title}-${row.label}`}>
+            <span>{row.label}</span>
+            <strong>{row.value}</strong>
+          </div>
+        ))}
+      </article>
+    );
+  }
 
   return (
-    <div className="recovery-page">
+    <div className="recovery-page reviews-referrals-page">
       <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
         {postPurchaseKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
@@ -15884,7 +21489,7 @@ function ReviewsReferralsUGC() {
       </section>
 
       <section className="queue-toolbar">
-        <div className="queue-tabs" aria-label="Reviews referrals UGC filters">
+        <div className="queue-tabs" aria-label="Post-purchase filters">
           {postPurchaseFilters.map((filter) => (
             <button
               className={`queue-tab ${activePostPurchaseFilter === filter ? "active" : ""}`}
@@ -15896,25 +21501,25 @@ function ReviewsReferralsUGC() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredOpportunities.length} opportunities</Badge>
+
+        <div className="social-proof-toolbar-actions">
+          <Badge tone="cyan">
+            {filteredOpportunities.length} opportunities · {SOCIAL_PROOF_PAGE_SIZE} per page
+          </Badge>
+          <button
+            className="primary-btn"
+            type="button"
+            onClick={() => setIsAddOpportunityOpen(true)}
+          >
+            Add manually
+          </button>
+        </div>
       </section>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
-          <h3>Review Pipeline</h3>
-          <div><span>Review opportunities</span><strong>{reviewCount}</strong></div>
-          <div><span>Not sent</span><strong>{postPurchaseOpportunities.filter((item) => item.requestStatus === "Not sent").length}</strong></div>
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Referral Pipeline</h3>
-          <div><span>Referral opportunities</span><strong>{referralCount}</strong></div>
-          <div><span>Needs follow-up</span><strong>{postPurchaseOpportunities.filter((item) => item.requestStatus === "Needs follow-up").length}</strong></div>
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>UGC Pipeline</h3>
-          <div><span>UGC candidates</span><strong>{ugcCount}</strong></div>
-          <div><span>VIP buyers</span><strong>{postPurchaseOpportunities.filter((item) => item.buyerStatus.toLowerCase().includes("vip")).length}</strong></div>
-        </article>
+      <section className="social-proof-chart-grid">
+        {renderPipelineCard("Review Pipeline", reviewPipeline)}
+        {renderPipelineCard("Referral Pipeline", referralPipeline)}
+        {renderPipelineCard("UGC Pipeline", ugcPipeline)}
       </section>
 
       <section className="glass-card panel-card">
@@ -15927,274 +21532,2483 @@ function ReviewsReferralsUGC() {
         </div>
 
         <div className="capture-card-list">
-          {filteredOpportunities.map((item) => (
-            <article className={`post-purchase-card ${item.tone}`} key={item.id}>
-              <div className="capture-card-main buyer-card-main">
-                <div className="buyer-identity">
-                  <Avatar name={item.buyerName} />
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{item.buyerName}</h3>
-                      <Badge tone={item.tone}>{item.opportunityType}</Badge>
-                    </div>
-                    <p>{item.orderContext}</p>
-                    <div className="recovery-meta">
-                      <span>{item.buyerStatus}</span>
-                      <span>{item.deliveryDate}</span>
-                      <span>{item.source}</span>
-                      <span>{item.owner}</span>
-                      <span>{item.requestStatus}</span>
-                      <span>{item.industryType}</span>
+          {paginatedOpportunities.map((item) => {
+            const itemNotes = notesByItemId[item.id] ?? [];
+            const itemAuditTrails = auditTrailsByItemId[item.id] ?? [];
+            const activePanel = expandedAction?.id === item.id ? expandedAction.type : null;
+            const activeActionTemplate =
+              activePanel && activePanel !== "note" ? getActionTemplate(item, activePanel) : item.messageTemplate;
+            const activeCopyKey =
+              activePanel && activePanel !== "note" ? `${item.id}-${activePanel}` : "";
+            const isCopied = copiedTemplateKey === activeCopyKey;
+            const showTemplateCreator =
+              templateCreator?.itemId === item.id &&
+              activePanel &&
+              activePanel !== "note" &&
+              templateCreator.type === activePanel;
+
+            return (
+              <article className={`post-purchase-card ${item.tone}`} key={item.id}>
+                <div className="capture-card-main buyer-card-main">
+                  <div className="buyer-identity">
+                    <Avatar name={item.buyerName} />
+                    <div>
+                      <div className="recovery-row-title">
+                        <h3>{item.buyerName}</h3>
+                        <Badge tone={item.tone}>{item.opportunityType}</Badge>
+                        {item.requestStatus === "Completed" ? <Badge tone="emerald">Completed</Badge> : null}
+                      </div>
+                      <p>{item.orderContext}</p>
+                      <div className="recovery-meta">
+                        <span>{item.buyerStatus}</span>
+                        <span>{item.deliveryDate}</span>
+                        <span>{item.source}</span>
+                        <span>{item.owner}</span>
+                        <span>{item.requestStatus}</span>
+                        <span>{item.industryType}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="capture-value-stack">
-                  <strong>{item.orderValue}</strong>
-                  <span>{item.potentialValue}</span>
-                </div>
-              </div>
 
-              <div className="detail-callout source-fix-callout">
-                <span>Recommended next action</span>
-                <p>{item.recommendedNextAction}</p>
-              </div>
-
-              <div className="template-box source-fix-callout">
-                <div>
-                  <span>Message template preview</span>
+                  <div className="capture-value-stack">
+                    <strong>{item.orderValue}</strong>
+                    <span>{item.potentialValue}</span>
+                  </div>
                 </div>
-                <p>{item.messageTemplate}</p>
-              </div>
 
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Send review request</button>
-                <button type="button" className="secondary-btn">Send referral request</button>
-                <button type="button" className="secondary-btn">Send UGC request</button>
-                <button type="button" className="secondary-btn">Copy template</button>
-                <button type="button" className="secondary-btn">Mark sent</button>
-                <button type="button" className="secondary-btn">Mark completed</button>
-                <button type="button" className="secondary-btn">Create second-purchase action</button>
-                <button type="button" className="secondary-btn">Add internal note</button>
-              </div>
-            </article>
-          ))}
+                <div className={`detail-callout source-fix-callout ${activePanel && activePanel !== "note" ? "social-proof-green-callout" : ""}`}>
+                  <span>Recommended next action</span>
+                  <p>{item.recommendedNextAction}</p>
+                </div>
+
+                <div className="template-box source-fix-callout">
+                  <div>
+                    <span>Message template preview</span>
+                  </div>
+                  <p>{item.messageTemplate}</p>
+                </div>
+
+                {activePanel && activePanel !== "note" ? (
+                  <div className="social-proof-expanded-panel">
+                    <div>
+                      <span>{getActionLabel(activePanel)} template</span>
+                      <p>{activeActionTemplate}</p>
+                    </div>
+
+                    <div className="social-proof-action-row">
+                      <div className="capture-actions">
+                        <button
+                          type="button"
+                          className="primary-btn"
+                          onClick={() => sendActionRequest(item, activePanel)}
+                        >
+                          Send {getActionLabel(activePanel).toLowerCase()}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() => copyActionTemplate(item, activePanel, activeActionTemplate)}
+                        >
+                          {isCopied ? "Template copied" : "Copy this template"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() => setExpandedAction(null)}
+                        >
+                          Close
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="social-proof-create-template-btn"
+                        onClick={() => openTemplateCreator(item, activePanel)}
+                      >
+                        Create new template
+                      </button>
+                    </div>
+
+                    {showTemplateCreator ? (
+                      <form className="social-proof-template-create-form" onSubmit={createTemplateFromDraft}>
+                        <label className="segment-form-field">
+                          <span>Template name</span>
+                          <input
+                            value={templateDraft.templateName}
+                            onChange={(event) =>
+                              setTemplateDraft((current) => ({
+                                ...current,
+                                templateName: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+
+                        <div className="social-proof-template-grid">
+                          <label className="segment-form-field">
+                            <span>Recovery type</span>
+                            <select
+                              value={templateDraft.recoveryType}
+                              onChange={(event) =>
+                                setTemplateDraft((current) => ({
+                                  ...current,
+                                  recoveryType: event.target.value,
+                                }))
+                              }
+                            >
+                              <option value="Review Request">Review Request</option>
+                              <option value="Referral Request">Referral Request</option>
+                              <option value="UGC Request">UGC Request</option>
+                              <option value="Post-Purchase">Post-Purchase</option>
+                              <option value="Second Purchase">Second Purchase</option>
+                            </select>
+                          </label>
+
+                          <label className="segment-form-field">
+                            <span>Industry fit</span>
+                            <select
+                              value={templateDraft.industryFit}
+                              onChange={(event) =>
+                                setTemplateDraft((current) => ({
+                                  ...current,
+                                  industryFit: event.target.value as MessageTemplate["industryFit"],
+                                }))
+                              }
+                            >
+                              <option value="Hybrid">Hybrid</option>
+                              <option value="Fashion / Apparel">Fashion / Apparel</option>
+                              <option value="Beauty / Skincare">Beauty / Skincare</option>
+                            </select>
+                          </label>
+
+                          <label className="segment-form-field">
+                            <span>Channel</span>
+                            <select
+                              value={templateDraft.channel}
+                              onChange={(event) =>
+                                setTemplateDraft((current) => ({
+                                  ...current,
+                                  channel: event.target.value as MessageTemplate["channel"],
+                                }))
+                              }
+                            >
+                              <option value="Manual Copy">Manual Copy</option>
+                              <option value="Instagram DM">Instagram DM</option>
+                              <option value="WhatsApp">WhatsApp</option>
+                              <option value="Email">Email</option>
+                              <option value="SMS">SMS</option>
+                            </select>
+                          </label>
+                        </div>
+
+                        <label className="segment-form-field">
+                          <span>Template message</span>
+                          <textarea
+                            rows={4}
+                            value={templateDraft.previewText}
+                            onChange={(event) =>
+                              setTemplateDraft((current) => ({
+                                ...current,
+                                previewText: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+
+                        <div className="capture-actions">
+                          <button type="submit" className="primary-btn">
+                            Create and use template
+                          </button>
+                          <button type="button" className="secondary-btn" onClick={() => setTemplateCreator(null)}>
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {activePanel === "note" ? (
+                  <div className="social-proof-expanded-panel">
+                    <label className="segment-form-field">
+                      <span>{editingNote ? "Edit internal note" : "Add internal note"}</span>
+                      <textarea
+                        rows={3}
+                        value={noteDraft}
+                        onChange={(event) => setNoteDraft(event.target.value)}
+                        placeholder="Write internal recovery context, social proof status, or buyer response..."
+                      />
+                    </label>
+
+                    <div className="capture-actions">
+                      <button type="button" className="primary-btn" onClick={() => saveInternalNote(item)}>
+                        {editingNote ? "Save note changes" : "Save note"}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={() => {
+                          setExpandedAction(null);
+                          setNoteDraft("");
+                          setEditingNote(null);
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {itemNotes.length > 0 ? (
+                  <div className="social-proof-note-list">
+                    {itemNotes.map((note) => (
+                      <div className="social-proof-note-card" key={note.id}>
+                        <div>
+                          <strong>Internal note</strong>
+                          <span>{note.createdAt}</span>
+                        </div>
+                        <p>{note.text}</p>
+                        <div>
+                          <button type="button" onClick={() => editInternalNote(item.id, note)}>
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => deleteInternalNote(item.id, note.id)}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="capture-actions social-proof-main-actions">
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => openActionPanel(item, "review")}
+                  >
+                    Send review request
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => openActionPanel(item, "referral")}
+                  >
+                    Send referral request
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => openActionPanel(item, "ugc")}
+                  >
+                    Send UGC request
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => copyTemplate(item)}>
+                    Copy template
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => markSent(item)}>
+                    Mark sent
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => toggleCompleted(item)}>
+                    {item.requestStatus === "Completed" ? "Revert completed" : "Mark completed"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => openSecondPurchasePopup(item)}
+                  >
+                    Create second-purchase action
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => openActionPanel(item, "note")}
+                  >
+                    Add internal note
+                  </button>
+
+                  <button
+                    type="button"
+                    className="social-proof-audit-btn"
+                    onClick={() => setAuditTrailItemId(item.id)}
+                  >
+                    View audit trail
+                    {itemAuditTrails.length > 0 ? ` (${itemAuditTrails.length})` : ""}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
+
+        <div className="social-proof-pagination">
+          <span>
+            Showing {paginatedOpportunities.length} of {filteredOpportunities.length} opportunities
+          </span>
+
+          <div>
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentSocialProofPage === 1}
+              onClick={() => setCurrentSocialProofPage((page) => Math.max(1, page - 1))}
+            >
+              Previous
+            </button>
+
+            <span>
+              Page {currentSocialProofPage} of {totalSocialProofPages}
+            </span>
+
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={currentSocialProofPage === totalSocialProofPages}
+              onClick={() => setCurrentSocialProofPage((page) => Math.min(totalSocialProofPages, page + 1))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+
+        <p className="detail-notice">{notice}</p>
       </section>
+
+      {auditTrailItem ? (
+        <ModalShell
+          title={`${auditTrailItem.buyerName} audit trail`}
+          onClose={() => setAuditTrailItemId(null)}
+          footer={
+            <button type="button" className="primary-btn" onClick={() => setAuditTrailItemId(null)}>
+              Close audit trail
+            </button>
+          }
+        >
+          <div className="social-proof-audit-map">
+            {(auditTrailsByItemId[auditTrailItem.id] ?? [
+              {
+                id: "empty-audit",
+                title: "No manual actions yet",
+                description: "Actions such as sent request, copied template, created template, notes, or completion will appear here.",
+                owner: auditTrailItem.owner,
+                timestamp: "Current",
+                tone: "gray" as Tone,
+              },
+            ]).map((trail, index) => (
+              <div className={`social-proof-audit-node ${trail.tone}`} key={trail.id}>
+                <div className="social-proof-audit-dot">{index + 1}</div>
+                <div>
+                  <strong>{trail.title}</strong>
+                  <p>{trail.description}</p>
+                  <span>
+                    {trail.owner} · {trail.timestamp}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {secondPurchaseItemId ? (
+        <ModalShell
+          title="Create second-purchase action"
+          onClose={() => setSecondPurchaseItemId(null)}
+          footer={
+            <>
+              <button type="submit" form="second-purchase-form" className="primary-btn">
+                Create action
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setSecondPurchaseItemId(null)}>
+                Cancel
+              </button>
+            </>
+          }
+        >
+          <form id="second-purchase-form" onSubmit={createSecondPurchaseAction} style={modalStackStyle}>
+            <label className="segment-form-field">
+              <span>Offer type</span>
+              <select
+                value={secondPurchaseDraft.offerType}
+                onChange={(event) =>
+                  setSecondPurchaseDraft((current) => ({
+                    ...current,
+                    offerType: event.target.value,
+                  }))
+                }
+              >
+                <option value="Matching product">Matching product</option>
+                <option value="Bundle offer">Bundle offer</option>
+                <option value="VIP early access">VIP early access</option>
+                <option value="Refill / repeat timing">Refill / repeat timing</option>
+              </select>
+            </label>
+
+            <label className="segment-form-field">
+              <span>Timing</span>
+              <select
+                value={secondPurchaseDraft.timing}
+                onChange={(event) =>
+                  setSecondPurchaseDraft((current) => ({
+                    ...current,
+                    timing: event.target.value,
+                  }))
+                }
+              >
+                <option value="Today">Today</option>
+                <option value="This week">This week</option>
+                <option value="Before restock closes">Before restock closes</option>
+                <option value="Next purchase window">Next purchase window</option>
+              </select>
+            </label>
+
+            <label className="segment-form-field">
+              <span>Channel</span>
+              <select
+                value={secondPurchaseDraft.channel}
+                onChange={(event) =>
+                  setSecondPurchaseDraft((current) => ({
+                    ...current,
+                    channel: event.target.value,
+                  }))
+                }
+              >
+                <option value="Manual Copy">Manual Copy</option>
+                <option value="Instagram DM">Instagram DM</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Email">Email</option>
+              </select>
+            </label>
+
+            <label className="segment-form-field">
+              <span>Message</span>
+              <textarea
+                rows={4}
+                value={secondPurchaseDraft.message}
+                onChange={(event) =>
+                  setSecondPurchaseDraft((current) => ({
+                    ...current,
+                    message: event.target.value,
+                  }))
+                }
+              />
+            </label>
+          </form>
+        </ModalShell>
+      ) : null}
+
+      {isAddOpportunityOpen ? (
+        <ModalShell
+          title="Add social-proof opportunity"
+          onClose={() => setIsAddOpportunityOpen(false)}
+          footer={
+            <>
+              <button type="submit" form="manual-social-proof-form" className="primary-btn">
+                Add opportunity
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setIsAddOpportunityOpen(false)}>
+                Cancel
+              </button>
+            </>
+          }
+        >
+          <form id="manual-social-proof-form" onSubmit={addManualOpportunity} style={modalStackStyle}>
+            <label className="segment-form-field">
+              <span>Buyer name</span>
+              <input
+                value={manualOpportunityDraft.buyerName}
+                onChange={(event) =>
+                  setManualOpportunityDraft((current) => ({
+                    ...current,
+                    buyerName: event.target.value,
+                  }))
+                }
+                placeholder="Buyer name"
+              />
+            </label>
+
+            <label className="segment-form-field">
+              <span>Order / product context</span>
+              <input
+                value={manualOpportunityDraft.orderContext}
+                onChange={(event) =>
+                  setManualOpportunityDraft((current) => ({
+                    ...current,
+                    orderContext: event.target.value,
+                  }))
+                }
+                placeholder="Product, order, bundle, drop, or routine"
+              />
+            </label>
+
+            <div style={modalGridStyle}>
+              <label className="segment-form-field">
+                <span>Source</span>
+                <select
+                  value={manualOpportunityDraft.source}
+                  onChange={(event) =>
+                    setManualOpportunityDraft((current) => ({
+                      ...current,
+                      source: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="Manual Entry">Manual Entry</option>
+                  <option value="Instagram DM">Instagram DM</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Website Form">Website Form</option>
+                  <option value="Order delivery event">Order delivery event</option>
+                  <option value="Referral">Referral</option>
+                </select>
+              </label>
+
+              <label className="segment-form-field">
+                <span>Owner</span>
+                <select
+                  value={manualOpportunityDraft.owner}
+                  onChange={(event) =>
+                    setManualOpportunityDraft((current) => ({
+                      ...current,
+                      owner: event.target.value,
+                    }))
+                  }
+                >
+                  {ownerOptions.map((owner) => (
+                    <option key={owner} value={owner}>
+                      {owner}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="segment-form-field">
+                <span>Status badge</span>
+                <select
+                  value={manualOpportunityDraft.requestStatus}
+                  onChange={(event) =>
+                    setManualOpportunityDraft((current) => ({
+                      ...current,
+                      requestStatus: event.target.value as PostPurchaseOpportunity["requestStatus"],
+                    }))
+                  }
+                >
+                  <option value="Not sent">Not sent</option>
+                  <option value="Sent">Sent</option>
+                  <option value="Needs follow-up">Needs follow-up</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </label>
+
+              <label className="segment-form-field">
+                <span>Industry</span>
+                <select
+                  value={manualOpportunityDraft.industryType}
+                  onChange={(event) =>
+                    setManualOpportunityDraft((current) => ({
+                      ...current,
+                      industryType: event.target.value as PostPurchaseOpportunity["industryType"],
+                    }))
+                  }
+                >
+                  <option value="Fashion / Apparel">Fashion / Apparel</option>
+                  <option value="Beauty / Skincare">Beauty / Skincare</option>
+                </select>
+              </label>
+
+              <label className="segment-form-field">
+                <span>Opportunity type</span>
+                <select
+                  value={manualOpportunityDraft.opportunityType}
+                  onChange={(event) =>
+                    setManualOpportunityDraft((current) => ({
+                      ...current,
+                      opportunityType: event.target.value as PostPurchaseOpportunity["opportunityType"],
+                    }))
+                  }
+                >
+                  <option value="Review request">Review request</option>
+                  <option value="Referral request">Referral request</option>
+                  <option value="UGC request">UGC request</option>
+                  <option value="Try-on/photo request">Try-on/photo request</option>
+                  <option value="Styling testimonial">Styling testimonial</option>
+                  <option value="Before/after skincare feedback">Before/after skincare feedback</option>
+                  <option value="Second-purchase prompt">Second-purchase prompt</option>
+                </select>
+              </label>
+
+              <label className="segment-form-field">
+                <span>Order value</span>
+                <input
+                  value={manualOpportunityDraft.orderValue}
+                  onChange={(event) =>
+                    setManualOpportunityDraft((current) => ({
+                      ...current,
+                      orderValue: event.target.value,
+                    }))
+                  }
+                  placeholder="$0"
+                />
+              </label>
+            </div>
+          </form>
+        </ModalShell>
+      ) : null}
     </div>
   );
 }
 
-function RefillOpportunities() {
-  const [refills, setRefills] = useState<RefillOpportunity[]>(refillOpportunities);
-  const [activeRefillFilter, setActiveRefillFilter] = useState<RefillOpportunityFilter>("All");
-  const [selectedRefillId, setSelectedRefillId] = useState(refillOpportunities[0].id);
-  const [notice, setNotice] = useState("Select a refill opportunity to review the reorder window.");
+function RefillOpportunities({
+  onCreateTemplate,
+  onCreateFollowUp,
+  onRemoveFollowUp,
+  onNavigate,
+  openManualSignal = 0,
+}: {
+  onCreateTemplate?: (template: MessageTemplate) => void;
+  onCreateFollowUp?: (item: FollowUpRecoveryItem) => void;
+  onRemoveFollowUp?: (itemId: string) => void;
+  onNavigate?: (pageName: string) => void;
+  openManualSignal?: number;
+} = {}) {
+  type LocalRefillFilter =
+    | "All"
+    | "Due Today"
+    | "Overdue"
+    | "High Value"
+    | "Reminder Not Sent"
+    | "Reminder Sent"
+    | "Snoozed"
+    | "Recovered";
 
-  const filteredRefills = refills.filter((item) => matchesRefillOpportunityFilter(item, activeRefillFilter));
+  type RefillAuditEntry = {
+    id: string;
+    title: string;
+    description: string;
+    time: string;
+    status: "Created" | "Copied" | "Sent" | "Queued" | "Snoozed" | "Recovered" | "Reverted" | "Manual";
+  };
+
+  type RefillLocalState = {
+    copied?: boolean;
+    queued?: boolean;
+    queueItemId?: string;
+    activePanel?: "send" | "snooze" | null;
+    audit: RefillAuditEntry[];
+  };
+
+  type ActionNotice = {
+    title: string;
+    description: string;
+    actionLabel?: string;
+    action?: "undo" | "openQueue" | "viewAudit";
+  };
+
+  type UndoSnapshot = {
+    refills: RefillOpportunity[];
+    localState: Record<string, RefillLocalState>;
+    queueItemIdToRemove?: string;
+    queueItemToRestore?: FollowUpRecoveryItem;
+  };
+
+  const localFilters: LocalRefillFilter[] = [
+    "All",
+    "Due Today",
+    "Overdue",
+    "High Value",
+    "Reminder Not Sent",
+    "Reminder Sent",
+    "Snoozed",
+    "Recovered",
+  ];
+
+  const entriesPerPage = 25;
+
+  const [refills, setRefills] = useState<RefillOpportunity[]>(refillOpportunities);
+  const [activeRefillFilter, setActiveRefillFilter] = useState<LocalRefillFilter>("All");
+  const [selectedRefillId, setSelectedRefillId] = useState(refillOpportunities[0]?.id ?? "");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [recoveredModalOpen, setRecoveredModalOpen] = useState(false);
+  const [queueConfirmModalOpen, setQueueConfirmModalOpen] = useState(false);
+  const [queuedFollowUpTarget, setQueuedFollowUpTarget] = useState<FollowUpRecoveryItem | null>(null);
+  const [customSnoozeDate, setCustomSnoozeDate] = useState("");
+  const [localState, setLocalState] = useState<Record<string, RefillLocalState>>({});
+  const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
+  const [notice, setNotice] = useState<ActionNotice>({
+    title: "Ready to recover repeat revenue",
+    description: "Use View More for refill actions. Use Mark Recovered directly from the buyer tile after the repeat purchase is confirmed.",
+  });
+
+  const [templateForm, setTemplateForm] = useState({
+    templateName: "",
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
+
+  const [manualForm, setManualForm] = useState({
+    buyerName: "",
+    productName: "",
+    productCategory: "Skincare",
+    refillWindow: "60-day refill window active",
+    predictedReorderDate: "Today",
+    estimatedRefillValue: "",
+    owner: "Mina Cole",
+    source: "Manual entry",
+    buyerStatus: "Repeat buyer",
+    messageTemplate: "",
+  });
+
+  const [recoveredForm, setRecoveredForm] = useState({
+    recoveredAmount: "",
+    productPurchased: "",
+    source: "",
+    recoveryNote: "",
+  });
+
+  function ensureMoney(value: string) {
+    const cleanValue = value.trim();
+
+    if (!cleanValue) {
+      return "$0";
+    }
+
+    return cleanValue.startsWith("$") ? cleanValue : `$${cleanValue}`;
+  }
+
+  function todayLabel() {
+    return new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function makeAuditEntry(
+    title: string,
+    description: string,
+    status: RefillAuditEntry["status"],
+  ): RefillAuditEntry {
+    return {
+      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title,
+      description,
+      status,
+      time: "Just now",
+    };
+  }
+
+  function getRefillLocalState(itemId: string): RefillLocalState {
+    return localState[itemId] ?? { audit: [] };
+  }
+
+  function getQueueItemId(item: RefillOpportunity) {
+    return `FU-REF-${item.id}`;
+  }
+
+  function updateRefill(itemId: string, updates: Partial<RefillOpportunity>) {
+    setRefills((items) => items.map((item) => (item.id === itemId ? { ...item, ...updates } : item)));
+  }
+
+  function setItemLocalState(itemId: string, updates: Partial<RefillLocalState>) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          ...updates,
+          audit: updates.audit ?? previous.audit,
+        },
+      };
+    });
+  }
+
+  function addAuditToItem(itemId: string, entry: RefillAuditEntry) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          audit: [entry, ...previous.audit],
+        },
+      };
+    });
+  }
+
+  function saveUndo(queueItemIdToRemove?: string, queueItemToRestore?: FollowUpRecoveryItem) {
+    setUndoSnapshot({
+      refills,
+      localState,
+      queueItemIdToRemove,
+      queueItemToRestore,
+    });
+  }
+
+  function restoreLastAction() {
+    if (!undoSnapshot) {
+      return;
+    }
+
+    setRefills(undoSnapshot.refills);
+    setLocalState(undoSnapshot.localState);
+
+    if (undoSnapshot.queueItemIdToRemove) {
+      onRemoveFollowUp?.(undoSnapshot.queueItemIdToRemove);
+    }
+
+    if (undoSnapshot.queueItemToRestore) {
+      onCreateFollowUp?.(undoSnapshot.queueItemToRestore);
+    }
+
+    setUndoSnapshot(null);
+    setQueueConfirmModalOpen(false);
+    setQueuedFollowUpTarget(null);
+    setNotice({
+      title: "Action reverted",
+      description: "The refill opportunity has been restored to its previous state.",
+      actionLabel: "View audit trail",
+      action: "viewAudit",
+    });
+  }
+
+  function buildQueueItem(item: RefillOpportunity): FollowUpRecoveryItem {
+    const predicted = item.predictedReorderDate.toLowerCase();
+    const isOverdue = item.reminderStatus === "Overdue" || predicted.includes("ago");
+    const isDueToday = predicted === "today" || predicted.includes("today");
+
+    return {
+      id: getQueueItemId(item),
+      buyerName: item.buyerName,
+      image: item.image,
+      productContext: `${item.productName} - ${item.productCategory}`,
+      followUpType: "Refill reminder",
+      source: item.source,
+      revenueAtRisk: item.estimatedRefillValue,
+      owner: item.owner,
+      dueStatus: isOverdue ? "Overdue" : isDueToday ? "Due today" : "Due soon",
+      lastContact: item.lastReminder,
+      attemptCount: item.reminderStatus === "Sent" ? 1 : 0,
+      buyerResponseStatus: item.reminderStatus === "Sent" ? "Follow-up sent" : "No reply yet",
+      recommendedNextAction: item.nextAction,
+      messageTemplate: item.messageTemplate,
+      internalRecoveryNote: `Created from Refill Opportunities for ${item.productName}. Estimated repeat revenue: ${item.estimatedRefillValue}.`,
+      tone: item.tone,
+    };
+  }
+
+  function matchesLocalFilter(item: RefillOpportunity, filter: LocalRefillFilter) {
+    const value = moneyToNumber(item.estimatedRefillValue);
+    const predicted = item.predictedReorderDate.toLowerCase();
+    const window = item.refillWindow.toLowerCase();
+
+    if (filter === "All") return true;
+    if (filter === "Due Today") return predicted === "today" || predicted.includes("today");
+    if (filter === "Overdue") return item.reminderStatus === "Overdue" || predicted.includes("ago") || window.includes("overdue");
+    if (filter === "High Value") return value >= 100;
+    if (filter === "Reminder Not Sent") return item.reminderStatus === "Not sent";
+    if (filter === "Reminder Sent") return item.reminderStatus === "Sent";
+    if (filter === "Snoozed") return item.reminderStatus === "Snoozed";
+    if (filter === "Recovered") return item.reminderStatus === "Recovered";
+
+    return true;
+  }
+
+  const filteredRefills = useMemo(
+    () => refills.filter((item) => matchesLocalFilter(item, activeRefillFilter)),
+    [refills, activeRefillFilter],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredRefills.length / entriesPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedRefills = filteredRefills.slice((safeCurrentPage - 1) * entriesPerPage, safeCurrentPage * entriesPerPage);
   const selectedRefill =
-    refills.find((item) => item.id === selectedRefillId) ?? filteredRefills[0] ?? refills[0];
+    refills.find((item) => item.id === selectedRefillId) ?? pagedRefills[0] ?? filteredRefills[0] ?? refills[0];
+  const selectedLocalState = selectedRefill ? getRefillLocalState(selectedRefill.id) : { audit: [] };
 
   const refillKpis = useMemo<KPI[]>(() => {
     const openRevenue = refills
       .filter((item) => item.reminderStatus !== "Recovered")
       .reduce((total, item) => total + moneyToNumber(item.estimatedRefillValue), 0);
-    const dueBuyers = refills.filter((item) => matchesRefillOpportunityFilter(item, "Due Today")).length;
-    const overdue = refills.filter((item) => matchesRefillOpportunityFilter(item, "Overdue")).length;
-    const highValue = refills.filter((item) => matchesRefillOpportunityFilter(item, "High Value")).length;
+    const dueBuyers = refills.filter((item) => matchesLocalFilter(item, "Due Today")).length;
+    const overdue = refills.filter((item) => matchesLocalFilter(item, "Overdue")).length;
+    const highValue = refills.filter((item) => matchesLocalFilter(item, "High Value")).length;
     const sent = refills.filter((item) => item.reminderStatus === "Sent" || item.reminderStatus === "Recovered").length;
     const recovered = refills.reduce((total, item) => total + moneyToNumber(item.recoveredValue), 0);
 
     return [
       { label: "Refill Revenue Open", value: formatCompactMoney(openRevenue), caption: "Reorder value to recover", tone: "emerald" },
-      { label: "Refill Buyers Due", value: `${dueBuyers}`, caption: "Active reorder windows", tone: "cyan" },
-      { label: "Overdue Refill Reminders", value: `${overdue}`, caption: "Reminder leakage", tone: "rose" },
-      { label: "High-Value Refill Buyers", value: `${highValue}`, caption: "Priority reorder value", tone: "amber" },
-      { label: "Refill Reminders Sent", value: `${sent}`, caption: "Reminder actions logged", tone: "cyan" },
-      { label: "Recovered Refill Revenue", value: formatCompactMoney(recovered), caption: "Recovered repeat revenue", tone: "emerald" },
+      { label: "Buyers Due Today", value: `${dueBuyers}`, caption: "Active reorder windows", tone: "cyan" },
+      { label: "Overdue Reminders", value: `${overdue}`, caption: "Reminder leakage", tone: "rose" },
+      { label: "High-Value Buyers", value: `${highValue}`, caption: "Priority reorder value", tone: "amber" },
+      { label: "Reminders Sent", value: `${sent}`, caption: "Reminder actions logged", tone: "cyan" },
+      { label: "Recovered Revenue", value: formatCompactMoney(recovered), caption: "Recovered repeat revenue", tone: "emerald" },
     ];
   }, [refills]);
 
-  function updateSelectedRefill(updates: Partial<RefillOpportunity>, message: string) {
-    const current = selectedRefill;
-    setRefills((items) => items.map((item) => (item.id === current.id ? { ...item, ...updates } : item)));
-    setNotice(`${message} for ${current.buyerName}.`);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeRefillFilter]);
+
+  useEffect(() => {
+    if (selectedRefill) {
+      setRecoveredForm({
+        recoveredAmount: selectedRefill.estimatedRefillValue,
+        productPurchased: selectedRefill.productName,
+        source: selectedRefill.source,
+        recoveryNote: `Recovered repeat purchase from ${selectedRefill.productName}.`,
+      });
+    }
+  }, [selectedRefill?.id]);
+
+  useEffect(() => {
+    if (openManualSignal > 0) {
+      setManualModalOpen(true);
+    }
+  }, [openManualSignal]);
+
+  function openViewMore(item: RefillOpportunity) {
+    setSelectedRefillId(item.id);
+    setDetailModalOpen(true);
+  }
+
+  function openRecoveredModal(item: RefillOpportunity) {
+    setSelectedRefillId(item.id);
+    setRecoveredForm({
+      recoveredAmount: item.estimatedRefillValue,
+      productPurchased: item.productName,
+      source: item.source,
+      recoveryNote: `Recovered repeat purchase from ${item.productName}.`,
+    });
+    setRecoveredModalOpen(true);
+  }
+
+  async function copyTemplate(item: RefillOpportunity) {
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard) {
+        throw new Error("Clipboard unavailable");
+      }
+
+      await navigator.clipboard.writeText(item.messageTemplate);
+      setItemLocalState(item.id, { copied: true });
+      addAuditToItem(
+        item.id,
+        makeAuditEntry("Template copied", `Suggested refill message copied for ${item.buyerName}.`, "Copied"),
+      );
+      setNotice({
+        title: "Template copied",
+        description: `The refill message for ${item.buyerName} is ready to paste into ${item.source}.`,
+      });
+    } catch {
+      setNotice({
+        title: "Copy failed",
+        description: "Clipboard access was blocked. Please copy the message manually from the template preview.",
+      });
+    }
+  }
+
+  function markReminderSent(item: RefillOpportunity) {
+    saveUndo();
+    updateRefill(item.id, {
+      reminderStatus: "Sent",
+      lastReminder: "Just now",
+      nextAction: "Monitor buyer response and mark recovered after reorder is confirmed.",
+    });
+    setItemLocalState(item.id, { activePanel: null });
+    addAuditToItem(item.id, makeAuditEntry("Reminder sent", `Refill reminder logged for ${item.buyerName}.`, "Sent"));
+    setNotice({
+      title: "Reminder sent",
+      description: `${item.buyerName} has been moved into Reminder Sent. Undo is available if this was clicked by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function addToRecoveryQueue(item: RefillOpportunity) {
+    const itemState = getRefillLocalState(item.id);
+
+    if (itemState.queued) {
+      const existingQueueItem = buildQueueItem(item);
+
+      setQueuedFollowUpTarget(existingQueueItem);
+      setDetailModalOpen(false);
+      setQueueConfirmModalOpen(true);
+      setNotice({
+        title: "Already in Recovery Queue",
+        description: `${item.buyerName} already has a refill follow-up action in the queue.`,
+        actionLabel: "Open queue",
+        action: "openQueue",
+      });
+      return;
+    }
+
+    const queueItem = buildQueueItem(item);
+
+    saveUndo(queueItem.id);
+    onCreateFollowUp?.(queueItem);
+    setQueuedFollowUpTarget(queueItem);
+    setDetailModalOpen(false);
+    setQueueConfirmModalOpen(true);
+    setItemLocalState(item.id, { queued: true, queueItemId: queueItem.id, activePanel: null });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry("Added to Recovery Queue", `${item.buyerName}'s refill action was moved to Follow-up Recovery.`, "Queued"),
+    );
+
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-open-followup-id", queueItem.id);
+    }
+
+    setNotice({
+      title: "Added to Recovery Queue",
+      description: `${item.buyerName}'s refill action is now visible in Follow-up Recovery. Open that page to review it, or undo if this was moved by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function removeFromRecoveryQueue(item: RefillOpportunity) {
+    const queueItemId = getRefillLocalState(item.id).queueItemId ?? getQueueItemId(item);
+
+    saveUndo(undefined, buildQueueItem(item));
+    onRemoveFollowUp?.(queueItemId);
+    setQueueConfirmModalOpen(false);
+    setQueuedFollowUpTarget(null);
+    setItemLocalState(item.id, { queued: false, queueItemId: undefined, activePanel: null });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry("Removed from Recovery Queue", `${item.buyerName}'s refill action was removed from Follow-up Recovery.`, "Reverted"),
+    );
+    setNotice({
+      title: "Removed from Recovery Queue",
+      description: "The queue movement has been reverted for this refill opportunity. Undo can restore it.",
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function snoozeRefill(item: RefillOpportunity, label: string) {
+    saveUndo();
+    updateRefill(item.id, {
+      reminderStatus: "Snoozed",
+      lastReminder: `Snoozed until ${label}`,
+      predictedReorderDate: label,
+      nextAction: `Review refill again on ${label} before sending the reminder.`,
+    });
+    setItemLocalState(item.id, { activePanel: null });
+    addAuditToItem(item.id, makeAuditEntry("Refill snoozed", `${item.buyerName}'s refill was snoozed until ${label}.`, "Snoozed"));
+    setNotice({
+      title: "Refill snoozed",
+      description: `${item.buyerName} is now in Snoozed status and should be reviewed on ${label}.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function markRecovered(item: RefillOpportunity) {
+    const amount = ensureMoney(recoveredForm.recoveredAmount || item.estimatedRefillValue);
+
+    saveUndo();
+    updateRefill(item.id, {
+      reminderStatus: "Recovered",
+      recoveredValue: amount,
+      lastReminder: "Recovered just now",
+      predictedReorderDate: "Recovered today",
+      nextAction: "Move to post-purchase review or UGC request after reorder delivery.",
+    });
+    setRecoveredModalOpen(false);
+    setItemLocalState(item.id, { activePanel: null });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry(
+        "Refill revenue recovered",
+        `${amount} recovered from ${recoveredForm.productPurchased || item.productName}. Note: ${recoveredForm.recoveryNote || "No note added."}`,
+        "Recovered",
+      ),
+    );
+    setNotice({
+      title: "Recovered revenue logged",
+      description: `${amount} has been added to recovered refill revenue for ${item.buyerName}. Undo is available if this was marked by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function reopenRecoveredItem(item: RefillOpportunity) {
+    saveUndo();
+    updateRefill(item.id, {
+      reminderStatus: "Not sent",
+      recoveredValue: "$0",
+      lastReminder: "Recovery reopened just now",
+      predictedReorderDate: "Today",
+      nextAction: "Send refill reminder again after recovery was reopened.",
+    });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry("Recovery reopened", `${item.buyerName}'s recovered status was reverted to an open refill opportunity.`, "Reverted"),
+    );
+    setNotice({
+      title: "Recovered status reopened",
+      description: "The refill is open again and can be sent, snoozed, or moved to queue.",
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function openTemplateModal(item: RefillOpportunity) {
+    setSelectedRefillId(item.id);
+    setTemplateForm({
+      templateName: `${item.productName} refill reminder`,
+      channel: item.source.toLowerCase().includes("whatsapp")
+        ? "WhatsApp"
+        : item.source.toLowerCase().includes("shopify") || item.source.toLowerCase().includes("ecommerce")
+          ? "Email"
+          : "Manual Copy",
+      previewText: item.messageTemplate,
+    });
+    setTemplateModalOpen(true);
+  }
+
+  function createTemplateFromAction(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedRefill) {
+      return;
+    }
+
+    const finalTemplateName = templateForm.templateName.trim() || `${selectedRefill.productName} refill reminder`;
+    const finalPreviewText = templateForm.previewText.trim() || selectedRefill.messageTemplate;
+
+    const template: MessageTemplate = {
+      id: `template-refill-${selectedRefill.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      templateName: finalTemplateName,
+      recoveryType: "Refill / Repeat Revenue",
+      industryFit: "Beauty / Skincare",
+      channel: templateForm.channel,
+      owner: selectedRefill.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: "Refill Opportunities",
+      previewText: finalPreviewText,
+      tone: selectedRefill.tone,
+    };
+
+    updateRefill(selectedRefill.id, { messageTemplate: finalPreviewText });
+    onCreateTemplate?.(template);
+    setTemplateModalOpen(false);
+    setTemplateForm({
+      templateName: "",
+      channel: "Manual Copy",
+      previewText: "",
+    });
+    addAuditToItem(
+      selectedRefill.id,
+      makeAuditEntry("Template created", `${template.templateName} was created with the edited message text.`, "Created"),
+    );
+    setNotice({
+      title: "New template created",
+      description: `${template.templateName} has been added to Setup > Templates with your edited message content.`,
+      actionLabel: "View audit trail",
+      action: "viewAudit",
+    });
+  }
+
+  function createManualOpportunity(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const manualItem: RefillOpportunity = {
+      id: `REF-MANUAL-${Date.now()}`,
+      buyerName: manualForm.buyerName.trim() || "Manual refill buyer",
+      productName: manualForm.productName.trim() || "Manual refill product",
+      productCategory: manualForm.productCategory.trim() || "Skincare",
+      lastPurchaseDate: "Added manually today",
+      refillWindow: manualForm.refillWindow.trim() || "Manual refill window active",
+      predictedReorderDate: manualForm.predictedReorderDate.trim() || "Today",
+      estimatedRefillValue: ensureMoney(manualForm.estimatedRefillValue),
+      owner: manualForm.owner.trim() || "Mina Cole",
+      source: manualForm.source.trim() || "Manual entry",
+      buyerStatus: manualForm.buyerStatus.trim() || "Repeat buyer",
+      reminderStatus: "Not sent",
+      lastReminder: "No refill reminder sent",
+      nextAction: "Send manually added refill reminder and confirm repeat purchase intent.",
+      messageTemplate:
+        manualForm.messageTemplate.trim() ||
+        "Your refill window is active. Would you like us to prepare your next order before you run low?",
+      recoveredValue: "$0",
+      tone: "emerald",
+    };
+
+    saveUndo();
+    setRefills((items) => [manualItem, ...items]);
+    setSelectedRefillId(manualItem.id);
+    setManualModalOpen(false);
+    setManualForm({
+      buyerName: "",
+      productName: "",
+      productCategory: "Skincare",
+      refillWindow: "60-day refill window active",
+      predictedReorderDate: "Today",
+      estimatedRefillValue: "",
+      owner: "Mina Cole",
+      source: "Manual entry",
+      buyerStatus: "Repeat buyer",
+      messageTemplate: "",
+    });
+    setLocalState((current) => ({
+      ...current,
+      [manualItem.id]: {
+        audit: [makeAuditEntry("Manual opportunity added", `${manualItem.buyerName} was added manually.`, "Manual")],
+      },
+    }));
+    setNotice({
+      title: "Manual refill opportunity added",
+      description: `${manualItem.buyerName} is now available in the refill list. Undo is available if this was added by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function exportRefillReport() {
+    const headers = ["Buyer", "Product", "Category", "Status", "Owner", "Source", "Estimated Value", "Recovered Value", "Next Action"];
+    const rows = refills.map((item) => [
+      item.buyerName,
+      item.productName,
+      item.productCategory,
+      item.reminderStatus,
+      item.owner,
+      item.source,
+      item.estimatedRefillValue,
+      item.recoveredValue,
+      item.nextAction,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `altynx-refill-opportunities-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({
+      title: "Refill report exported",
+      description: "A CSV report has been downloaded with the current refill opportunities.",
+    });
+  }
+
+  function openRecoveryQueue() {
+    if (selectedRefill) {
+      const queueItemId = getRefillLocalState(selectedRefill.id).queueItemId ?? getQueueItemId(selectedRefill);
+
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("altynx-open-followup-id", queueItemId);
+      }
+    }
+
+    onNavigate?.("Follow-up Recovery");
+  }
+
+  if (!selectedRefill) {
+    return (
+      <div className="repeat-revenue-page">
+        <section className="glass-card panel-card rr-empty-state">
+          <h2>No refill opportunities found</h2>
+          <p>Add a manual opportunity to start tracking repeat revenue.</p>
+          <button type="button" className="primary-btn" onClick={() => setManualModalOpen(true)}>
+            Add Refill Opportunity
+          </button>
+        </section>
+      </div>
+    );
   }
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
+    <div className="repeat-revenue-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid rr-kpi-grid">
         {refillKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
         ))}
       </section>
 
-      <section className="queue-toolbar">
-        <div className="queue-tabs" aria-label="Refill opportunity filters">
-          {refillOpportunityFilters.map((filter) => (
+      <section className="glass-card panel-card rr-filter-bar">
+        <div className="filter-pills rr-filter-pills">
+          {localFilters.map((filter) => (
             <button
-              className={`queue-tab ${activeRefillFilter === filter ? "active" : ""}`}
               key={filter}
-              onClick={() => setActiveRefillFilter(filter)}
               type="button"
+              className={filter === activeRefillFilter ? "active" : ""}
+              onClick={() => setActiveRefillFilter(filter)}
             >
               {filter}
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredRefills.length} refill opportunities</Badge>
+
+        <span className="rr-count-pill">
+          {filteredRefills.length} refill opportunities · 25 per page
+        </span>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Refill Opportunities</h2>
-              <p>Beauty, skincare, and cosmetics buyers whose refill or reorder window is active, overdue, or approaching.</p>
-            </div>
-            <Badge tone="emerald">Repeat revenue</Badge>
-          </div>
+      <section className="rr-action-card" role="status">
+        <div>
+          <span>Action status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
+        </div>
 
-          <div className="recovery-list">
-            {filteredRefills.map((item) => (
-              <button
-                className={`product-card recovery-task-card ${item.tone} ${
-                  selectedRefill.id === item.id ? "selected" : ""
-                }`}
+        <div className="rr-action-card-buttons">
+          {notice.action === "undo" && undoSnapshot ? (
+            <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+              Undo
+            </button>
+          ) : null}
+
+          {notice.action === "openQueue" ? (
+            <button type="button" className="secondary-btn" onClick={openRecoveryQueue}>
+              Open queue
+            </button>
+          ) : null}
+
+          {notice.action === "viewAudit" ? (
+            <button type="button" className="secondary-btn" onClick={() => setAuditModalOpen(true)}>
+              View audit trail
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="glass-card panel-card rr-list-panel">
+        <div className="rr-list">
+          {pagedRefills.map((item) => {
+            const itemState = getRefillLocalState(item.id);
+            const selected = item.id === selectedRefill.id;
+
+            return (
+              <article
                 key={item.id}
+                className={`rr-refill-card tone-${item.tone} ${selected ? "selected" : ""}`}
                 onClick={() => setSelectedRefillId(item.id)}
-                type="button"
               >
-                <div className="recovery-task-main">
-                  <Avatar name={item.buyerName} />
-                  <div>
-                    <div className="recovery-row-title">
+                <div className="rr-card-left">
+                  <div className="rr-avatar-wrap">
+                    <Avatar name={item.buyerName} />
+                  </div>
+
+                  <div className="rr-card-copy">
+                    <div className="rr-card-title-row">
                       <h3>{item.buyerName}</h3>
-                      <Badge tone={item.tone}>{item.reminderStatus}</Badge>
+                      <span className={`rr-status-pill status-${item.reminderStatus.toLowerCase().replace(/\s+/g, "-")}`}>
+                        {item.reminderStatus}
+                      </span>
+                      {itemState.queued ? <span className="rr-queue-pill">In queue</span> : null}
                     </div>
-                    <p>{item.productName} - {item.productCategory}</p>
-                    <div className="recovery-meta">
+
+                    <p className="rr-product-line">{item.productName} - {item.productCategory}</p>
+
+                    <div className="rr-meta-row">
                       <span>{item.lastPurchaseDate}</span>
                       <span>{item.refillWindow}</span>
                       <span>{item.predictedReorderDate}</span>
                       <span>{item.owner}</span>
                       <span>{item.source}</span>
                     </div>
-                    <small className="queue-next-action">{item.nextAction}</small>
+
+                    <p className="rr-next-action-text">{item.nextAction}</p>
                   </div>
                 </div>
-                <div className="task-money">
-                  <strong>{item.estimatedRefillValue}</strong>
-                  <span>refill value</span>
+
+                <div className="rr-card-right">
+                  <div className="rr-value-stack">
+                    <strong>{item.estimatedRefillValue}</strong>
+                    <span>refill value</span>
+                  </div>
+
+                  <div className="rr-tile-buttons">
+                    {item.reminderStatus === "Recovered" ? (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          reopenRecoveredItem(item);
+                        }}
+                      >
+                        Reopen
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openRecoveredModal(item);
+                        }}
+                      >
+                        Mark Recovered
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openViewMore(item);
+                      }}
+                    >
+                      View More
+                    </button>
+                  </div>
                 </div>
-              </button>
-            ))}
-          </div>
-        </article>
+              </article>
+            );
+          })}
+        </div>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedRefill.buyerName} />
-              <div>
-                <h2>{selectedRefill.buyerName}</h2>
-                <p>{selectedRefill.productName}</p>
-              </div>
-            </div>
-            <strong>{selectedRefill.estimatedRefillValue}</strong>
-          </div>
-
-          <div className="detail-grid">
-            <div>
-              <span>Product category</span>
-              <strong>{selectedRefill.productCategory}</strong>
-            </div>
-            <div>
-              <span>Last purchase</span>
-              <strong>{selectedRefill.lastPurchaseDate}</strong>
-            </div>
-            <div>
-              <span>Refill window</span>
-              <strong>{selectedRefill.refillWindow}</strong>
-            </div>
-            <div>
-              <span>Predicted reorder</span>
-              <strong>{selectedRefill.predictedReorderDate}</strong>
-            </div>
-            <div>
-              <span>Buyer status</span>
-              <strong>{selectedRefill.buyerStatus}</strong>
-            </div>
-            <div>
-              <span>Last reminder</span>
-              <strong>{selectedRefill.lastReminder}</strong>
-            </div>
-          </div>
-
-          <div className="template-box">
-            <div>
-              <span>Refill template preview</span>
-              <button type="button" onClick={() => setNotice(`Refill template copied for ${selectedRefill.buyerName}.`)}>
-                Copy Template
-              </button>
-            </div>
-            <p>{selectedRefill.messageTemplate}</p>
-          </div>
-
-          <div className="detail-callout">
-            <span>Next action</span>
-            <p>{selectedRefill.nextAction}</p>
-          </div>
-
-          <p className="detail-notice">{notice}</p>
-
-          <div className="detail-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() => updateSelectedRefill({ reminderStatus: "Sent", lastReminder: "Just now" }, "Refill reminder sent")}
-            >
-              Send refill reminder
-            </button>
-            <button type="button" className="secondary-btn">Create recovery action</button>
+        <div className="rr-pagination-row">
+          <span>
+            Page {safeCurrentPage} of {totalPages}
+          </span>
+          <div>
             <button
               type="button"
               className="secondary-btn"
-              onClick={() => updateSelectedRefill({ reminderStatus: "Snoozed", lastReminder: "Snoozed today" }, "Refill snoozed")}
+              disabled={safeCurrentPage === 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
             >
-              Snooze refill
+              Previous
             </button>
             <button
               type="button"
               className="secondary-btn"
-              onClick={() =>
-                updateSelectedRefill(
-                  { reminderStatus: "Recovered", recoveredValue: selectedRefill.estimatedRefillValue },
-                  "Refill marked recovered",
-                )
-              }
+              disabled={safeCurrentPage === totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
             >
-              Mark recovered
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedRefill({ owner: selectedRefill.owner === "Unassigned" ? "Mina Cole" : selectedRefill.owner }, "Owner assigned")}
-            >
-              Assign owner
+              Next
             </button>
           </div>
-        </aside>
+        </div>
       </section>
+
+      {detailModalOpen && selectedRefill ? (
+        <div className="rr-modal-backdrop" role="presentation" onClick={() => setDetailModalOpen(false)}>
+          <div className="rr-modal-card rr-modal-wide" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="rr-modal-header">
+              <div>
+                <span>Refill opportunity details</span>
+                <h2>{selectedRefill.buyerName}</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setDetailModalOpen(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="rr-detail-top">
+              <div className="rr-detail-person">
+                <div className="rr-avatar-wrap">
+                  <Avatar name={selectedRefill.buyerName} />
+                </div>
+                <div>
+                  <h3>{selectedRefill.buyerName}</h3>
+                  <p>{selectedRefill.productName}</p>
+                </div>
+              </div>
+              <strong>{selectedRefill.estimatedRefillValue}</strong>
+            </div>
+
+            <div className="rr-detail-grid">
+              <div><span>Product Category</span><strong>{selectedRefill.productCategory}</strong></div>
+              <div><span>Last Purchase</span><strong>{selectedRefill.lastPurchaseDate}</strong></div>
+              <div><span>Refill Window</span><strong>{selectedRefill.refillWindow}</strong></div>
+              <div><span>Predicted Reorder</span><strong>{selectedRefill.predictedReorderDate}</strong></div>
+              <div><span>Buyer Status</span><strong>{selectedRefill.buyerStatus}</strong></div>
+              <div><span>Last Reminder</span><strong>{selectedRefill.lastReminder}</strong></div>
+              <div><span>Owner</span><strong>{selectedRefill.owner}</strong></div>
+              <div><span>Source</span><strong>{selectedRefill.source}</strong></div>
+            </div>
+
+            <div className="rr-green-box">
+              <span>Recommended next action</span>
+              <p>{selectedRefill.nextAction}</p>
+            </div>
+
+            <div className="rr-template-box">
+              <div className="rr-template-head">
+                <span>Refill template preview</span>
+                <div className="rr-template-actions">
+                  <button type="button" className="secondary-btn" onClick={() => copyTemplate(selectedRefill)}>
+                    {selectedLocalState.copied ? "Template copied" : "Copy Template"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => openTemplateModal(selectedRefill)}>
+                    Create New Template
+                  </button>
+                </div>
+              </div>
+              <p>{selectedRefill.messageTemplate}</p>
+            </div>
+
+            <div className="rr-modal-actions-row">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => setItemLocalState(selectedRefill.id, { activePanel: "send" })}
+              >
+                Send Refill Reminder
+              </button>
+
+              {selectedLocalState.queued ? (
+                <button type="button" className="secondary-btn" onClick={() => removeFromRecoveryQueue(selectedRefill)}>
+                  Remove from Recovery Queue
+                </button>
+              ) : (
+                <button type="button" className="secondary-btn" onClick={() => addToRecoveryQueue(selectedRefill)}>
+                  Add to Recovery Queue
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setItemLocalState(selectedRefill.id, { activePanel: "snooze" })}
+              >
+                Snooze Refill
+              </button>
+
+              <button type="button" className="secondary-btn" onClick={() => setAuditModalOpen(true)}>
+                View Audit Trail
+              </button>
+            </div>
+
+            {selectedLocalState.activePanel === "send" ? (
+              <div className="rr-inline-panel">
+                <div>
+                  <span>Send refill reminder</span>
+                  <h3>Copy the suggested message, then mark the reminder as sent.</h3>
+                </div>
+                <p>{selectedRefill.messageTemplate}</p>
+                <div className="rr-panel-actions">
+                  <button type="button" className="secondary-btn" onClick={() => copyTemplate(selectedRefill)}>
+                    {selectedLocalState.copied ? "Template copied" : "Copy Template"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => openTemplateModal(selectedRefill)}>
+                    Create New Template
+                  </button>
+                  <button type="button" className="primary-btn" onClick={() => markReminderSent(selectedRefill)}>
+                    Mark Reminder Sent
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {selectedLocalState.activePanel === "snooze" ? (
+              <div className="rr-inline-panel">
+                <div>
+                  <span>Snooze refill</span>
+                  <h3>Move this buyer out of today’s action list and review later.</h3>
+                </div>
+                <div className="rr-panel-actions">
+                  <button type="button" className="secondary-btn" onClick={() => snoozeRefill(selectedRefill, "3 days")}>Snooze 3 days</button>
+                  <button type="button" className="secondary-btn" onClick={() => snoozeRefill(selectedRefill, "7 days")}>Snooze 7 days</button>
+                  <button type="button" className="secondary-btn" onClick={() => snoozeRefill(selectedRefill, "14 days")}>Snooze 14 days</button>
+                </div>
+                <form
+                  className="rr-custom-snooze"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    snoozeRefill(selectedRefill, customSnoozeDate || todayLabel());
+                    setCustomSnoozeDate("");
+                  }}
+                >
+                  <input
+                    type="date"
+                    value={customSnoozeDate}
+                    onChange={(event) => setCustomSnoozeDate(event.target.value)}
+                  />
+                  <button type="submit" className="primary-btn">Save custom snooze</button>
+                </form>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {queueConfirmModalOpen && queuedFollowUpTarget ? (
+        <div className="rr-modal-backdrop" role="presentation" onClick={() => setQueueConfirmModalOpen(false)}>
+          <div className="rr-modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="rr-modal-header">
+              <div>
+                <span>Added to Recovery Queue</span>
+                <h2>{queuedFollowUpTarget.buyerName} is ready in Follow-up Recovery</h2>
+              </div>
+              <button type="button" onClick={() => setQueueConfirmModalOpen(false)}>×</button>
+            </div>
+
+            <div className="rr-green-box">
+              <span>Next step</span>
+              <p>Open Follow-up Recovery to review the created queue item. It will open the matching buyer automatically and highlight the list card.</p>
+            </div>
+
+            <div className="rr-detail-grid">
+              <div><span>Buyer</span><strong>{queuedFollowUpTarget.buyerName}</strong></div>
+              <div><span>Follow-up type</span><strong>{queuedFollowUpTarget.followUpType}</strong></div>
+              <div><span>Revenue at risk</span><strong>{queuedFollowUpTarget.revenueAtRisk}</strong></div>
+              <div><span>Owner</span><strong>{queuedFollowUpTarget.owner}</strong></div>
+            </div>
+
+            <div className="rr-form-actions">
+              <button type="button" className="secondary-btn" onClick={() => setQueueConfirmModalOpen(false)}>
+                Stay here
+              </button>
+              {undoSnapshot ? (
+                <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+                  Undo movement
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.sessionStorage.setItem("altynx-open-followup-id", queuedFollowUpTarget.id);
+                  }
+
+                  setQueueConfirmModalOpen(false);
+                  onNavigate?.("Follow-up Recovery");
+                }}
+              >
+                Open that page
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {templateModalOpen ? (
+        <div className="rr-modal-backdrop" role="presentation" onClick={() => setTemplateModalOpen(false)}>
+          <form className="rr-modal-card" onSubmit={createTemplateFromAction} onClick={(event) => event.stopPropagation()}>
+            <div className="rr-modal-header">
+              <div>
+                <span>Create message template</span>
+                <h2>Add this refill message to Setup &gt; Templates</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setTemplateModalOpen(false)}>×</button>
+            </div>
+
+            <label>
+              Template name
+              <input
+                value={templateForm.templateName}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, templateName: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              Channel
+              <select
+                value={templateForm.channel}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, channel: event.target.value as MessageTemplate["channel"] }))}
+              >
+                <option>Manual Copy</option>
+                <option>WhatsApp</option>
+                <option>Instagram DM</option>
+                <option>Email</option>
+              </select>
+            </label>
+
+            <label>
+              Template text
+              <textarea
+                rows={5}
+                value={templateForm.previewText}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, previewText: event.target.value }))}
+              />
+            </label>
+
+            <div className="rr-form-actions">
+              <button type="button" className="secondary-btn" onClick={() => setTemplateModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Create Template</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {manualModalOpen ? (
+        <div className="rr-modal-backdrop" role="presentation" onClick={() => setManualModalOpen(false)}>
+          <form className="rr-modal-card rr-modal-wide" onSubmit={createManualOpportunity} onClick={(event) => event.stopPropagation()}>
+            <div className="rr-modal-header">
+              <div>
+                <span>Add manual opportunity</span>
+                <h2>Add a buyer only when automation/import did not capture the refill signal.</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setManualModalOpen(false)}>×</button>
+            </div>
+
+            <div className="rr-form-grid">
+              <label>Buyer name<input value={manualForm.buyerName} onChange={(event) => setManualForm((current) => ({ ...current, buyerName: event.target.value }))} /></label>
+              <label>Product name<input value={manualForm.productName} onChange={(event) => setManualForm((current) => ({ ...current, productName: event.target.value }))} /></label>
+              <label>Product category<input value={manualForm.productCategory} onChange={(event) => setManualForm((current) => ({ ...current, productCategory: event.target.value }))} /></label>
+              <label>Refill window<input value={manualForm.refillWindow} onChange={(event) => setManualForm((current) => ({ ...current, refillWindow: event.target.value }))} /></label>
+              <label>Predicted reorder<input value={manualForm.predictedReorderDate} onChange={(event) => setManualForm((current) => ({ ...current, predictedReorderDate: event.target.value }))} /></label>
+              <label>Estimated value<input value={manualForm.estimatedRefillValue} onChange={(event) => setManualForm((current) => ({ ...current, estimatedRefillValue: event.target.value }))} /></label>
+              <label>Owner<input value={manualForm.owner} onChange={(event) => setManualForm((current) => ({ ...current, owner: event.target.value }))} /></label>
+              <label>Source<input value={manualForm.source} onChange={(event) => setManualForm((current) => ({ ...current, source: event.target.value }))} /></label>
+            </div>
+
+            <label>
+              Suggested message
+              <textarea
+                rows={4}
+                value={manualForm.messageTemplate}
+                onChange={(event) => setManualForm((current) => ({ ...current, messageTemplate: event.target.value }))}
+                placeholder="Your refill window is active. Would you like us to prepare your next order?"
+              />
+            </label>
+
+            <div className="rr-form-actions">
+              <button type="button" className="secondary-btn" onClick={() => setManualModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Add Opportunity</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {recoveredModalOpen && selectedRefill ? (
+        <div className="rr-modal-backdrop" role="presentation" onClick={() => setRecoveredModalOpen(false)}>
+          <form
+            className="rr-modal-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              markRecovered(selectedRefill);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="rr-modal-header">
+              <div>
+                <span>Mark recovered</span>
+                <h2>Confirm the repeat revenue before counting it as recovered.</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setRecoveredModalOpen(false)}>×</button>
+            </div>
+
+            <label>
+              Recovered amount
+              <input
+                value={recoveredForm.recoveredAmount}
+                onChange={(event) => setRecoveredForm((current) => ({ ...current, recoveredAmount: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              Product purchased
+              <input
+                value={recoveredForm.productPurchased}
+                onChange={(event) => setRecoveredForm((current) => ({ ...current, productPurchased: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              Source
+              <input
+                value={recoveredForm.source}
+                onChange={(event) => setRecoveredForm((current) => ({ ...current, source: event.target.value }))}
+              />
+            </label>
+
+            <label>
+              Recovery note
+              <textarea
+                rows={4}
+                value={recoveredForm.recoveryNote}
+                onChange={(event) => setRecoveredForm((current) => ({ ...current, recoveryNote: event.target.value }))}
+              />
+            </label>
+
+            <div className="rr-form-actions">
+              <button type="button" className="secondary-btn" onClick={() => setRecoveredModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Mark as Recovered</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {auditModalOpen && selectedRefill ? (
+        <div className="rr-modal-backdrop" role="presentation" onClick={() => setAuditModalOpen(false)}>
+          <div className="rr-modal-card rr-modal-wide" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="rr-modal-header">
+              <div>
+                <span>Audit trail</span>
+                <h2>{selectedRefill.buyerName} refill action map</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setAuditModalOpen(false)}>×</button>
+            </div>
+
+            <div className="rr-audit-list">
+              {selectedLocalState.audit.length > 0 ? (
+                selectedLocalState.audit.map((entry) => (
+                  <div key={entry.id} className="rr-audit-step">
+                    <span>{entry.status}</span>
+                    <div>
+                      <h3>{entry.title}</h3>
+                      <p>{entry.description}</p>
+                      <small>{entry.time}</small>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rr-audit-empty">
+                  <h3>No actions logged yet</h3>
+                  <p>Copy, send, snooze, queue, recover, or create a template to build the audit trail.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="rr-form-actions">
+              <button type="button" className="primary-btn" onClick={() => setAuditModalOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function RestockWaitlist() {
-  const [waitlistItems, setWaitlistItems] = useState<RestockWaitlistItem[]>(restockWaitlistItems);
-  const [activeRestockFilter, setActiveRestockFilter] = useState<RestockWaitlistFilter>("All");
-  const [notice, setNotice] = useState("Restock waitlist demand is ready for notification review.");
+function RestockWaitlist({
+  onCreateTemplate,
+  onCreateFollowUp,
+  onRemoveFollowUp,
+  onNavigate,
+  onActivity,
+  openManualSignal = 0,
+}: {
+  onCreateTemplate?: (template: MessageTemplate) => void;
+  onCreateFollowUp?: (item: FollowUpRecoveryItem) => void;
+  onRemoveFollowUp?: (itemId: string) => void;
+  onNavigate?: (page: string) => void;
+  onActivity?: (activity: NewRecoveryActivity) => void;
+  openManualSignal?: number;
+} = {}) {
+  type RestockFilter =
+    | "All"
+    | "Fashion / Apparel"
+    | "Beauty / Cosmetics"
+    | "Size Waitlist"
+    | "Shade Waitlist"
+    | "New Drop"
+    | "High Value"
+    | "Notice Not Sent"
+    | "Notice Sent"
+    | "In Queue"
+    | "Recovered";
 
-  const filteredWaitlist = waitlistItems.filter((item) => matchesRestockWaitlistFilter(item, activeRestockFilter));
+  type RestockAuditEntry = {
+    id: string;
+    title: string;
+    description: string;
+    time: string;
+    status: "Created" | "Copied" | "Sent" | "Queued" | "Recovered" | "Reverted" | "Manual" | "Exported";
+  };
+
+  type RestockLocalState = {
+    copied?: boolean;
+    queued?: boolean;
+    queueItemId?: string;
+    activePanel?: "notice" | "queue" | null;
+    customMessage?: string;
+    lastTemplateName?: string;
+    audit: RestockAuditEntry[];
+  };
+
+  type RestockUndoSnapshot = {
+    waitlistItems: RestockWaitlistItem[];
+    localState: Record<string, RestockLocalState>;
+    queueItemIdToRemove?: string;
+    queueItemToRestore?: FollowUpRecoveryItem;
+  };
+
+  type QueueConfirmation = {
+    itemId: string;
+    queueItemId: string;
+    title: string;
+    description: string;
+  };
+
+  const restockFilters: RestockFilter[] = [
+    "All",
+    "Fashion / Apparel",
+    "Beauty / Cosmetics",
+    "Size Waitlist",
+    "Shade Waitlist",
+    "New Drop",
+    "High Value",
+    "Notice Not Sent",
+    "Notice Sent",
+    "In Queue",
+    "Recovered",
+  ];
+
+  const [waitlistItems, setWaitlistItems] = useState<RestockWaitlistItem[]>(restockWaitlistItems);
+  const [activeRestockFilter, setActiveRestockFilter] = useState<RestockFilter>("All");
+  const [selectedItemId, setSelectedItemId] = useState(restockWaitlistItems[0]?.id ?? "");
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [recoveredModalOpen, setRecoveredModalOpen] = useState(false);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [queueConfirm, setQueueConfirm] = useState<QueueConfirmation | null>(null);
+  const [localState, setLocalState] = useState<Record<string, RestockLocalState>>({});
+  const [undoSnapshot, setUndoSnapshot] = useState<RestockUndoSnapshot | null>(null);
+  const [notice, setNotice] = useState({
+    title: "Restock demand ready",
+    description: "Send restock notices, move high-intent buyers to the Recovery Queue, or mark recovered after purchase is confirmed.",
+  });
+
+  const [templateForm, setTemplateForm] = useState({
+    templateName: "",
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
+
+  const [manualForm, setManualForm] = useState({
+    productName: "",
+    skuVariant: "",
+    sizeShadeColor: "",
+    productCategory: "Size Waitlist",
+    industryType: "Fashion / Apparel" as RestockWaitlistItem["industryType"],
+    buyerCount: "",
+    highIntentBuyers: "",
+    estimatedDemandValue: "",
+    recoveredValue: "$0",
+    restockStatus: "Restock due this week",
+    sourceMix: "Website form, Instagram DM",
+    owner: "Amara Shah",
+    linkedRecoveryCases: "0",
+    recommendedNextAction: "Send restock notice to high-intent buyers first.",
+  });
+
+  const [recoveredForm, setRecoveredForm] = useState({
+    recoveredAmount: "",
+    convertedBuyers: "",
+    source: "",
+    recoveryNote: "",
+  });
+
+  function normalizeMoney(value: string) {
+    const cleanValue = value.trim();
+
+    if (!cleanValue) {
+      return "$0";
+    }
+
+    return cleanValue.startsWith("$") ? cleanValue : `$${cleanValue}`;
+  }
+
+  function makeAuditEntry(title: string, description: string, status: RestockAuditEntry["status"]): RestockAuditEntry {
+    return {
+      id: `rst-audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title,
+      description,
+      status,
+      time: "Just now",
+    };
+  }
+
+  function getItemLocalState(itemId: string): RestockLocalState {
+    return localState[itemId] ?? { audit: [] };
+  }
+
+  function setItemLocalState(itemId: string, updates: Partial<RestockLocalState>) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          ...updates,
+          audit: updates.audit ?? previous.audit,
+        },
+      };
+    });
+  }
+
+  function addAudit(itemId: string, entry: RestockAuditEntry) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          audit: [entry, ...previous.audit],
+        },
+      };
+    });
+  }
+
+  function saveUndo(queueItemIdToRemove?: string, queueItemToRestore?: FollowUpRecoveryItem) {
+    setUndoSnapshot({
+      waitlistItems,
+      localState,
+      queueItemIdToRemove,
+      queueItemToRestore,
+    });
+  }
+
+  function restoreLastAction() {
+    if (!undoSnapshot) {
+      return;
+    }
+
+    setWaitlistItems(undoSnapshot.waitlistItems);
+    setLocalState(undoSnapshot.localState);
+
+    if (undoSnapshot.queueItemIdToRemove) {
+      onRemoveFollowUp?.(undoSnapshot.queueItemIdToRemove);
+    }
+
+    if (undoSnapshot.queueItemToRestore) {
+      onCreateFollowUp?.(undoSnapshot.queueItemToRestore);
+    }
+
+    setUndoSnapshot(null);
+    setQueueConfirm(null);
+    setNotice({
+      title: "Action reverted",
+      description: "The restock waitlist record has been restored to the previous state.",
+    });
+  }
+
+  function updateWaitlistItem(id: string, updates: Partial<RestockWaitlistItem>) {
+    setWaitlistItems((items) => items.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+  }
+
+  function recordRestockActivity(item: RestockWaitlistItem, title: string, status: string) {
+    onActivity?.({
+      category: "Repeat Revenue",
+      title,
+      description: `${item.productName} waitlist updated for ${item.buyerCount} buyers and ${item.estimatedDemandValue} demand value.`,
+      impactBadge: item.estimatedDemandValue,
+      relatedRecord: `${item.skuVariant} - ${item.id}`,
+      owner: item.owner,
+      status,
+      nextAction: item.recommendedNextAction,
+      tone: item.tone,
+    });
+  }
+
+  function getDefaultRestockMessage(item: RestockWaitlistItem) {
+    const productContext = `${item.productName} ${item.sizeShadeColor}`.trim();
+
+    if (item.industryType === "Beauty / Cosmetics") {
+      return `Good news — ${productContext} is back or approaching restock. Want us to set yours aside before the shade sells out again?`;
+    }
+
+    return `Good news — ${productContext} is back or approaching restock. Want us to hold your preferred option before it sells out again?`;
+  }
+
+  function getRestockMessage(item: RestockWaitlistItem) {
+    return getItemLocalState(item.id).customMessage ?? getDefaultRestockMessage(item);
+  }
+
+  function getQueueItemId(item: RestockWaitlistItem) {
+    return `FU-RST-${item.id}`;
+  }
+
+  function buildQueueItem(item: RestockWaitlistItem): FollowUpRecoveryItem {
+    const itemState = getItemLocalState(item.id);
+    const queueBuyerLabel = item.highIntentBuyers > 0
+      ? `${item.highIntentBuyers} high-intent waitlist buyers`
+      : `${item.buyerCount} waitlist buyers`;
+
+    return {
+      id: itemState.queueItemId ?? getQueueItemId(item),
+      buyerName: `${item.productName} waitlist`,
+      productContext: `${item.skuVariant} - ${item.sizeShadeColor}`,
+      followUpType: "Restock notification",
+      source: item.sourceMix.join(" / "),
+      revenueAtRisk: item.estimatedDemandValue,
+      owner: item.owner,
+      dueStatus: item.notificationStatus === "Notice due" ? "Due today" : item.notificationStatus === "Notice sent" ? "Monitoring" : "Due soon",
+      lastContact: item.notificationStatus === "Notice sent" ? "Restock notice sent" : item.restockStatus,
+      attemptCount: item.notificationStatus === "Notice sent" ? 1 : 0,
+      buyerResponseStatus: item.notificationStatus === "Notice sent" ? "Follow-up sent" : "No reply yet",
+      recommendedNextAction: item.recommendedNextAction,
+      messageTemplate: getRestockMessage(item),
+      internalRecoveryNote: `${queueBuyerLabel} waiting for ${item.productName}. Demand value: ${item.estimatedDemandValue}. Sources: ${item.sourceMix.join(", ")}.`,
+      tone: item.tone,
+    };
+  }
+
+  function matchesLocalRestockFilter(item: RestockWaitlistItem, filter: RestockFilter) {
+    const itemState = getItemLocalState(item.id);
+    const category = `${item.productCategory} ${item.sizeShadeColor} ${item.restockStatus}`.toLowerCase();
+
+    if (filter === "All") return true;
+    if (filter === "Fashion / Apparel" || filter === "Beauty / Cosmetics") return item.industryType === filter;
+    if (filter === "Size Waitlist") return category.includes("size");
+    if (filter === "Shade Waitlist") return category.includes("shade") || category.includes("color");
+    if (filter === "New Drop") return category.includes("drop") || item.sourceMix.some((source) => source.toLowerCase().includes("early access"));
+    if (filter === "High Value") return moneyToNumber(item.estimatedDemandValue) >= 8000 || item.highIntentBuyers >= 10;
+    if (filter === "Notice Not Sent") return item.notificationStatus === "Notice not sent" || item.notificationStatus === "Notice due";
+    if (filter === "Notice Sent") return item.notificationStatus === "Notice sent";
+    if (filter === "In Queue") return Boolean(itemState.queued);
+    return item.notificationStatus === "Recovered";
+  }
+
+  function getProductInitials(item: RestockWaitlistItem) {
+    return item.productName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase())
+      .join("");
+  }
+
+  function openDetail(item: RestockWaitlistItem, panel: RestockLocalState["activePanel"] = null) {
+    setSelectedItemId(item.id);
+    setItemLocalState(item.id, { activePanel: panel });
+    setDetailModalOpen(true);
+  }
+
+  function openTemplateModal(item: RestockWaitlistItem) {
+    setSelectedItemId(item.id);
+    setTemplateForm({
+      templateName: `${item.productName} restock notice`,
+      channel: item.sourceMix.some((source) => source.toLowerCase().includes("instagram"))
+        ? "Instagram DM"
+        : item.sourceMix.some((source) => source.toLowerCase().includes("whatsapp"))
+          ? "WhatsApp"
+          : "Manual Copy",
+      previewText: getRestockMessage(item),
+    });
+    setTemplateModalOpen(true);
+  }
+
+  function openRecoveredModal(item: RestockWaitlistItem) {
+    setSelectedItemId(item.id);
+    setRecoveredForm({
+      recoveredAmount: item.recoveredValue !== "$0" ? item.recoveredValue : item.estimatedDemandValue,
+      convertedBuyers: String(Math.max(1, Math.min(item.highIntentBuyers || item.buyerCount, item.buyerCount))),
+      source: item.sourceMix[0] ?? "Manual",
+      recoveryNote: `Recovered restock revenue from ${item.productName}.`,
+    });
+    setRecoveredModalOpen(true);
+  }
+
+  async function copyRestockTemplate(item: RestockWaitlistItem) {
+    const message = getRestockMessage(item);
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(message);
+      }
+
+      setItemLocalState(item.id, { copied: true });
+      addAudit(item.id, makeAuditEntry("Template copied", `Restock notice copied for ${item.productName}.`, "Copied"));
+      setNotice({
+        title: "Template copied",
+        description: `The restock notice for ${item.productName} is ready to paste into the buyer channel.`,
+      });
+    } catch {
+      setNotice({
+        title: "Copy blocked",
+        description: "Clipboard access was blocked. The template is still visible and can be copied manually.",
+      });
+    }
+  }
+
+  function markNoticeSent(item: RestockWaitlistItem) {
+    saveUndo();
+    updateWaitlistItem(item.id, {
+      notificationStatus: "Notice sent",
+      recommendedNextAction: "Monitor buyer replies and mark recovered after restock purchases are confirmed.",
+    });
+    setItemLocalState(item.id, { activePanel: null });
+    addAudit(item.id, makeAuditEntry("Restock notice sent", `${item.productName} restock notice was marked as sent.`, "Sent"));
+    recordRestockActivity(item, "Restock notice sent", "Notice sent");
+    setNotice({
+      title: "Notice marked sent",
+      description: `${item.productName} moved into Notice Sent. Undo is available if this was clicked by mistake.`,
+    });
+  }
+
+  function addToRecoveryQueue(item: RestockWaitlistItem) {
+    const itemState = getItemLocalState(item.id);
+
+    if (itemState.queued) {
+      setQueueConfirm({
+        itemId: item.id,
+        queueItemId: itemState.queueItemId ?? getQueueItemId(item),
+        title: "Already in Recovery Queue",
+        description: `${item.productName} already has a restock follow-up in Follow-up Recovery.`,
+      });
+      setDetailModalOpen(false);
+      return;
+    }
+
+    const queueItem = buildQueueItem(item);
+
+    saveUndo(queueItem.id);
+    onCreateFollowUp?.(queueItem);
+    setItemLocalState(item.id, {
+      queued: true,
+      queueItemId: queueItem.id,
+      activePanel: null,
+    });
+    addAudit(item.id, makeAuditEntry("Moved to Recovery Queue", `${item.productName} waitlist follow-up was sent to Follow-up Recovery.`, "Queued"));
+    recordRestockActivity(item, "Restock waitlist moved to Recovery Queue", "Queued");
+
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-open-followup-id", queueItem.id);
+    }
+
+    setDetailModalOpen(false);
+    setQueueConfirm({
+      itemId: item.id,
+      queueItemId: queueItem.id,
+      title: "Added to Recovery Queue",
+      description: `${item.highIntentBuyers} high-intent buyers for ${item.productName} are ready in Follow-up Recovery.`,
+    });
+    setNotice({
+      title: "Added to Recovery Queue",
+      description: `${item.productName} restock demand moved to Follow-up Recovery. Undo is available from the popup.`,
+    });
+  }
+
+  function removeFromRecoveryQueue(item: RestockWaitlistItem) {
+    const itemState = getItemLocalState(item.id);
+    const queueItemId = itemState.queueItemId ?? getQueueItemId(item);
+
+    saveUndo(undefined, buildQueueItem(item));
+    onRemoveFollowUp?.(queueItemId);
+    setItemLocalState(item.id, {
+      queued: false,
+      queueItemId: undefined,
+      activePanel: null,
+    });
+    addAudit(item.id, makeAuditEntry("Removed from Recovery Queue", `${item.productName} was removed from Follow-up Recovery.`, "Reverted"));
+    setNotice({
+      title: "Removed from queue",
+      description: `${item.productName} queue movement has been reverted. Undo can restore it.`,
+    });
+  }
+
+  function createTemplateFromRestock(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const selectedItem = waitlistItems.find((item) => item.id === selectedItemId);
+
+    if (!selectedItem) {
+      return;
+    }
+
+    const editedText = templateForm.previewText.trim() || getRestockMessage(selectedItem);
+    const templateName = templateForm.templateName.trim() || `${selectedItem.productName} restock notice`;
+
+    const template: MessageTemplate = {
+      id: `template-restock-${selectedItem.id}-${Date.now()}`,
+      templateName,
+      recoveryType: "Restock Notice",
+      industryFit: selectedItem.industryType === "Beauty / Cosmetics" ? "Beauty / Skincare" : "Fashion / Apparel",
+      channel: templateForm.channel,
+      owner: selectedItem.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: "Restock Waitlist",
+      previewText: editedText,
+      tone: selectedItem.tone,
+    };
+
+    onCreateTemplate?.(template);
+    setItemLocalState(selectedItem.id, {
+      customMessage: editedText,
+      lastTemplateName: templateName,
+      copied: false,
+    });
+    addAudit(selectedItem.id, makeAuditEntry("Template created", `${templateName} was created and linked to this restock record.`, "Created"));
+    setTemplateModalOpen(false);
+    setNotice({
+      title: "Template created",
+      description: `${templateName} was added to Setup > Templates with your edited message text.`,
+    });
+  }
+
+  function markRecovered(item: RestockWaitlistItem) {
+    const amount = normalizeMoney(recoveredForm.recoveredAmount || item.estimatedDemandValue);
+    const convertedBuyers = Number.parseInt(recoveredForm.convertedBuyers, 10) || Math.max(1, item.highIntentBuyers);
+
+    saveUndo();
+    updateWaitlistItem(item.id, {
+      notificationStatus: "Recovered",
+      recoveredValue: amount,
+      linkedRecoveryCases: Math.max(item.linkedRecoveryCases, convertedBuyers),
+      recommendedNextAction: "Send post-purchase review, referral, or UGC request after the restock orders are delivered.",
+    });
+    setRecoveredModalOpen(false);
+    addAudit(
+      item.id,
+      makeAuditEntry(
+        "Restock revenue recovered",
+        `${amount} recovered from ${convertedBuyers} buyer${convertedBuyers === 1 ? "" : "s"}. Note: ${recoveredForm.recoveryNote || "No note added."}`,
+        "Recovered",
+      ),
+    );
+    recordRestockActivity(item, "Restock revenue recovered", "Recovered");
+    setNotice({
+      title: "Recovered revenue logged",
+      description: `${amount} has been added to recovered restock revenue for ${item.productName}. Undo is available if this was marked by mistake.`,
+    });
+  }
+
+  function reopenRecoveredItem(item: RestockWaitlistItem) {
+    saveUndo();
+    updateWaitlistItem(item.id, {
+      notificationStatus: "Notice not sent",
+      recoveredValue: "$0",
+      recommendedNextAction: "Send restock notice again and confirm buyer interest before marking recovered.",
+    });
+    addAudit(item.id, makeAuditEntry("Recovered status reopened", `${item.productName} was reopened as an active waitlist record.`, "Reverted"));
+    setNotice({
+      title: "Recovered status reopened",
+      description: `${item.productName} is back in open restock demand and can be notified again.`,
+    });
+  }
+
+  function createManualWaitlistRecord(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const buyerCount = Number.parseInt(manualForm.buyerCount, 10) || 1;
+    const highIntentBuyers = Math.min(Number.parseInt(manualForm.highIntentBuyers, 10) || buyerCount, buyerCount);
+    const sourceMix = manualForm.sourceMix
+      .split(",")
+      .map((source) => source.trim())
+      .filter(Boolean);
+
+    const manualItem: RestockWaitlistItem = {
+      id: `RST-MANUAL-${Date.now()}`,
+      productName: manualForm.productName.trim() || "Manual restock product",
+      skuVariant: manualForm.skuVariant.trim() || "MANUAL-SKU",
+      sizeShadeColor: manualForm.sizeShadeColor.trim() || "Manual size / shade",
+      productCategory: manualForm.productCategory.trim() || "Size Waitlist",
+      industryType: manualForm.industryType,
+      buyerCount,
+      highIntentBuyers,
+      estimatedDemandValue: normalizeMoney(manualForm.estimatedDemandValue),
+      recoveredValue: normalizeMoney(manualForm.recoveredValue),
+      restockStatus: manualForm.restockStatus.trim() || "Restock due this week",
+      sourceMix: sourceMix.length > 0 ? sourceMix : ["Manual entry"],
+      owner: manualForm.owner.trim() || "Amara Shah",
+      notificationStatus: "Notice due",
+      linkedRecoveryCases: Number.parseInt(manualForm.linkedRecoveryCases, 10) || 0,
+      recommendedNextAction: manualForm.recommendedNextAction.trim() || "Send restock notice to high-intent buyers first.",
+      tone: manualForm.industryType === "Beauty / Cosmetics" ? "emerald" : "cyan",
+    };
+
+    saveUndo();
+    setWaitlistItems((items) => [manualItem, ...items]);
+    setSelectedItemId(manualItem.id);
+    setLocalState((current) => ({
+      ...current,
+      [manualItem.id]: {
+        audit: [makeAuditEntry("Manual waitlist record added", `${manualItem.productName} was added manually.`, "Manual")],
+      },
+    }));
+    setManualModalOpen(false);
+    setManualForm({
+      productName: "",
+      skuVariant: "",
+      sizeShadeColor: "",
+      productCategory: "Size Waitlist",
+      industryType: "Fashion / Apparel",
+      buyerCount: "",
+      highIntentBuyers: "",
+      estimatedDemandValue: "",
+      recoveredValue: "$0",
+      restockStatus: "Restock due this week",
+      sourceMix: "Website form, Instagram DM",
+      owner: "Amara Shah",
+      linkedRecoveryCases: "0",
+      recommendedNextAction: "Send restock notice to high-intent buyers first.",
+    });
+    setNotice({
+      title: "Manual waitlist record added",
+      description: `${manualItem.productName} is now available in the Restock Waitlist. Undo is available if this was added by mistake.`,
+    });
+  }
+
+  function exportWaitlist() {
+    const headers = [
+      "Product",
+      "SKU",
+      "Size / Shade / Color",
+      "Industry",
+      "Buyers Waiting",
+      "High Intent Buyers",
+      "Demand Value",
+      "Recovered Value",
+      "Notice Status",
+      "Owner",
+      "Sources",
+      "Next Action",
+    ];
+    const rows = filteredWaitlist.map((item) => [
+      item.productName,
+      item.skuVariant,
+      item.sizeShadeColor,
+      item.industryType,
+      String(item.buyerCount),
+      String(item.highIntentBuyers),
+      item.estimatedDemandValue,
+      item.recoveredValue,
+      item.notificationStatus,
+      item.owner,
+      item.sourceMix.join(" / "),
+      item.recommendedNextAction,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `altynx-restock-waitlist-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({
+      title: "Waitlist exported",
+      description: "A CSV export for the current Restock Waitlist view has been downloaded.",
+    });
+  }
+
+  function openQueueConfirmationPage(queueItemId: string) {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-open-followup-id", queueItemId);
+    }
+
+    setQueueConfirm(null);
+    onNavigate?.("Follow-up Recovery");
+  }
+
+  useEffect(() => {
+    if (openManualSignal > 0) {
+      setManualModalOpen(true);
+    }
+  }, [openManualSignal]);
+
+  const filteredWaitlist = useMemo(
+    () => waitlistItems.filter((item) => matchesLocalRestockFilter(item, activeRestockFilter)),
+    [waitlistItems, activeRestockFilter, localState],
+  );
+
+  const selectedItem = waitlistItems.find((item) => item.id === selectedItemId) ?? filteredWaitlist[0] ?? waitlistItems[0];
+  const selectedLocalState = selectedItem ? getItemLocalState(selectedItem.id) : { audit: [] };
 
   const restockKpis = useMemo<KPI[]>(() => {
     const demandValue = waitlistItems
@@ -16203,7 +24017,7 @@ function RestockWaitlist() {
     const buyerCount = waitlistItems.reduce((total, item) => total + item.buyerCount, 0);
     const highIntent = waitlistItems.reduce((total, item) => total + item.highIntentBuyers, 0);
     const productsAwaiting = waitlistItems.filter((item) => item.notificationStatus !== "Recovered").length;
-    const noticesDue = waitlistItems.filter((item) => matchesRestockWaitlistFilter(item, "Notice Not Sent")).length;
+    const noticesDue = waitlistItems.filter((item) => item.notificationStatus === "Notice due" || item.notificationStatus === "Notice not sent").length;
     const recovered = waitlistItems.reduce((total, item) => total + moneyToNumber(item.recoveredValue), 0);
 
     return [
@@ -16211,176 +24025,1175 @@ function RestockWaitlist() {
       { label: "Waitlisted Buyers", value: `${buyerCount}`, caption: "Waiting by product or variant", tone: "cyan" },
       { label: "High-Intent Waitlist", value: `${highIntent}`, caption: "Priority restock buyers", tone: "amber" },
       { label: "Products Awaiting Restock", value: `${productsAwaiting}`, caption: "Open restock demand", tone: "rose" },
-      { label: "Restock Notices Due", value: `${noticesDue}`, caption: "Notification leakage", tone: "cyan" },
+      { label: "Restock Notices Due", value: `${noticesDue}`, caption: "Notification leakage", tone: "amber" },
       { label: "Recovered Restock Revenue", value: formatCompactMoney(recovered), caption: "Recovered waitlist value", tone: "emerald" },
     ];
   }, [waitlistItems]);
 
-  function updateWaitlistItem(id: string, updates: Partial<RestockWaitlistItem>, message: string) {
-    const current = waitlistItems.find((item) => item.id === id);
-    if (!current) return;
-    setWaitlistItems((items) => items.map((item) => (item.id === id ? { ...item, ...updates } : item)));
-    setNotice(`${message} for ${current.productName}.`);
-  }
-
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
+    <div className="restock-working-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid restock-kpi-grid">
         {restockKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
         ))}
       </section>
 
-      <section className="queue-toolbar">
-        <div className="queue-tabs" aria-label="Restock waitlist filters">
-          {restockWaitlistFilters.map((filter) => (
+      <section className="glass-card panel-card restock-filter-card">
+        <div className="filter-pills restock-filter-pills">
+          {restockFilters.map((filter) => (
             <button
-              className={`queue-tab ${activeRestockFilter === filter ? "active" : ""}`}
               key={filter}
-              onClick={() => setActiveRestockFilter(filter)}
               type="button"
+              className={filter === activeRestockFilter ? "active" : ""}
+              onClick={() => setActiveRestockFilter(filter)}
             >
               {filter}
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredWaitlist.length} waitlist records</Badge>
+        <span className="restock-count-pill">
+          {filteredWaitlist.length} waitlist records · 25 per page
+        </span>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
+      <section className="restock-action-card">
+        <div>
+          <span>Action status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
+        </div>
+        <div className="restock-action-buttons">
+          {undoSnapshot ? (
+            <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+              Undo last action
+            </button>
+          ) : null}
+          <button type="button" className="secondary-btn" onClick={exportWaitlist}>
+            Export current view
+          </button>
+        </div>
+      </section>
+
+      <section className="glass-card panel-card restock-list-panel">
+        <div className="restock-list-header">
           <div>
-            <h2>Restock Waitlist</h2>
-            <p>Waitlisted demand by product, SKU, size, shade, color, source mix, owner, and recovery cases.</p>
+            <h2>Product Restock Demand</h2>
+            <p>Product, SKU, size, shade, demand value, high-intent buyers, and next recovery action in one list.</p>
           </div>
-          <Badge tone="amber">Restock demand</Badge>
+          <button type="button" className="primary-btn" onClick={() => setManualModalOpen(true)}>
+            Add Waitlist Record
+          </button>
         </div>
 
-        <div className="capture-card-list">
-          {filteredWaitlist.map((item) => (
-            <article className={`product-card ${item.tone}`} key={item.id}>
-              <div className="capture-card-main buyer-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{item.productName}</h3>
-                    <Badge tone={item.tone}>{item.notificationStatus}</Badge>
-                  </div>
-                  <p>{item.skuVariant} - {item.sizeShadeColor} - {item.productCategory}</p>
-                  <div className="recovery-meta">
-                    <span>{item.industryType}</span>
-                    <span>{item.buyerCount} buyers</span>
-                    <span>{item.highIntentBuyers} high intent</span>
-                    <span>{item.restockStatus}</span>
-                    <span>{item.owner}</span>
-                    <span>{item.linkedRecoveryCases} recovery cases</span>
-                  </div>
-                  <div className="product-tag-list">
-                    {item.sourceMix.map((source) => (
-                      <span key={source}>{source}</span>
-                    ))}
+        <div className="restock-product-list">
+          {filteredWaitlist.slice(0, 25).map((item) => {
+            const itemState = getItemLocalState(item.id);
+            const isRecovered = item.notificationStatus === "Recovered";
+            const noticeSent = item.notificationStatus === "Notice sent";
+
+            return (
+              <article key={item.id} className={`restock-product-card tone-${item.tone}`}>
+                <div className="restock-product-main">
+                  <div className="rst-product-mark">{getProductInitials(item)}</div>
+                  <div className="restock-product-copy">
+                    <div className="restock-title-row">
+                      <h3>{item.productName}</h3>
+                      <span className={`restock-stage-pill stage-${item.notificationStatus.toLowerCase().replace(/\s+/g, "-")}`}>
+                        {item.notificationStatus}
+                      </span>
+                      {itemState.queued ? <span className="restock-queue-pill">In queue</span> : null}
+                    </div>
+                    <p>{item.skuVariant} · {item.sizeShadeColor} · {item.productCategory}</p>
+                    <div className="restock-badge-row">
+                      <span>{item.industryType}</span>
+                      <span>{item.buyerCount} buyers waiting</span>
+                      <span>{item.highIntentBuyers} high intent</span>
+                      <span>{item.restockStatus}</span>
+                      <span>{item.owner}</span>
+                    </div>
+                    <div className="restock-source-row">
+                      {item.sourceMix.map((source) => (
+                        <span key={`${item.id}-${source}`}>{source}</span>
+                      ))}
+                    </div>
+                    <div className="restock-next-action">
+                      <span>Recommended next action</span>
+                      <p>{item.recommendedNextAction}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="capture-value-stack">
+
+                <div className="restock-value-box">
                   <strong>{item.estimatedDemandValue}</strong>
                   <span>{item.recoveredValue} recovered</span>
+                  <div className="restock-card-actions">
+                    {isRecovered ? (
+                      <button type="button" className="secondary-btn" onClick={() => reopenRecoveredItem(item)}>
+                        Reopen
+                      </button>
+                    ) : noticeSent ? (
+                      <button type="button" className="primary-btn" onClick={() => openRecoveredModal(item)}>
+                        Mark Recovered
+                      </button>
+                    ) : (
+                      <button type="button" className="primary-btn" onClick={() => openDetail(item, "notice")}>
+                        Send Notice
+                      </button>
+                    )}
+                    <button type="button" className="secondary-btn" onClick={() => openDetail(item)}>
+                      View More
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      {detailModalOpen && selectedItem ? (
+        <div className="rst-modal-backdrop" role="presentation" onClick={() => setDetailModalOpen(false)}>
+          <article className="rst-modal-card rst-modal-wide" onClick={(event) => event.stopPropagation()}>
+            <div className="rst-modal-heading">
+              <div>
+                <span>Restock waitlist details</span>
+                <h2>{selectedItem.productName}</h2>
+              </div>
+              <button type="button" onClick={() => setDetailModalOpen(false)}>×</button>
+            </div>
+
+            <div className="rst-detail-topline">
+              <div>
+                <h3>{selectedItem.skuVariant}</h3>
+                <p>{selectedItem.sizeShadeColor} · {selectedItem.productCategory}</p>
+              </div>
+              <strong>{selectedItem.estimatedDemandValue}</strong>
+            </div>
+
+            <div className="rst-detail-grid">
+              <div><span>Industry</span><strong>{selectedItem.industryType}</strong></div>
+              <div><span>Buyers Waiting</span><strong>{selectedItem.buyerCount}</strong></div>
+              <div><span>High Intent</span><strong>{selectedItem.highIntentBuyers}</strong></div>
+              <div><span>Recovered Value</span><strong>{selectedItem.recoveredValue}</strong></div>
+              <div><span>Restock Status</span><strong>{selectedItem.restockStatus}</strong></div>
+              <div><span>Notice Status</span><strong>{selectedItem.notificationStatus}</strong></div>
+              <div><span>Owner</span><strong>{selectedItem.owner}</strong></div>
+              <div><span>Recovery Cases</span><strong>{selectedItem.linkedRecoveryCases}</strong></div>
+            </div>
+
+            <div className="rst-green-box">
+              <span>Recommended next action</span>
+              <p>{selectedItem.recommendedNextAction}</p>
+            </div>
+
+            <div className="rst-template-box">
+              <div className="rst-box-heading-row">
+                <div>
+                  <span>Suggested restock notice</span>
+                  {selectedLocalState.lastTemplateName ? <small>Linked template: {selectedLocalState.lastTemplateName}</small> : null}
+                </div>
+                <div className="rst-inline-actions">
+                  <button type="button" className="secondary-btn" onClick={() => copyRestockTemplate(selectedItem)}>
+                    {selectedLocalState.copied ? "Template copied" : "Copy Template"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => openTemplateModal(selectedItem)}>
+                    Create New Template
+                  </button>
                 </div>
               </div>
+              <p>{getRestockMessage(selectedItem)}</p>
+            </div>
 
-              <div className="detail-callout source-fix-callout">
-                <span>Recommended next action</span>
-                <p>{item.recommendedNextAction}</p>
-              </div>
+            <div className="rst-modal-actions-row">
+              <button type="button" className="primary-btn" onClick={() => setItemLocalState(selectedItem.id, { activePanel: "notice" })}>
+                Send Restock Notice
+              </button>
+              {selectedLocalState.queued ? (
+                <button type="button" className="secondary-btn" onClick={() => removeFromRecoveryQueue(selectedItem)}>
+                  Remove from Recovery Queue
+                </button>
+              ) : (
+                <button type="button" className="secondary-btn" onClick={() => addToRecoveryQueue(selectedItem)}>
+                  Send High-Intent Buyers to Queue
+                </button>
+              )}
+              <button type="button" className="secondary-btn" onClick={() => openRecoveredModal(selectedItem)}>
+                Mark Recovered
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setManualModalOpen(true)}>
+                Add Waitlist Record
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setAuditModalOpen(true)}>
+                View Audit Trail
+              </button>
+            </div>
 
-              <div className="capture-actions">
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => updateWaitlistItem(item.id, { notificationStatus: "Notice sent" }, "Restock notice sent")}
-                >
-                  Send restock notice
-                </button>
-                <button type="button" className="secondary-btn">Create recovery tasks</button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => updateWaitlistItem(item.id, { owner: item.owner === "Unassigned" ? "Luis Park" : item.owner }, "Owner assigned")}
-                >
-                  Assign owner
-                </button>
-                <button type="button" className="secondary-btn">Add buyers to waitlist</button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => updateWaitlistItem(item.id, { notificationStatus: "Notice sent" }, "Notice marked sent")}
-                >
-                  Mark notice sent
-                </button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => updateWaitlistItem(item.id, { notificationStatus: "Recovered", recoveredValue: item.estimatedDemandValue }, "Restock demand marked recovered")}
-                >
-                  Mark recovered
-                </button>
-                <button type="button" className="secondary-btn">Export waitlist</button>
+            {selectedLocalState.activePanel === "notice" ? (
+              <div className="rst-action-panel">
+                <span>Send restock notice</span>
+                <h3>Copy the message, create a reusable template if needed, then mark the notice sent.</h3>
+                <p>{getRestockMessage(selectedItem)}</p>
+                <div className="rst-inline-actions">
+                  <button type="button" className="secondary-btn" onClick={() => copyRestockTemplate(selectedItem)}>
+                    {selectedLocalState.copied ? "Template copied" : "Copy Template"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => openTemplateModal(selectedItem)}>
+                    Create New Template
+                  </button>
+                  <button type="button" className="primary-btn" onClick={() => markNoticeSent(selectedItem)}>
+                    Mark Notice Sent
+                  </button>
+                </div>
               </div>
-            </article>
-          ))}
+            ) : null}
+          </article>
         </div>
+      ) : null}
 
-        <p className="detail-notice capture-page-notice">{notice}</p>
-      </section>
+      {templateModalOpen && selectedItem ? (
+        <div className="rst-modal-backdrop" role="presentation" onClick={() => setTemplateModalOpen(false)}>
+          <form className="rst-modal-card" onSubmit={createTemplateFromRestock} onClick={(event) => event.stopPropagation()}>
+            <div className="rst-modal-heading">
+              <div>
+                <span>Create message template</span>
+                <h2>Save edited restock message</h2>
+              </div>
+              <button type="button" onClick={() => setTemplateModalOpen(false)}>×</button>
+            </div>
+            <label>
+              Template name
+              <input
+                value={templateForm.templateName}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, templateName: event.target.value }))}
+              />
+            </label>
+            <label>
+              Channel
+              <select
+                value={templateForm.channel}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, channel: event.target.value as MessageTemplate["channel"] }))}
+              >
+                <option>Manual Copy</option>
+                <option>Instagram DM</option>
+                <option>WhatsApp</option>
+                <option>Email</option>
+              </select>
+            </label>
+            <label>
+              Template text
+              <textarea
+                rows={6}
+                value={templateForm.previewText}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, previewText: event.target.value }))}
+              />
+            </label>
+            <div className="rst-modal-footer">
+              <button type="button" className="secondary-btn" onClick={() => setTemplateModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Create Template</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {manualModalOpen ? (
+        <div className="rst-modal-backdrop" role="presentation" onClick={() => setManualModalOpen(false)}>
+          <form className="rst-modal-card rst-modal-wide" onSubmit={createManualWaitlistRecord} onClick={(event) => event.stopPropagation()}>
+            <div className="rst-modal-heading">
+              <div>
+                <span>Add waitlist record</span>
+                <h2>Add product/SKU restock demand manually</h2>
+              </div>
+              <button type="button" onClick={() => setManualModalOpen(false)}>×</button>
+            </div>
+            <div className="rst-form-grid">
+              <label>Product name<input value={manualForm.productName} onChange={(event) => setManualForm((current) => ({ ...current, productName: event.target.value }))} /></label>
+              <label>SKU / Variant<input value={manualForm.skuVariant} onChange={(event) => setManualForm((current) => ({ ...current, skuVariant: event.target.value }))} /></label>
+              <label>Size / Shade / Color<input value={manualForm.sizeShadeColor} onChange={(event) => setManualForm((current) => ({ ...current, sizeShadeColor: event.target.value }))} /></label>
+              <label>Product category<input value={manualForm.productCategory} onChange={(event) => setManualForm((current) => ({ ...current, productCategory: event.target.value }))} /></label>
+              <label>
+                Industry
+                <select value={manualForm.industryType} onChange={(event) => setManualForm((current) => ({ ...current, industryType: event.target.value as RestockWaitlistItem["industryType"] }))}>
+                  <option>Fashion / Apparel</option>
+                  <option>Beauty / Cosmetics</option>
+                </select>
+              </label>
+              <label>Buyers waiting<input value={manualForm.buyerCount} onChange={(event) => setManualForm((current) => ({ ...current, buyerCount: event.target.value }))} /></label>
+              <label>High-intent buyers<input value={manualForm.highIntentBuyers} onChange={(event) => setManualForm((current) => ({ ...current, highIntentBuyers: event.target.value }))} /></label>
+              <label>Demand value<input value={manualForm.estimatedDemandValue} onChange={(event) => setManualForm((current) => ({ ...current, estimatedDemandValue: event.target.value }))} /></label>
+              <label>Recovered value<input value={manualForm.recoveredValue} onChange={(event) => setManualForm((current) => ({ ...current, recoveredValue: event.target.value }))} /></label>
+              <label>Restock status<input value={manualForm.restockStatus} onChange={(event) => setManualForm((current) => ({ ...current, restockStatus: event.target.value }))} /></label>
+              <label>Sources comma separated<input value={manualForm.sourceMix} onChange={(event) => setManualForm((current) => ({ ...current, sourceMix: event.target.value }))} /></label>
+              <label>Owner<input value={manualForm.owner} onChange={(event) => setManualForm((current) => ({ ...current, owner: event.target.value }))} /></label>
+            </div>
+            <label>
+              Recommended next action
+              <textarea rows={4} value={manualForm.recommendedNextAction} onChange={(event) => setManualForm((current) => ({ ...current, recommendedNextAction: event.target.value }))} />
+            </label>
+            <div className="rst-modal-footer">
+              <button type="button" className="secondary-btn" onClick={() => setManualModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Add Waitlist Record</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {recoveredModalOpen && selectedItem ? (
+        <div className="rst-modal-backdrop" role="presentation" onClick={() => setRecoveredModalOpen(false)}>
+          <form
+            className="rst-modal-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              markRecovered(selectedItem);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="rst-modal-heading">
+              <div>
+                <span>Mark recovered</span>
+                <h2>Confirm restock revenue before counting it</h2>
+              </div>
+              <button type="button" onClick={() => setRecoveredModalOpen(false)}>×</button>
+            </div>
+            <label>
+              Recovered amount
+              <input value={recoveredForm.recoveredAmount} onChange={(event) => setRecoveredForm((current) => ({ ...current, recoveredAmount: event.target.value }))} />
+            </label>
+            <label>
+              Converted buyers
+              <input value={recoveredForm.convertedBuyers} onChange={(event) => setRecoveredForm((current) => ({ ...current, convertedBuyers: event.target.value }))} />
+            </label>
+            <label>
+              Source
+              <input value={recoveredForm.source} onChange={(event) => setRecoveredForm((current) => ({ ...current, source: event.target.value }))} />
+            </label>
+            <label>
+              Recovery note
+              <textarea rows={4} value={recoveredForm.recoveryNote} onChange={(event) => setRecoveredForm((current) => ({ ...current, recoveryNote: event.target.value }))} />
+            </label>
+            <div className="rst-modal-footer">
+              <button type="button" className="secondary-btn" onClick={() => setRecoveredModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Confirm Recovered</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {auditModalOpen && selectedItem ? (
+        <div className="rst-modal-backdrop" role="presentation" onClick={() => setAuditModalOpen(false)}>
+          <article className="rst-modal-card rst-modal-wide" onClick={(event) => event.stopPropagation()}>
+            <div className="rst-modal-heading">
+              <div>
+                <span>Audit trail</span>
+                <h2>{selectedItem.productName} action map</h2>
+              </div>
+              <button type="button" onClick={() => setAuditModalOpen(false)}>×</button>
+            </div>
+            <div className="rst-audit-map">
+              {selectedLocalState.audit.length > 0 ? (
+                selectedLocalState.audit.map((entry) => (
+                  <div key={entry.id} className="rst-audit-step">
+                    <span>{entry.status}</span>
+                    <div>
+                      <h3>{entry.title}</h3>
+                      <p>{entry.description}</p>
+                      <small>{entry.time}</small>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rst-audit-empty">
+                  <h3>No actions logged yet</h3>
+                  <p>Copy a template, send a notice, move to queue, mark recovered, or create a template to build the audit trail.</p>
+                </div>
+              )}
+            </div>
+            <div className="rst-modal-footer">
+              <button type="button" className="primary-btn" onClick={() => setAuditModalOpen(false)}>Done</button>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {queueConfirm ? (
+        <div className="rst-queue-popup-wrap" role="presentation">
+          <article className="rst-queue-popup" role="dialog" aria-modal="true">
+            <span>Recovery Queue</span>
+            <h3>{queueConfirm.title}</h3>
+            <p>{queueConfirm.description}</p>
+            <div className="rst-queue-popup-actions">
+              <button type="button" className="secondary-btn" onClick={() => setQueueConfirm(null)}>
+                Stay here
+              </button>
+              <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+                Undo movement
+              </button>
+              <button type="button" className="primary-btn" onClick={() => openQueueConfirmationPage(queueConfirm.queueItemId)}>
+                Open that page
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function InactiveBuyerRecovery() {
+
+function InactiveBuyerRecovery({
+  onCreateTemplate,
+  onCreateFollowUp,
+  onRemoveFollowUp,
+  onNavigate,
+  onActivity,
+  openManualSignal = 0,
+}: {
+  onCreateTemplate?: (template: MessageTemplate) => void;
+  onCreateFollowUp?: (item: FollowUpRecoveryItem) => void;
+  onRemoveFollowUp?: (itemId: string) => void;
+  onNavigate?: (pageName: string) => void;
+  onActivity?: (activity: NewRecoveryActivity) => void;
+  openManualSignal?: number;
+} = {}) {
+  type InactiveAuditEntry = {
+    id: string;
+    title: string;
+    description: string;
+    time: string;
+    status:
+      | "Created"
+      | "Copied"
+      | "Sent"
+      | "Queued"
+      | "Snoozed"
+      | "Reactivated"
+      | "Lost"
+      | "Reopened"
+      | "Note"
+      | "Reverted";
+  };
+
+  type InactiveLocalState = {
+    copied?: boolean;
+    queued?: boolean;
+    queueItemId?: string;
+    activePanel?: "send" | "snooze" | "note" | null;
+    editedMessage?: string;
+    internalNote?: string;
+    audit: InactiveAuditEntry[];
+  };
+
+  type InactiveNotice = {
+    title: string;
+    description: string;
+    actionLabel?: string;
+    action?: "undo" | "openQueue" | "audit";
+  };
+
+  type QueueConfirm = {
+    buyerName: string;
+    queueItemId: string;
+    title: string;
+    description: string;
+  };
+
+  type UndoSnapshot = {
+    buyers: InactiveBuyerRecoveryItem[];
+    localState: Record<string, InactiveLocalState>;
+    queueItemIdToRemove?: string;
+    queueItemToRestore?: FollowUpRecoveryItem;
+  };
+
+  const entriesPerPage = 25;
+
   const [inactiveBuyers, setInactiveBuyers] = useState<InactiveBuyerRecoveryItem[]>(inactiveBuyerRecoveryItems);
   const [activeInactiveFilter, setActiveInactiveFilter] = useState<InactiveBuyerRecoveryFilter>("All");
-  const [selectedInactiveId, setSelectedInactiveId] = useState(inactiveBuyerRecoveryItems[0].id);
-  const [notice, setNotice] = useState("Select an inactive buyer to review the winback action.");
+  const [selectedInactiveId, setSelectedInactiveId] = useState(inactiveBuyerRecoveryItems[0]?.id ?? "");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [lostOpen, setLostOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [queueConfirm, setQueueConfirm] = useState<QueueConfirm | null>(null);
+  const [customSnoozeDate, setCustomSnoozeDate] = useState("");
+  const [localState, setLocalState] = useState<Record<string, InactiveLocalState>>({});
+  const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
+  const [notice, setNotice] = useState<InactiveNotice>({
+    title: "Ready to recover inactive buyers",
+    description:
+      "Open a buyer, send the winback message, move it to the Recovery Queue, snooze it, or mark the buyer reactivated/lost.",
+  });
 
-  const filteredInactiveBuyers = inactiveBuyers.filter((item) =>
-    matchesInactiveBuyerRecoveryFilter(item, activeInactiveFilter),
+  const [templateForm, setTemplateForm] = useState({
+    templateName: "",
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
+
+  const [manualForm, setManualForm] = useState({
+    buyerName: "",
+    originalProductInterest: "",
+    inactiveReason: "No reply / ghosted" as InactiveBuyerRecoveryItem["inactiveReason"],
+    lifecycleStatus: "Inactive buyer",
+    lastPurchaseDate: "No purchase yet",
+    lastContact: "Just added",
+    estimatedRecoveryValue: "",
+    owner: "Amara Shah",
+    source: "Manual entry",
+    recommendedWinbackAction: "Send a soft winback check-in and ask what changed.",
+    messageTemplate: "",
+  });
+
+  const [reactivationForm, setReactivationForm] = useState({
+    recoveredAmount: "",
+    recoveredOrder: "",
+    source: "",
+    note: "",
+  });
+
+  const [lostForm, setLostForm] = useState({
+    reason: "No response after winback",
+    note: "",
+  });
+
+  const filteredInactiveBuyers = useMemo(
+    () => inactiveBuyers.filter((item) => matchesInactiveBuyerRecoveryFilter(item, activeInactiveFilter)),
+    [inactiveBuyers, activeInactiveFilter],
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredInactiveBuyers.length / entriesPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedInactiveBuyers = filteredInactiveBuyers.slice(
+    (safeCurrentPage - 1) * entriesPerPage,
+    safeCurrentPage * entriesPerPage,
+  );
+
   const selectedInactive =
     inactiveBuyers.find((item) => item.id === selectedInactiveId) ??
+    pagedInactiveBuyers[0] ??
     filteredInactiveBuyers[0] ??
     inactiveBuyers[0];
 
+  function ensureMoney(value: string) {
+    const cleanValue = value.trim();
+
+    if (!cleanValue) {
+      return "$0";
+    }
+
+    return cleanValue.startsWith("$") ? cleanValue : `$${cleanValue}`;
+  }
+
+  function getLocalItemState(itemId: string): InactiveLocalState {
+    return localState[itemId] ?? { audit: [] };
+  }
+
+  function getEffectiveMessage(item: InactiveBuyerRecoveryItem) {
+    return getLocalItemState(item.id).editedMessage ?? item.messageTemplate;
+  }
+
+  function makeAuditEntry(
+    title: string,
+    description: string,
+    status: InactiveAuditEntry["status"],
+  ): InactiveAuditEntry {
+    return {
+      id: `inactive-audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title,
+      description,
+      status,
+      time: "Just now",
+    };
+  }
+
+  function setItemLocalState(itemId: string, updates: Partial<InactiveLocalState>) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          ...updates,
+          audit: updates.audit ?? previous.audit,
+        },
+      };
+    });
+  }
+
+  function addAuditToItem(itemId: string, entry: InactiveAuditEntry) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          audit: [entry, ...previous.audit],
+        },
+      };
+    });
+  }
+
+  function saveUndo(queueItemIdToRemove?: string, queueItemToRestore?: FollowUpRecoveryItem) {
+    setUndoSnapshot({
+      buyers: inactiveBuyers,
+      localState,
+      queueItemIdToRemove,
+      queueItemToRestore,
+    });
+  }
+
+  function restoreLastAction() {
+    if (!undoSnapshot) {
+      return;
+    }
+
+    setInactiveBuyers(undoSnapshot.buyers);
+    setLocalState(undoSnapshot.localState);
+
+    if (undoSnapshot.queueItemIdToRemove) {
+      onRemoveFollowUp?.(undoSnapshot.queueItemIdToRemove);
+    }
+
+    if (undoSnapshot.queueItemToRestore) {
+      onCreateFollowUp?.(undoSnapshot.queueItemToRestore);
+    }
+
+    setQueueConfirm(null);
+    setUndoSnapshot(null);
+    setNotice({
+      title: "Action reverted",
+      description: "The inactive buyer record has been restored to its previous state.",
+      actionLabel: "View audit",
+      action: "audit",
+    });
+  }
+
+  function updateInactiveBuyer(itemId: string, updates: Partial<InactiveBuyerRecoveryItem>) {
+    setInactiveBuyers((items) => items.map((item) => (item.id === itemId ? { ...item, ...updates } : item)));
+  }
+
+  function getQueueItemId(item: InactiveBuyerRecoveryItem) {
+    return `FU-INA-${item.id}`;
+  }
+
+  function buildQueueItem(item: InactiveBuyerRecoveryItem): FollowUpRecoveryItem {
+    const dueStatus: FollowUpRecoveryItem["dueStatus"] = item.recoveryStatus === "Snoozed" ? "Snoozed" : "Due today";
+
+    return {
+      id: getQueueItemId(item),
+      buyerName: item.buyerName,
+      image: item.image,
+      productContext: item.originalProductInterest,
+      followUpType: "Reactivation",
+      source: item.source,
+      revenueAtRisk: item.estimatedRecoveryValue,
+      owner: item.owner === "Unassigned" ? "Recovery Lead" : item.owner,
+      dueStatus,
+      lastContact: item.lastContact,
+      attemptCount: item.recoveryStatus === "Winback sent" ? 1 : 0,
+      buyerResponseStatus: item.recoveryStatus === "Winback sent" ? "Follow-up sent" : "No reply yet",
+      recommendedNextAction: item.recommendedWinbackAction,
+      messageTemplate: getEffectiveMessage(item),
+      internalRecoveryNote: `Created from Inactive Buyer Recovery. Reason: ${item.inactiveReason}. Last action: ${item.lastAction}.`,
+      tone: item.tone,
+    };
+  }
+
+  function getStatusTone(status: InactiveBuyerRecoveryItem["recoveryStatus"]): Tone {
+    if (status === "Reactivated") return "emerald";
+    if (status === "Lost") return "gray";
+    if (status === "Snoozed") return "amber";
+    if (status === "Winback sent") return "cyan";
+    return "rose";
+  }
+
+  function getInactiveDefaultChannel(source: string): MessageTemplate["channel"] {
+    const sourceText = source.toLowerCase();
+
+    if (sourceText.includes("whatsapp")) return "WhatsApp";
+    if (sourceText.includes("instagram") || sourceText.includes("dm")) return "Instagram DM";
+    if (sourceText.includes("email") || sourceText.includes("shopify") || sourceText.includes("ecommerce")) return "Email";
+    return "Manual Copy";
+  }
+
+  function getPrimaryTileAction(item: InactiveBuyerRecoveryItem) {
+    if (item.recoveryStatus === "Reactivated" || item.recoveryStatus === "Lost") {
+      return "Reopen";
+    }
+
+    if (item.recoveryStatus === "Winback sent") {
+      return "Mark Reactivated";
+    }
+
+    return "Send Winback";
+  }
+
+  function openDetail(item: InactiveBuyerRecoveryItem, panel?: InactiveLocalState["activePanel"]) {
+    setSelectedInactiveId(item.id);
+    if (panel) {
+      setItemLocalState(item.id, { activePanel: panel });
+    }
+    setDetailOpen(true);
+  }
+
+  function openReactivateModal(item: InactiveBuyerRecoveryItem) {
+    setSelectedInactiveId(item.id);
+    setReactivationForm({
+      recoveredAmount: item.recoveredValue !== "$0" ? item.recoveredValue : item.estimatedRecoveryValue,
+      recoveredOrder: item.originalProductInterest,
+      source: item.source,
+      note: `Buyer reactivated from ${item.inactiveReason}.`,
+    });
+    setReactivateOpen(true);
+  }
+
+  function handleTilePrimaryAction(item: InactiveBuyerRecoveryItem) {
+    if (item.recoveryStatus === "Reactivated" || item.recoveryStatus === "Lost") {
+      reopenInactiveBuyer(item);
+      return;
+    }
+
+    if (item.recoveryStatus === "Winback sent") {
+      openReactivateModal(item);
+      return;
+    }
+
+    openDetail(item, "send");
+  }
+
+  async function copyTemplate(item: InactiveBuyerRecoveryItem) {
+    const message = getEffectiveMessage(item);
+
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard) {
+        throw new Error("Clipboard unavailable");
+      }
+
+      await navigator.clipboard.writeText(message);
+      setItemLocalState(item.id, { copied: true });
+      addAuditToItem(item.id, makeAuditEntry("Template copied", `Winback message copied for ${item.buyerName}.`, "Copied"));
+      setNotice({
+        title: "Template copied",
+        description: `The winback message for ${item.buyerName} is ready to paste into ${item.source}.`,
+      });
+    } catch {
+      setNotice({
+        title: "Copy failed",
+        description: "Clipboard access was blocked. Copy the message manually from the editable message box.",
+      });
+    }
+  }
+
+  function markWinbackSent(item: InactiveBuyerRecoveryItem) {
+    const message = getEffectiveMessage(item);
+
+    saveUndo();
+    updateInactiveBuyer(item.id, {
+      messageTemplate: message,
+      recoveryStatus: "Winback sent",
+      lastAction: "Winback message sent just now",
+      recommendedWinbackAction: "Monitor buyer response and mark reactivated after a recovered order is confirmed.",
+    });
+    setItemLocalState(item.id, { activePanel: null, editedMessage: message });
+    addAuditToItem(item.id, makeAuditEntry("Winback sent", `${item.buyerName} moved into Winback sent status.`, "Sent"));
+    onActivity?.({
+      category: "Repeat Revenue",
+      title: "Winback sent",
+      description: `${item.buyerName} received an inactive-buyer winback message for ${item.originalProductInterest}.`,
+      impactBadge: item.estimatedRecoveryValue,
+      relatedRecord: item.id,
+      owner: item.owner,
+      status: "Sent",
+      nextAction: "Monitor response and mark reactivated if the buyer returns.",
+      tone: "emerald",
+    });
+    setNotice({
+      title: "Winback sent",
+      description: `${item.buyerName} now appears under Winback sent. Undo is available if this was clicked by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function addToRecoveryQueue(item: InactiveBuyerRecoveryItem) {
+    const itemState = getLocalItemState(item.id);
+
+    if (itemState.queued) {
+      setQueueConfirm({
+        buyerName: item.buyerName,
+        queueItemId: itemState.queueItemId ?? getQueueItemId(item),
+        title: "Already in Recovery Queue",
+        description: `${item.buyerName} already has a reactivation follow-up in Follow-up Recovery.`,
+      });
+      setDetailOpen(false);
+      return;
+    }
+
+    const queueItem = buildQueueItem(item);
+
+    saveUndo(queueItem.id);
+    onCreateFollowUp?.(queueItem);
+    setItemLocalState(item.id, { queued: true, queueItemId: queueItem.id, activePanel: null });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry("Moved to Recovery Queue", `${item.buyerName} was added to Follow-up Recovery.`, "Queued"),
+    );
+    setDetailOpen(false);
+    setQueueConfirm({
+      buyerName: item.buyerName,
+      queueItemId: queueItem.id,
+      title: "Added to Recovery Queue",
+      description: `${item.buyerName} is now in Follow-up Recovery for daily winback execution.`,
+    });
+    setNotice({
+      title: "Added to Recovery Queue",
+      description: `${item.buyerName}'s winback follow-up was moved to the Recovery Queue.`,
+      actionLabel: "Open queue",
+      action: "openQueue",
+    });
+  }
+
+  function removeFromRecoveryQueue(item: InactiveBuyerRecoveryItem) {
+    const queueItemId = getLocalItemState(item.id).queueItemId ?? getQueueItemId(item);
+
+    saveUndo(undefined, buildQueueItem(item));
+    onRemoveFollowUp?.(queueItemId);
+    setItemLocalState(item.id, { queued: false, queueItemId: undefined, activePanel: null });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry("Removed from Recovery Queue", `${item.buyerName} was removed from Follow-up Recovery.`, "Reverted"),
+    );
+    setNotice({
+      title: "Removed from Recovery Queue",
+      description: "The queue movement has been reverted for this buyer. Undo can restore it.",
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function openQueuePage(queueItemId?: string) {
+    const targetId = queueItemId ?? (selectedInactive ? getLocalItemState(selectedInactive.id).queueItemId : "");
+
+    if (targetId && typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-open-followup-id", targetId);
+    }
+
+    setQueueConfirm(null);
+    onNavigate?.("Follow-up Recovery");
+  }
+
+  function snoozeBuyer(item: InactiveBuyerRecoveryItem, label: string) {
+    saveUndo();
+    updateInactiveBuyer(item.id, {
+      recoveryStatus: "Snoozed",
+      lastAction: `Snoozed until ${label}`,
+      recommendedWinbackAction: `Review this buyer again on ${label} before sending another winback touch.`,
+    });
+    setItemLocalState(item.id, { activePanel: null });
+    addAuditToItem(item.id, makeAuditEntry("Winback snoozed", `${item.buyerName} was snoozed until ${label}.`, "Snoozed"));
+    setNotice({
+      title: "Buyer snoozed",
+      description: `${item.buyerName} has moved into the Snoozed filter. Undo is available if this was clicked by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function markReactivated(item: InactiveBuyerRecoveryItem) {
+    const amount = ensureMoney(reactivationForm.recoveredAmount || item.estimatedRecoveryValue);
+
+    saveUndo();
+    updateInactiveBuyer(item.id, {
+      recoveryStatus: "Reactivated",
+      recoveredValue: amount,
+      lastAction: `Reactivated just now from ${reactivationForm.source || item.source}`,
+      recommendedWinbackAction: "Move this buyer into post-purchase review, referral, or repeat-purchase timing.",
+    });
+    setReactivateOpen(false);
+    setItemLocalState(item.id, { activePanel: null });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry(
+        "Buyer reactivated",
+        `${amount} recovered from ${reactivationForm.recoveredOrder || item.originalProductInterest}. ${reactivationForm.note || ""}`,
+        "Reactivated",
+      ),
+    );
+    onActivity?.({
+      category: "Repeat Revenue",
+      title: "Inactive buyer reactivated",
+      description: `${item.buyerName} was reactivated from ${item.inactiveReason}.`,
+      impactBadge: amount,
+      relatedRecord: item.id,
+      owner: item.owner,
+      status: "Recovered",
+      nextAction: "Continue post-purchase or repeat-purchase follow-up.",
+      tone: "emerald",
+    });
+    setNotice({
+      title: "Buyer reactivated",
+      description: `${amount} has been added to recovered reactivation revenue. Undo is available if this was marked by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function markLost(item: InactiveBuyerRecoveryItem) {
+    saveUndo();
+    updateInactiveBuyer(item.id, {
+      recoveryStatus: "Lost",
+      lastAction: `Marked lost: ${lostForm.reason}`,
+      recommendedWinbackAction: "No active action. Reopen only if the buyer returns or new intent appears.",
+    });
+    setLostOpen(false);
+    setItemLocalState(item.id, { activePanel: null });
+    addAuditToItem(
+      item.id,
+      makeAuditEntry("Buyer marked lost", `${item.buyerName} was marked lost. ${lostForm.note || ""}`, "Lost"),
+    );
+    setNotice({
+      title: "Buyer marked lost",
+      description: `${item.buyerName} has moved into the Lost filter. Use Reopen if this was a mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function reopenInactiveBuyer(item: InactiveBuyerRecoveryItem) {
+    saveUndo();
+    updateInactiveBuyer(item.id, {
+      recoveryStatus: "Open",
+      recoveredValue: item.recoveryStatus === "Reactivated" ? "$0" : item.recoveredValue,
+      lastAction: "Buyer reopened just now",
+      recommendedWinbackAction: "Review the inactive reason and choose the next winback action.",
+    });
+    addAuditToItem(item.id, makeAuditEntry("Buyer reopened", `${item.buyerName} was reopened for winback action.`, "Reopened"));
+    setNotice({
+      title: "Buyer reopened",
+      description: `${item.buyerName} is active again in the open winback list.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function openTemplateModal(item: InactiveBuyerRecoveryItem) {
+    setSelectedInactiveId(item.id);
+    setTemplateForm({
+      templateName: `${item.buyerName} winback message`,
+      channel: getInactiveDefaultChannel(item.source),
+      previewText: getEffectiveMessage(item),
+    });
+    setTemplateOpen(true);
+  }
+
+  function createTemplateFromAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedInactive) {
+      return;
+    }
+
+    const finalText = templateForm.previewText.trim() || getEffectiveMessage(selectedInactive);
+
+    const template: MessageTemplate = {
+      id: `template-inactive-${selectedInactive.id}-${Date.now()}`,
+      templateName: templateForm.templateName.trim() || `${selectedInactive.buyerName} winback message`,
+      recoveryType: "Inactive Buyer Winback",
+      industryFit: selectedInactive.originalProductInterest.toLowerCase().includes("bridal") ||
+        selectedInactive.originalProductInterest.toLowerCase().includes("denim") ||
+        selectedInactive.source.toLowerCase().includes("pop-up")
+          ? "Fashion / Apparel"
+          : "Hybrid",
+      channel: templateForm.channel,
+      owner: selectedInactive.owner === "Unassigned" ? "Recovery Lead" : selectedInactive.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: "Inactive Buyer Recovery",
+      previewText: finalText,
+      tone: selectedInactive.tone,
+    };
+
+    onCreateTemplate?.(template);
+    updateInactiveBuyer(selectedInactive.id, { messageTemplate: finalText });
+    setItemLocalState(selectedInactive.id, { editedMessage: finalText });
+    addAuditToItem(
+      selectedInactive.id,
+      makeAuditEntry("Template created", `${template.templateName} was saved to Setup > Templates.`, "Created"),
+    );
+    setTemplateOpen(false);
+    setNotice({
+      title: "Template created",
+      description: `${template.templateName} has been added to Setup > Templates with your edited message text.`,
+      actionLabel: "View audit",
+      action: "audit",
+    });
+  }
+
+  function createManualBuyer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const manualItem: InactiveBuyerRecoveryItem = {
+      id: `INA-MANUAL-${Date.now()}`,
+      buyerName: manualForm.buyerName.trim() || "Manual inactive buyer",
+      originalProductInterest: manualForm.originalProductInterest.trim() || "Manual winback opportunity",
+      lastPurchaseDate: manualForm.lastPurchaseDate.trim() || "No purchase yet",
+      lastContact: manualForm.lastContact.trim() || "Just added",
+      inactiveReason: manualForm.inactiveReason,
+      lifecycleStatus: manualForm.lifecycleStatus.trim() || "Inactive buyer",
+      estimatedRecoveryValue: ensureMoney(manualForm.estimatedRecoveryValue),
+      recoveredValue: "$0",
+      owner: manualForm.owner.trim() || "Amara Shah",
+      source: manualForm.source.trim() || "Manual entry",
+      lastAction: "Manual inactive buyer added just now",
+      recommendedWinbackAction: manualForm.recommendedWinbackAction.trim() || "Send a soft winback check-in.",
+      messageTemplate:
+        manualForm.messageTemplate.trim() ||
+        "Just checking in to see if you still want help with this order or product. I can make it easy to continue.",
+      recoveryStatus: "Open",
+      tone: "rose",
+    };
+
+    saveUndo();
+    setInactiveBuyers((items) => [manualItem, ...items]);
+    setSelectedInactiveId(manualItem.id);
+    setLocalState((current) => ({
+      ...current,
+      [manualItem.id]: {
+        audit: [makeAuditEntry("Manual buyer added", `${manualItem.buyerName} was added manually.`, "Created")],
+      },
+    }));
+    setManualOpen(false);
+    setManualForm({
+      buyerName: "",
+      originalProductInterest: "",
+      inactiveReason: "No reply / ghosted",
+      lifecycleStatus: "Inactive buyer",
+      lastPurchaseDate: "No purchase yet",
+      lastContact: "Just added",
+      estimatedRecoveryValue: "",
+      owner: "Amara Shah",
+      source: "Manual entry",
+      recommendedWinbackAction: "Send a soft winback check-in and ask what changed.",
+      messageTemplate: "",
+    });
+    setNotice({
+      title: "Inactive buyer added",
+      description: `${manualItem.buyerName} is now in the winback list. Undo is available if this was added by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function exportInactiveReport() {
+    const headers = [
+      "Buyer",
+      "Product / context",
+      "Inactive reason",
+      "Status",
+      "Open value",
+      "Recovered value",
+      "Source",
+      "Owner",
+      "Recommended action",
+    ];
+    const rows = inactiveBuyers.map((item) => [
+      item.buyerName,
+      item.originalProductInterest,
+      item.inactiveReason,
+      item.recoveryStatus,
+      item.estimatedRecoveryValue,
+      item.recoveredValue,
+      item.source,
+      item.owner,
+      item.recommendedWinbackAction,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `altynx-inactive-buyer-recovery-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({
+      title: "Inactive buyer report exported",
+      description: "A CSV report has been downloaded with the current winback list.",
+    });
+  }
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeInactiveFilter]);
+
+  useEffect(() => {
+    if (openManualSignal > 0) {
+      setManualOpen(true);
+    }
+  }, [openManualSignal]);
+
+  useEffect(() => {
+    if (!selectedInactive) {
+      return;
+    }
+
+    setReactivationForm({
+      recoveredAmount: selectedInactive.recoveredValue !== "$0" ? selectedInactive.recoveredValue : selectedInactive.estimatedRecoveryValue,
+      recoveredOrder: selectedInactive.originalProductInterest,
+      source: selectedInactive.source,
+      note: `Buyer reactivated from ${selectedInactive.inactiveReason}.`,
+    });
+  }, [selectedInactive?.id]);
+
+  const selectedLocalState = selectedInactive ? getLocalItemState(selectedInactive.id) : { audit: [] };
+
   const inactiveKpis = useMemo<KPI[]>(() => {
-    const openItems = inactiveBuyers.filter((item) => item.recoveryStatus !== "Reactivated" && item.recoveryStatus !== "Lost");
+    const openItems = inactiveBuyers.filter(
+      (item) => item.recoveryStatus !== "Reactivated" && item.recoveryStatus !== "Lost",
+    );
     const inactiveValue = openItems.reduce((total, item) => total + moneyToNumber(item.estimatedRecoveryValue), 0);
     const highValue = inactiveBuyers.filter((item) => matchesInactiveBuyerRecoveryFilter(item, "High Value")).length;
-    const winbackDue = openItems.length;
-    const reactivationOpen = openItems.reduce((total, item) => total + moneyToNumber(item.estimatedRecoveryValue), 0);
+    const winbackDue = openItems.filter((item) => item.recoveryStatus === "Open" || item.recoveryStatus === "Winback sent").length;
     const recovered = inactiveBuyers.reduce((total, item) => total + moneyToNumber(item.recoveredValue), 0);
 
     return [
       { label: "Inactive Buyer Value", value: formatCompactMoney(inactiveValue), caption: "Recoverable buyer value", tone: "rose" },
-      { label: "Inactive Buyers", value: `${openItems.length}`, caption: "Open recovery records", tone: "cyan" },
+      { label: "Inactive Buyers", value: `${openItems.length}`, caption: "Open winback records", tone: "cyan" },
       { label: "High-Value Inactive Buyers", value: `${highValue}`, caption: "Priority winback", tone: "amber" },
-      { label: "Winback Actions Due", value: `${winbackDue}`, caption: "Needs owner action", tone: "rose" },
-      { label: "Reactivation Revenue Open", value: formatCompactMoney(reactivationOpen), caption: "Revenue to recover", tone: "emerald" },
+      { label: "Winback Actions Due", value: `${winbackDue}`, caption: "Needs winback action", tone: "rose" },
+      { label: "Reactivation Revenue Open", value: formatCompactMoney(inactiveValue), caption: "Revenue to recover", tone: "emerald" },
       { label: "Recovered Reactivation Revenue", value: formatCompactMoney(recovered), caption: "Recovered winback value", tone: "emerald" },
     ];
   }, [inactiveBuyers]);
 
-  function updateSelectedInactive(updates: Partial<InactiveBuyerRecoveryItem>, message: string) {
-    const current = selectedInactive;
-    setInactiveBuyers((items) => items.map((item) => (item.id === current.id ? { ...item, ...updates } : item)));
-    setNotice(`${message} for ${current.buyerName}.`);
+  if (!selectedInactive) {
+    return (
+      <div className="inactive-buyer-page">
+        <section className="glass-card panel-card ib-empty-state">
+          <h2>No inactive buyers found</h2>
+          <p>Add a buyer manually or import inactive buyer signals from your connected sources.</p>
+          <button type="button" className="primary-btn" onClick={() => setManualOpen(true)}>
+            Add Inactive Buyer
+          </button>
+        </section>
+      </div>
+    );
   }
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
+    <div className="inactive-buyer-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid ib-kpi-grid">
         {inactiveKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
         ))}
       </section>
 
-      <section className="queue-toolbar">
+      <section className="queue-toolbar ib-filter-card">
         <div className="queue-tabs" aria-label="Inactive buyer recovery filters">
           {inactiveBuyerRecoveryFilters.map((filter) => (
             <button
@@ -16393,170 +25206,691 @@ function InactiveBuyerRecovery() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredInactiveBuyers.length} inactive buyers</Badge>
+        <Badge tone="cyan">{filteredInactiveBuyers.length} inactive buyers · 25 per page</Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Inactive Buyer Recovery</h2>
-              <p>Recover buyers who went inactive after refill, restock, payment, order, or follow-up leaks.</p>
-            </div>
-            <Badge tone="rose">Winback layer</Badge>
-          </div>
+      <section className="ib-notice-card">
+        <div>
+          <span>Action status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
+        </div>
+        <div className="ib-notice-actions">
+          {notice.action === "undo" && undoSnapshot ? (
+            <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+              Undo
+            </button>
+          ) : null}
+          {notice.action === "openQueue" ? (
+            <button type="button" className="secondary-btn" onClick={() => openQueuePage()}>
+              Open queue
+            </button>
+          ) : null}
+          {notice.action === "audit" ? (
+            <button type="button" className="secondary-btn" onClick={() => setAuditOpen(true)}>
+              View audit
+            </button>
+          ) : null}
+          <button type="button" className="secondary-btn" onClick={exportInactiveReport}>
+            Export CSV
+          </button>
+        </div>
+      </section>
 
-          <div className="recovery-list">
-            {filteredInactiveBuyers.map((item) => (
-              <button
-                className={`product-card recovery-task-card ${item.tone} ${
-                  selectedInactive.id === item.id ? "selected" : ""
-                }`}
-                key={item.id}
-                onClick={() => setSelectedInactiveId(item.id)}
-                type="button"
-              >
-                <div className="recovery-task-main">
+      <section className="glass-card panel-card ib-list-panel">
+        <div className="ib-list-header">
+          <div>
+            <h2>Inactive Buyer Recovery</h2>
+            <p>Open each buyer to send a winback, move it to the recovery queue, snooze it, or record the result.</p>
+          </div>
+          <Badge tone="rose">Winback list</Badge>
+        </div>
+
+        <div className="ib-buyer-list">
+          {pagedInactiveBuyers.map((item) => {
+            const itemState = getLocalItemState(item.id);
+            const primaryAction = getPrimaryTileAction(item);
+
+            return (
+              <article className="ib-buyer-card" key={item.id}>
+                <div className="ib-buyer-main">
                   <Avatar name={item.buyerName} />
                   <div>
-                    <div className="recovery-row-title">
+                    <div className="ib-title-row">
                       <h3>{item.buyerName}</h3>
                       <Badge tone={item.tone}>{item.inactiveReason}</Badge>
+                      <Badge tone={getStatusTone(item.recoveryStatus)}>{item.recoveryStatus}</Badge>
+                      {itemState.queued ? <Badge tone="cyan">In queue</Badge> : null}
                     </div>
+
                     <p>{item.originalProductInterest}</p>
-                    <div className="recovery-meta">
+
+                    <div className="ib-meta-row">
+                      <span>{item.lifecycleStatus}</span>
                       <span>{item.lastPurchaseDate}</span>
                       <span>{item.lastContact}</span>
-                      <span>{item.lifecycleStatus}</span>
                       <span>{item.source}</span>
-                      <span>{item.owner}</span>
-                      <span>{item.recoveryStatus}</span>
+                      <span>Owner: {item.owner}</span>
                     </div>
-                    <small className="queue-next-action">{item.recommendedWinbackAction}</small>
+
+                    <small>{item.recommendedWinbackAction}</small>
                   </div>
                 </div>
-                <div className="task-money">
-                  <strong>{item.estimatedRecoveryValue}</strong>
-                  <span>open value</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </article>
 
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedInactive.buyerName} />
+                <div className="ib-value-box">
+                  <strong>{item.estimatedRecoveryValue}</strong>
+                  <span>{item.recoveredValue !== "$0" ? `${item.recoveredValue} recovered` : "open value"}</span>
+                  <div className="ib-card-actions">
+                    <button
+                      type="button"
+                      className={primaryAction === "Send Winback" || primaryAction === "Mark Reactivated" ? "primary-btn" : "secondary-btn"}
+                      onClick={() => handleTilePrimaryAction(item)}
+                    >
+                      {primaryAction}
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => openDetail(item)}>
+                      View More
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="ib-pagination-row">
+          <span>Page {safeCurrentPage} of {totalPages}</span>
+          <div>
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={safeCurrentPage === 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              disabled={safeCurrentPage === totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {detailOpen && selectedInactive ? (
+        <div className="ib-modal-backdrop" role="presentation" onClick={() => setDetailOpen(false)}>
+          <article className="ib-modal-card ib-modal-wide" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="ib-modal-heading">
               <div>
+                <span>View more</span>
                 <h2>{selectedInactive.buyerName}</h2>
                 <p>{selectedInactive.originalProductInterest}</p>
               </div>
+              <button type="button" aria-label="Close" onClick={() => setDetailOpen(false)}>×</button>
             </div>
-            <strong>{selectedInactive.estimatedRecoveryValue}</strong>
-          </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>Inactive reason</span>
-              <strong>{selectedInactive.inactiveReason}</strong>
+            <div className="ib-detail-topline">
+              <div className="detail-person">
+                <Avatar name={selectedInactive.buyerName} />
+                <div>
+                  <h2>{selectedInactive.buyerName}</h2>
+                  <p>{selectedInactive.originalProductInterest}</p>
+                </div>
+              </div>
+              <strong>{selectedInactive.estimatedRecoveryValue}</strong>
             </div>
-            <div>
-              <span>Lifecycle status</span>
-              <strong>{selectedInactive.lifecycleStatus}</strong>
-            </div>
-            <div>
-              <span>Last purchase</span>
-              <strong>{selectedInactive.lastPurchaseDate}</strong>
-            </div>
-            <div>
-              <span>Last contact</span>
-              <strong>{selectedInactive.lastContact}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedInactive.owner}</strong>
-            </div>
-            <div>
-              <span>Recovered value</span>
-              <strong>{selectedInactive.recoveredValue}</strong>
-            </div>
-          </div>
 
-          <div className="detail-callout">
-            <span>Last action</span>
-            <p>{selectedInactive.lastAction}</p>
-          </div>
+            <div className="ib-detail-grid">
+              <div><span>Inactive reason</span><strong>{selectedInactive.inactiveReason}</strong></div>
+              <div><span>Lifecycle status</span><strong>{selectedInactive.lifecycleStatus}</strong></div>
+              <div><span>Last purchase</span><strong>{selectedInactive.lastPurchaseDate}</strong></div>
+              <div><span>Last contact</span><strong>{selectedInactive.lastContact}</strong></div>
+              <div><span>Source</span><strong>{selectedInactive.source}</strong></div>
+              <div><span>Owner</span><strong>{selectedInactive.owner}</strong></div>
+              <div><span>Status</span><strong>{selectedInactive.recoveryStatus}</strong></div>
+              <div><span>Recovered value</span><strong>{selectedInactive.recoveredValue}</strong></div>
+            </div>
 
-          <div className="template-box">
-            <div>
-              <span>Winback template preview</span>
-              <button type="button" onClick={() => setNotice(`Winback template copied for ${selectedInactive.buyerName}.`)}>
-                Copy Template
+            <div className="ib-green-box">
+              <span>Recommended winback action</span>
+              <p>{selectedInactive.recommendedWinbackAction}</p>
+            </div>
+
+            <div className="ib-template-box">
+              <div>
+                <span>Winback message preview</span>
+                <div className="ib-template-actions">
+                  <button type="button" onClick={() => copyTemplate(selectedInactive)}>
+                    {selectedLocalState.copied ? "Template copied" : "Copy Template"}
+                  </button>
+                  <button type="button" onClick={() => openTemplateModal(selectedInactive)}>
+                    Create New Template
+                  </button>
+                </div>
+              </div>
+              <textarea
+                rows={4}
+                value={getEffectiveMessage(selectedInactive)}
+                onChange={(event) => setItemLocalState(selectedInactive.id, { editedMessage: event.target.value })}
+              />
+            </div>
+
+            <div className="ib-last-action-box">
+              <span>Last action</span>
+              <p>{selectedInactive.lastAction}</p>
+            </div>
+
+            <div className="ib-detail-actions">
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => setItemLocalState(selectedInactive.id, { activePanel: "send" })}
+              >
+                Send Winback
+              </button>
+              {selectedLocalState.queued ? (
+                <button type="button" className="secondary-btn" onClick={() => removeFromRecoveryQueue(selectedInactive)}>
+                  Remove from Recovery Queue
+                </button>
+              ) : (
+                <button type="button" className="secondary-btn" onClick={() => addToRecoveryQueue(selectedInactive)}>
+                  Add to Recovery Queue
+                </button>
+              )}
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setItemLocalState(selectedInactive.id, { activePanel: "snooze" })}
+              >
+                Snooze
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => openReactivateModal(selectedInactive)}>
+                Mark Reactivated
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setLostOpen(true)}>
+                Mark Lost
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setItemLocalState(selectedInactive.id, { activePanel: "note" })}
+              >
+                Add Internal Note
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setAuditOpen(true)}>
+                View Audit Trail
               </button>
             </div>
-            <p>{selectedInactive.messageTemplate}</p>
-          </div>
 
-          <div className="detail-callout">
-            <span>Recommended winback action</span>
-            <p>{selectedInactive.recommendedWinbackAction}</p>
-          </div>
+            {selectedLocalState.activePanel === "send" ? (
+              <div className="ib-action-panel">
+                <span>Send winback</span>
+                <h3>Edit the message if needed, then copy it and mark the winback as sent.</h3>
+                <textarea
+                  rows={5}
+                  value={getEffectiveMessage(selectedInactive)}
+                  onChange={(event) => setItemLocalState(selectedInactive.id, { editedMessage: event.target.value })}
+                />
+                <div className="ib-panel-actions">
+                  <button type="button" className="secondary-btn" onClick={() => copyTemplate(selectedInactive)}>
+                    {selectedLocalState.copied ? "Template copied" : "Copy Template"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => openTemplateModal(selectedInactive)}>
+                    Create New Template
+                  </button>
+                  <button type="button" className="primary-btn" onClick={() => markWinbackSent(selectedInactive)}>
+                    Mark Winback Sent
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
-          <p className="detail-notice">{notice}</p>
+            {selectedLocalState.activePanel === "snooze" ? (
+              <div className="ib-action-panel">
+                <span>Snooze winback</span>
+                <h3>Move this buyer out of today’s action list and review later.</h3>
+                <div className="ib-panel-actions">
+                  <button type="button" className="secondary-btn" onClick={() => snoozeBuyer(selectedInactive, "7 days")}>Snooze 7 days</button>
+                  <button type="button" className="secondary-btn" onClick={() => snoozeBuyer(selectedInactive, "14 days")}>Snooze 14 days</button>
+                  <button type="button" className="secondary-btn" onClick={() => snoozeBuyer(selectedInactive, "30 days")}>Snooze 30 days</button>
+                </div>
+                <form
+                  className="ib-custom-date-row"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    snoozeBuyer(selectedInactive, customSnoozeDate || "custom date");
+                    setCustomSnoozeDate("");
+                  }}
+                >
+                  <input
+                    type="date"
+                    value={customSnoozeDate}
+                    onChange={(event) => setCustomSnoozeDate(event.target.value)}
+                  />
+                  <button type="submit" className="primary-btn">Save custom snooze</button>
+                </form>
+              </div>
+            ) : null}
 
-          <div className="detail-actions">
-            <button type="button" className="primary-btn">Create winback action</button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedInactive({ owner: selectedInactive.owner === "Unassigned" ? "Amara Shah" : selectedInactive.owner }, "Owner assigned")}
-            >
-              Assign owner
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedInactive(
-                  { recoveryStatus: "Reactivated", recoveredValue: selectedInactive.estimatedRecoveryValue },
-                  "Buyer marked reactivated",
-                )
-              }
-            >
-              Mark reactivated
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedInactive({ recoveryStatus: "Lost" }, "Buyer marked lost")}
-            >
-              Mark lost
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedInactive({ recoveryStatus: "Snoozed" }, "Winback snoozed")}
-            >
-              Snooze
-            </button>
-            <button type="button" className="secondary-btn">Add internal note</button>
-          </div>
-        </aside>
-      </section>
+            {selectedLocalState.activePanel === "note" ? (
+              <div className="ib-action-panel">
+                <span>Internal note</span>
+                <h3>Add a short note for this buyer.</h3>
+                <textarea
+                  rows={4}
+                  value={selectedLocalState.internalNote ?? ""}
+                  onChange={(event) => setItemLocalState(selectedInactive.id, { internalNote: event.target.value })}
+                  placeholder="Add short context for this winback record..."
+                />
+                <div className="ib-panel-actions">
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => {
+                      addAuditToItem(
+                        selectedInactive.id,
+                        makeAuditEntry("Buyer note saved", selectedLocalState.internalNote || "Buyer note saved.", "Note"),
+                      );
+                      setItemLocalState(selectedInactive.id, { activePanel: null, internalNote: selectedLocalState.internalNote ?? "" });
+                      setNotice({ title: "Buyer note saved", description: "The buyer record note has been updated." });
+                    }}
+                  >
+                    Save Note
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => {
+                      setItemLocalState(selectedInactive.id, { activePanel: null, internalNote: "" });
+                      addAuditToItem(selectedInactive.id, makeAuditEntry("Buyer note deleted", "The note was cleared.", "Note"));
+                      setNotice({ title: "Buyer note deleted", description: "The buyer note was removed." });
+                    }}
+                  >
+                    Delete Note
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => setItemLocalState(selectedInactive.id, { activePanel: null })}
+                  >
+                    Close Note
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="ib-modal-footer-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  setItemLocalState(selectedInactive.id, { activePanel: null });
+                  setDetailOpen(false);
+                }}
+              >
+                Close Details
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {templateOpen && selectedInactive ? (
+        <div className="ib-modal-backdrop" role="presentation" onClick={() => setTemplateOpen(false)}>
+          <form className="ib-modal-card" onSubmit={createTemplateFromAction} onClick={(event) => event.stopPropagation()}>
+            <div className="ib-modal-heading">
+              <div>
+                <span>Create template</span>
+                <h2>Save this winback message to Setup &gt; Templates</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setTemplateOpen(false)}>×</button>
+            </div>
+            <label>
+              Template name
+              <input
+                value={templateForm.templateName}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, templateName: event.target.value }))}
+              />
+            </label>
+            <label>
+              Channel
+              <select
+                value={templateForm.channel}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, channel: event.target.value as MessageTemplate["channel"] }))}
+              >
+                <option>Manual Copy</option>
+                <option>WhatsApp</option>
+                <option>Instagram DM</option>
+                <option>Email</option>
+              </select>
+            </label>
+            <label>
+              Template text
+              <textarea
+                rows={5}
+                value={templateForm.previewText}
+                onChange={(event) => setTemplateForm((current) => ({ ...current, previewText: event.target.value }))}
+              />
+            </label>
+            <div className="ib-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setTemplateOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Create Template</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {manualOpen ? (
+        <div className="ib-modal-backdrop" role="presentation" onClick={() => setManualOpen(false)}>
+          <form className="ib-modal-card ib-modal-wide" onSubmit={createManualBuyer} onClick={(event) => event.stopPropagation()}>
+            <div className="ib-modal-heading">
+              <div>
+                <span>Add inactive buyer</span>
+                <h2>Add a buyer who should receive a winback action.</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setManualOpen(false)}>×</button>
+            </div>
+            <div className="ib-form-grid">
+              <label>Buyer name<input value={manualForm.buyerName} onChange={(event) => setManualForm((current) => ({ ...current, buyerName: event.target.value }))} /></label>
+              <label>Product / context<input value={manualForm.originalProductInterest} onChange={(event) => setManualForm((current) => ({ ...current, originalProductInterest: event.target.value }))} /></label>
+              <label>
+                Inactive reason
+                <select
+                  value={manualForm.inactiveReason}
+                  onChange={(event) => setManualForm((current) => ({ ...current, inactiveReason: event.target.value as InactiveBuyerRecoveryItem["inactiveReason"] }))}
+                >
+                  <option>No recent purchase</option>
+                  <option>Missed refill window</option>
+                  <option>Out of stock</option>
+                  <option>Price sensitive</option>
+                  <option>No reply / ghosted</option>
+                  <option>Bought elsewhere</option>
+                  <option>Payment abandoned</option>
+                  <option>Post-purchase not followed up</option>
+                </select>
+              </label>
+              <label>Lifecycle status<input value={manualForm.lifecycleStatus} onChange={(event) => setManualForm((current) => ({ ...current, lifecycleStatus: event.target.value }))} /></label>
+              <label>Last purchase<input value={manualForm.lastPurchaseDate} onChange={(event) => setManualForm((current) => ({ ...current, lastPurchaseDate: event.target.value }))} /></label>
+              <label>Last contact<input value={manualForm.lastContact} onChange={(event) => setManualForm((current) => ({ ...current, lastContact: event.target.value }))} /></label>
+              <label>Open value<input value={manualForm.estimatedRecoveryValue} onChange={(event) => setManualForm((current) => ({ ...current, estimatedRecoveryValue: event.target.value }))} /></label>
+              <label>Source<input value={manualForm.source} onChange={(event) => setManualForm((current) => ({ ...current, source: event.target.value }))} /></label>
+            </div>
+            <label>
+              Recommended action
+              <input value={manualForm.recommendedWinbackAction} onChange={(event) => setManualForm((current) => ({ ...current, recommendedWinbackAction: event.target.value }))} />
+            </label>
+            <label>
+              Suggested message
+              <textarea rows={4} value={manualForm.messageTemplate} onChange={(event) => setManualForm((current) => ({ ...current, messageTemplate: event.target.value }))} />
+            </label>
+            <div className="ib-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setManualOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Add Buyer</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {reactivateOpen && selectedInactive ? (
+        <div className="ib-modal-backdrop" role="presentation" onClick={() => setReactivateOpen(false)}>
+          <form
+            className="ib-modal-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              markReactivated(selectedInactive);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ib-modal-heading">
+              <div>
+                <span>Mark reactivated</span>
+                <h2>Confirm recovered value before counting this winback as recovered.</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setReactivateOpen(false)}>×</button>
+            </div>
+            <label>Recovered amount<input value={reactivationForm.recoveredAmount} onChange={(event) => setReactivationForm((current) => ({ ...current, recoveredAmount: event.target.value }))} /></label>
+            <label>Product / order recovered<input value={reactivationForm.recoveredOrder} onChange={(event) => setReactivationForm((current) => ({ ...current, recoveredOrder: event.target.value }))} /></label>
+            <label>Source<input value={reactivationForm.source} onChange={(event) => setReactivationForm((current) => ({ ...current, source: event.target.value }))} /></label>
+            <label>Recovery note<textarea rows={4} value={reactivationForm.note} onChange={(event) => setReactivationForm((current) => ({ ...current, note: event.target.value }))} /></label>
+            <div className="ib-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setReactivateOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Confirm Reactivated</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {lostOpen && selectedInactive ? (
+        <div className="ib-modal-backdrop" role="presentation" onClick={() => setLostOpen(false)}>
+          <form
+            className="ib-modal-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              markLost(selectedInactive);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ib-modal-heading">
+              <div>
+                <span>Mark lost</span>
+                <h2>Close this winback only when there is no active recovery path.</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setLostOpen(false)}>×</button>
+            </div>
+            <label>Lost reason<input value={lostForm.reason} onChange={(event) => setLostForm((current) => ({ ...current, reason: event.target.value }))} /></label>
+            <label>Note<textarea rows={4} value={lostForm.note} onChange={(event) => setLostForm((current) => ({ ...current, note: event.target.value }))} /></label>
+            <div className="ib-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setLostOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Mark Lost</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {auditOpen && selectedInactive ? (
+        <div className="ib-modal-backdrop" role="presentation" onClick={() => setAuditOpen(false)}>
+          <article className="ib-modal-card ib-modal-wide" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="ib-modal-heading">
+              <div>
+                <span>Audit trail</span>
+                <h2>{selectedInactive.buyerName} winback action history</h2>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setAuditOpen(false)}>×</button>
+            </div>
+            <div className="ib-audit-list">
+              {selectedLocalState.audit.length > 0 ? (
+                selectedLocalState.audit.map((entry) => (
+                  <div className="ib-audit-row" key={entry.id}>
+                    <span>{entry.status}</span>
+                    <div>
+                      <h3>{entry.title}</h3>
+                      <p>{entry.description}</p>
+                      <small>{entry.time}</small>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="ib-audit-empty">
+                  <h3>No actions logged yet</h3>
+                  <p>Copy, send, queue, snooze, reactivate, mark lost, or add a note to build the audit trail.</p>
+                </div>
+              )}
+            </div>
+            <div className="ib-modal-actions">
+              <button type="button" className="primary-btn" onClick={() => setAuditOpen(false)}>Done</button>
+            </div>
+          </article>
+        </div>
+      ) : null}
+
+      {queueConfirm ? (
+        <div className="ib-queue-popup-wrap" role="presentation">
+          <article className="ib-queue-popup" role="dialog" aria-modal="true">
+            <span>Recovery Queue</span>
+            <h3>{queueConfirm.title}</h3>
+            <p>{queueConfirm.description}</p>
+            <div className="ib-queue-popup-actions">
+              <button type="button" className="secondary-btn" onClick={() => setQueueConfirm(null)}>
+                Stay here
+              </button>
+              <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+                Undo movement
+              </button>
+              <button type="button" className="primary-btn" onClick={() => openQueuePage(queueConfirm.queueItemId)}>
+                Open that page
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function AssignedRecoveryActions() {
+
+function AssignedRecoveryActions({
+  onCreateTemplate,
+  onNavigate,
+  onActivity,
+  openManualSignal = 0,
+}: {
+  onCreateTemplate?: (template: MessageTemplate) => void;
+  onNavigate?: (pageName: string) => void;
+  onActivity?: (activity: NewRecoveryActivity) => void;
+  openManualSignal?: number;
+} = {}) {
+  type AssignedAuditEntry = {
+    id: string;
+    title: string;
+    description: string;
+    time: string;
+    status: "Created" | "Copied" | "Template" | "Completed" | "Reassigned" | "Escalated" | "Opened" | "Note" | "Reopened" | "Reverted";
+  };
+
+  type AssignedLocalState = {
+    copied?: boolean;
+    editedTemplate?: string;
+    internalNote?: string;
+    audit: AssignedAuditEntry[];
+  };
+
+  type AssignedNotice = {
+    title: string;
+    description: string;
+    actionLabel?: string;
+    action?: "undo" | "threads" | "teamload" | "related" | "audit";
+  };
+
+  type UndoSnapshot = {
+    actions: AssignedRecoveryAction[];
+    localState: Record<string, AssignedLocalState>;
+  };
+
+  const recoveryTypeOptions: AssignedRecoveryAction["recoveryType"][] = [
+    "First reply",
+    "Follow-up nudge",
+    "Payment reminder",
+    "Refill reminder",
+    "Restock notice",
+    "Order issue resolution",
+    "Review request",
+    "Referral request",
+    "UGC request",
+    "Reactivation / winback",
+    "Source sync review",
+    "Assign missing owner",
+  ];
+
+  const roleOptions: RecoveryOwnerRole[] = [
+    "Owner / Admin",
+    "Recovery Lead",
+    "Sales",
+    "Support",
+    "Operations",
+    "Marketing",
+    "Beauty Specialist",
+    "Order Recovery",
+    "Post-Purchase",
+    "Unassigned",
+  ];
+
   const [actions, setActions] = useState<AssignedRecoveryAction[]>(assignedRecoveryActions);
   const [activeActionFilter, setActiveActionFilter] = useState<AssignedRecoveryActionFilter>("All");
-  const [selectedActionId, setSelectedActionId] = useState(assignedRecoveryActions[0].id);
-  const [notice, setNotice] = useState("Select an assigned recovery action to review ownership and next best action.");
+  const [selectedActionId, setSelectedActionId] = useState(assignedRecoveryActions[0]?.id ?? "");
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [reassignModalOpen, setReassignModalOpen] = useState(false);
+  const [escalateModalOpen, setEscalateModalOpen] = useState(false);
+  const [relatedModalOpen, setRelatedModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [notePanelOpen, setNotePanelOpen] = useState(false);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
+  const [localState, setLocalState] = useState<Record<string, AssignedLocalState>>({});
+  const [notice, setNotice] = useState<AssignedNotice>({
+    title: "Ready for team execution",
+    description: "Open an assigned action, complete it, reassign ownership, escalate a blocker, or open the related recovery case.",
+  });
 
-  const filteredActions = actions.filter((item) => matchesAssignedRecoveryActionFilter(item, activeActionFilter));
+  const [templateForm, setTemplateForm] = useState({
+    templateName: "",
+    channel: "Manual Copy" as MessageTemplate["channel"],
+    previewText: "",
+  });
+
+  const [completeForm, setCompleteForm] = useState({
+    outcome: "Action completed",
+    completionNote: "",
+    recoveredAmount: "",
+  });
+
+  const [reassignForm, setReassignForm] = useState({
+    newOwner: "Amara Shah",
+    roleTeam: "Recovery Lead" as RecoveryOwnerRole,
+    reason: "Move to the owner best placed to complete this recovery action.",
+    handoffNote: "",
+  });
+
+  const [escalateForm, setEscalateForm] = useState({
+    escalateTo: "Recovery Lead" as RecoveryOwnerRole,
+    urgency: "High" as Priority,
+    reason: "Action needs leadership review before revenue is lost.",
+    note: "",
+  });
+
+  const [noteDraft, setNoteDraft] = useState("");
+
+  const [manualForm, setManualForm] = useState({
+    actionTitle: "",
+    buyerName: "",
+    productContext: "",
+    recoveryType: "Follow-up nudge" as AssignedRecoveryAction["recoveryType"],
+    revenueAtRisk: "",
+    owner: "Amara Shah",
+    roleTeam: "Recovery Lead" as RecoveryOwnerRole,
+    priority: "High" as Priority,
+    dueStatus: "Due today" as DueStatus,
+    source: "Manual entry",
+    relatedRecoveryCase: "Manual case",
+    nextAction: "",
+    messageTemplate: "",
+    internalNotesPreview: "",
+  });
+
+  const filteredActions = useMemo(
+    () => actions.filter((item) => matchesAssignedRecoveryActionFilter(item, activeActionFilter)),
+    [actions, activeActionFilter],
+  );
+
   const selectedAction =
     actions.find((item) => item.id === selectedActionId) ?? filteredActions[0] ?? actions[0];
+
+  const selectedLocalState = selectedAction ? getActionLocalState(selectedAction.id) : { audit: [] };
 
   const actionKpis = useMemo<KPI[]>(() => {
     const openActions = actions.filter((item) => !item.completed && item.dueStatus !== "Completed");
@@ -16567,30 +25901,536 @@ function AssignedRecoveryActions() {
     const completedThisWeek = actions.filter((item) => item.completed || item.dueStatus === "Completed").length + 18;
 
     return [
-      { label: "Assigned Actions", value: `${openActions.length}`, caption: "Owned recovery work", tone: "cyan" },
-      { label: "Overdue Assigned Actions", value: `${overdue}`, caption: "Overdue revenue work", tone: "rose" },
-      { label: "Revenue Owned By Team", value: formatCompactMoney(revenueOwned), caption: "Open owner value", tone: "amber" },
-      { label: "Unassigned Recovery Actions", value: `${unassigned}`, caption: "Owner missing", tone: "rose" },
-      { label: "High-Priority Actions", value: `${highPriority}`, caption: "Critical and high priority", tone: "cyan" },
-      { label: "Completed This Week", value: `${completedThisWeek}`, caption: "Recovered execution done", tone: "emerald" },
+      { label: "Assigned Actions", value: `${openActions.length}`, caption: "Open recovery work", tone: "cyan" },
+      { label: "Overdue Actions", value: `${overdue}`, caption: "Needs follow-through", tone: "rose" },
+      { label: "Revenue Owned by Team", value: formatCompactMoney(revenueOwned), caption: "Open owner value", tone: "amber" },
+      { label: "Unassigned Actions", value: `${unassigned}`, caption: "Needs owner", tone: "rose" },
+      { label: "High-Priority Actions", value: `${highPriority}`, caption: "Critical and high", tone: "cyan" },
+      { label: "Completed This Week", value: `${completedThisWeek}`, caption: "Finished actions", tone: "emerald" },
     ];
   }, [actions]);
 
-  function updateSelectedAction(updates: Partial<AssignedRecoveryAction>, message: string) {
-    const current = selectedAction;
-    setActions((items) => items.map((item) => (item.id === current.id ? { ...item, ...updates } : item)));
-    setNotice(`${message} for ${current.buyerName}.`);
+  useEffect(() => {
+    if (openManualSignal > 0) {
+      setManualModalOpen(true);
+    }
+  }, [openManualSignal]);
+
+  function getActionLocalState(itemId: string): AssignedLocalState {
+    return localState[itemId] ?? { audit: [] };
+  }
+
+  function saveUndo() {
+    setUndoSnapshot({ actions, localState });
+  }
+
+  function restoreLastAction() {
+    if (!undoSnapshot) return;
+
+    setActions(undoSnapshot.actions);
+    setLocalState(undoSnapshot.localState);
+    setUndoSnapshot(null);
+    setNotice({
+      title: "Action reverted",
+      description: "The assigned recovery action has been restored to its previous state.",
+      actionLabel: "View audit trail",
+      action: "audit",
+    });
+  }
+
+  function makeAuditEntry(
+    title: string,
+    description: string,
+    status: AssignedAuditEntry["status"],
+  ): AssignedAuditEntry {
+    return {
+      id: `ara-audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title,
+      description,
+      status,
+      time: "Just now",
+    };
+  }
+
+  function addAuditToAction(itemId: string, entry: AssignedAuditEntry) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          audit: [entry, ...previous.audit],
+        },
+      };
+    });
+  }
+
+  function setActionLocalState(itemId: string, updates: Partial<AssignedLocalState>) {
+    setLocalState((current) => {
+      const previous = current[itemId] ?? { audit: [] };
+
+      return {
+        ...current,
+        [itemId]: {
+          ...previous,
+          ...updates,
+          audit: updates.audit ?? previous.audit,
+        },
+      };
+    });
+  }
+
+  function updateAction(itemId: string, updates: Partial<AssignedRecoveryAction>) {
+    setActions((items) => items.map((item) => (item.id === itemId ? { ...item, ...updates } : item)));
+  }
+
+  function actionStatusLabel(item: AssignedRecoveryAction) {
+    if (item.completed || item.dueStatus === "Completed") return "Completed";
+    if (item.handoffStatus.toLowerCase().includes("escalated")) return "Escalated";
+    if (item.owner === "Unassigned") return "Unassigned";
+    return item.dueStatus;
+  }
+
+  function actionStatusClass(item: AssignedRecoveryAction) {
+    return actionStatusLabel(item).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  }
+
+  function getActionMessage(item: AssignedRecoveryAction) {
+    return getActionLocalState(item.id).editedTemplate || item.messageTemplate;
+  }
+
+  function getRelatedDestination(item: AssignedRecoveryAction) {
+    if (item.recoveryType === "Payment reminder") return "Payment Recovery";
+    if (item.recoveryType === "Refill reminder") return "Refill Opportunities";
+    if (item.recoveryType === "Restock notice") return "Restock Waitlist";
+    if (item.recoveryType === "Order issue resolution") return "Order Risk Monitor";
+    if (["Review request", "Referral request", "UGC request"].includes(item.recoveryType)) {
+      return "Reviews / Referrals / UGC";
+    }
+    if (item.recoveryType === "Reactivation / winback") return "Inactive Buyer Recovery";
+    if (item.recoveryType === "Source sync review") return "Source Leak Tracking";
+    if (item.recoveryType === "Assign missing owner") return "Team Load";
+    return "Follow-up Recovery";
+  }
+
+  function fireActivity(item: AssignedRecoveryAction, title: string, description: string, status: string) {
+    onActivity?.({
+      category: "Team Actions",
+      title,
+      description,
+      impactBadge: item.revenueAtRisk,
+      relatedRecord: item.relatedRecoveryCase,
+      owner: item.owner,
+      status,
+      nextAction: item.nextAction,
+      tone: item.tone,
+    });
+  }
+
+  function openDetails(item: AssignedRecoveryAction) {
+    setSelectedActionId(item.id);
+    setDetailModalOpen(true);
+    setNotePanelOpen(false);
+  }
+
+  function openCompleteModal(item: AssignedRecoveryAction) {
+    setSelectedActionId(item.id);
+    setCompleteForm({
+      outcome: "Action completed",
+      completionNote: `Completed ${item.recoveryType} for ${item.buyerName}.`,
+      recoveredAmount: "",
+    });
+    setCompleteModalOpen(true);
+  }
+
+  function openReassignModal(item: AssignedRecoveryAction) {
+    setSelectedActionId(item.id);
+    setReassignForm({
+      newOwner: item.owner === "Unassigned" ? "Amara Shah" : item.owner,
+      roleTeam: item.roleTeam === "Unassigned" ? "Recovery Lead" : item.roleTeam,
+      reason: "Move to the owner best placed to complete this recovery action.",
+      handoffNote: item.handoffStatus,
+    });
+    setReassignModalOpen(true);
+  }
+
+  function openEscalateModal(item: AssignedRecoveryAction) {
+    setSelectedActionId(item.id);
+    setEscalateForm({
+      escalateTo: "Recovery Lead",
+      urgency: item.priority === "Critical" ? "Critical" : "High",
+      reason: "Action needs leadership review before revenue is lost.",
+      note: item.handoffStatus,
+    });
+    setEscalateModalOpen(true);
+  }
+
+  function openRelatedModal(item: AssignedRecoveryAction) {
+    setSelectedActionId(item.id);
+    setRelatedModalOpen(true);
+  }
+
+  function openTemplateModal(item: AssignedRecoveryAction) {
+    setSelectedActionId(item.id);
+    setTemplateForm({
+      templateName: `${item.recoveryType} - ${item.buyerName}`,
+      channel: item.source.toLowerCase().includes("whatsapp")
+        ? "WhatsApp"
+        : item.source.toLowerCase().includes("instagram")
+          ? "Instagram DM"
+          : item.source.toLowerCase().includes("email")
+            ? "Email"
+            : "Manual Copy",
+      previewText: getActionMessage(item),
+    });
+    setTemplateModalOpen(true);
+  }
+
+  async function copyTemplate(item: AssignedRecoveryAction) {
+    const message = getActionMessage(item);
+
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard) {
+        throw new Error("Clipboard unavailable");
+      }
+
+      await navigator.clipboard.writeText(message);
+      setActionLocalState(item.id, { copied: true });
+      addAuditToAction(item.id, makeAuditEntry("Template copied", `Template copied for ${item.buyerName}.`, "Copied"));
+      setNotice({
+        title: "Template copied",
+        description: `The message for ${item.buyerName} is ready to paste into ${item.source}.`,
+      });
+    } catch {
+      setNotice({
+        title: "Copy failed",
+        description: "Clipboard access was blocked. Copy the message manually from the template box.",
+      });
+    }
+  }
+
+  function createTemplateFromAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedAction) return;
+
+    const editedText = templateForm.previewText.trim() || getActionMessage(selectedAction);
+    const template: MessageTemplate = {
+      id: `template-assigned-${selectedAction.id}-${Date.now()}`,
+      templateName: templateForm.templateName.trim() || `${selectedAction.recoveryType} - ${selectedAction.buyerName}`,
+      recoveryType: selectedAction.recoveryType,
+      industryFit: "Hybrid",
+      channel: templateForm.channel,
+      owner: selectedAction.owner,
+      approvalStatus: "Draft",
+      lastUpdated: "Just now",
+      usageCount: 0,
+      linkedStageTag: "Assigned Recovery Actions",
+      previewText: editedText,
+      tone: selectedAction.tone,
+    };
+
+    saveUndo();
+    onCreateTemplate?.(template);
+    updateAction(selectedAction.id, {
+      messageTemplate: editedText,
+      messageTemplateStatus: "Custom template ready",
+    });
+    setActionLocalState(selectedAction.id, { editedTemplate: editedText, copied: false });
+    addAuditToAction(
+      selectedAction.id,
+      makeAuditEntry("Template created", `${template.templateName} was added to Setup > Templates.`, "Template"),
+    );
+    setTemplateModalOpen(false);
+    setNotice({
+      title: "Template created",
+      description: `${template.templateName} has been added to Setup > Templates with your edited message.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function markActionComplete(item: AssignedRecoveryAction) {
+    saveUndo();
+
+    const recoveredText = completeForm.recoveredAmount.trim()
+      ? ` Recovered amount logged: ${completeForm.recoveredAmount.startsWith("$") ? completeForm.recoveredAmount : `$${completeForm.recoveredAmount}`}.`
+      : "";
+
+    updateAction(item.id, {
+      dueStatus: "Completed",
+      completed: true,
+      lastActivity: "Completed just now",
+      handoffStatus: `Completed: ${completeForm.outcome}`,
+      internalNotesPreview: completeForm.completionNote || item.internalNotesPreview,
+      nextAction: `Completed - ${completeForm.outcome}.${recoveredText}`,
+    });
+    setCompleteModalOpen(false);
+    addAuditToAction(
+      item.id,
+      makeAuditEntry(
+        "Action completed",
+        `${completeForm.outcome}. ${completeForm.completionNote || "No completion note added."}${recoveredText}`,
+        "Completed",
+      ),
+    );
+    fireActivity(item, "Assigned action completed", `${item.actionTitle} was completed for ${item.buyerName}.`, "Completed");
+    setNotice({
+      title: "Action completed",
+      description: `${item.actionTitle} has been moved to Completed. Undo is available if this was clicked by mistake.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function reopenAction(item: AssignedRecoveryAction) {
+    saveUndo();
+    updateAction(item.id, {
+      dueStatus: item.priority === "Critical" || item.priority === "High" ? "Due today" : "Due soon",
+      completed: false,
+      lastActivity: "Reopened just now",
+      handoffStatus: "Reopened for team follow-up",
+      nextAction: "Review this recovery action and complete the next required step.",
+    });
+    addAuditToAction(item.id, makeAuditEntry("Action reopened", `${item.actionTitle} was reopened.`, "Reopened"));
+    setNotice({
+      title: "Action reopened",
+      description: `${item.actionTitle} is active again and visible in the open action filters.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function reassignAction(item: AssignedRecoveryAction) {
+    saveUndo();
+    updateAction(item.id, {
+      owner: reassignForm.newOwner.trim() || "Unassigned",
+      roleTeam: reassignForm.roleTeam,
+      handoffStatus: `Reassigned to ${reassignForm.newOwner || "Unassigned"}: ${reassignForm.reason}`,
+      lastActivity: "Reassigned just now",
+      dueStatus: item.dueStatus === "Completed" ? "Due today" : item.dueStatus,
+      completed: false,
+      internalNotesPreview: reassignForm.handoffNote || item.internalNotesPreview,
+    });
+    setReassignModalOpen(false);
+    addAuditToAction(
+      item.id,
+      makeAuditEntry(
+        "Action reassigned",
+        `${item.actionTitle} reassigned to ${reassignForm.newOwner || "Unassigned"}. Reason: ${reassignForm.reason}`,
+        "Reassigned",
+      ),
+    );
+    fireActivity(item, "Assigned action reassigned", `${item.actionTitle} moved to ${reassignForm.newOwner}.`, "Reassigned");
+    setNotice({
+      title: "Action reassigned",
+      description: `${item.actionTitle} is now owned by ${reassignForm.newOwner || "Unassigned"}.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function escalateAction(item: AssignedRecoveryAction) {
+    saveUndo();
+    updateAction(item.id, {
+      priority: escalateForm.urgency,
+      roleTeam: escalateForm.escalateTo,
+      handoffStatus: `Escalated to ${escalateForm.escalateTo}: ${escalateForm.reason}`,
+      lastActivity: "Escalated just now",
+      dueStatus: item.dueStatus === "Completed" ? "Due today" : item.dueStatus,
+      completed: false,
+      internalNotesPreview: escalateForm.note || item.internalNotesPreview,
+      nextAction: `Escalated to ${escalateForm.escalateTo}. Review blocker and decide next step.`,
+    });
+    setEscalateModalOpen(false);
+    addAuditToAction(
+      item.id,
+      makeAuditEntry("Action escalated", `${item.actionTitle} escalated to ${escalateForm.escalateTo}.`, "Escalated"),
+    );
+    fireActivity(item, "Assigned action escalated", `${item.actionTitle} escalated to ${escalateForm.escalateTo}.`, "Action required");
+    setNotice({
+      title: "Action escalated",
+      description: `${item.actionTitle} has been escalated. You can open Recovery Threads to continue the handoff conversation.`,
+      actionLabel: "Open Recovery Threads",
+      action: "threads",
+    });
+  }
+
+  function saveInternalNote(item: AssignedRecoveryAction) {
+    saveUndo();
+    setActionLocalState(item.id, { internalNote: noteDraft });
+    updateAction(item.id, {
+      internalNotesPreview: noteDraft.trim() || item.internalNotesPreview,
+      lastActivity: "Internal note updated just now",
+    });
+    addAuditToAction(item.id, makeAuditEntry("Internal note saved", noteDraft || "Note cleared.", "Note"));
+    setNotePanelOpen(false);
+    setNotice({
+      title: "Internal note saved",
+      description: `The note for ${item.buyerName} has been updated.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function deleteInternalNote(item: AssignedRecoveryAction) {
+    saveUndo();
+    setActionLocalState(item.id, { internalNote: "" });
+    updateAction(item.id, {
+      internalNotesPreview: "No internal note saved for this action yet.",
+      lastActivity: "Internal note deleted just now",
+    });
+    addAuditToAction(item.id, makeAuditEntry("Internal note deleted", `Note deleted for ${item.buyerName}.`, "Note"));
+    setNotePanelOpen(false);
+    setNotice({
+      title: "Internal note deleted",
+      description: `The note for ${item.buyerName} has been removed.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function confirmOpenRelatedCase(item: AssignedRecoveryAction) {
+    const destination = getRelatedDestination(item);
+
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-open-related-case-id", item.relatedRecoveryCase);
+      window.sessionStorage.setItem("altynx-open-related-buyer", item.buyerName);
+      window.sessionStorage.setItem("altynx-highlight-action-id", item.id);
+      window.sessionStorage.setItem("altynx-open-follow-up-id", item.relatedRecoveryCase);
+    }
+
+    addAuditToAction(
+      item.id,
+      makeAuditEntry("Related case opened", `${destination} opened for ${item.relatedRecoveryCase}.`, "Opened"),
+    );
+    setRelatedModalOpen(false);
+    setDetailModalOpen(false);
+    setNotice({
+      title: "Opening related case",
+      description: `${destination} will show the matching buyer or recovery case when supported by that page.`,
+    });
+    onNavigate?.(destination);
+  }
+
+  function createManualAssignedAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const newAction: AssignedRecoveryAction = {
+      id: `ASSIGN-MANUAL-${Date.now()}`,
+      actionTitle: manualForm.actionTitle.trim() || "Manual assigned recovery action",
+      buyerName: manualForm.buyerName.trim() || "Manual buyer",
+      productContext: manualForm.productContext.trim() || "Manual product context",
+      recoveryType: manualForm.recoveryType,
+      revenueAtRisk: manualForm.revenueAtRisk.trim().startsWith("$")
+        ? manualForm.revenueAtRisk.trim()
+        : `$${manualForm.revenueAtRisk.trim() || "0"}`,
+      owner: manualForm.owner.trim() || "Unassigned",
+      roleTeam: manualForm.roleTeam,
+      priority: manualForm.priority,
+      dueStatus: manualForm.dueStatus,
+      source: manualForm.source.trim() || "Manual entry",
+      lastActivity: "Created manually just now",
+      nextAction: manualForm.nextAction.trim() || "Review this assigned recovery action and complete the next required step.",
+      messageTemplateStatus: "Template ready",
+      messageTemplate:
+        manualForm.messageTemplate.trim() ||
+        "Hi, I wanted to follow up and help complete the next step for your order or inquiry.",
+      relatedRecoveryCase: manualForm.relatedRecoveryCase.trim() || "Manual case",
+      internalNotesPreview: manualForm.internalNotesPreview.trim() || "Manual action created for team follow-up.",
+      handoffStatus: "Created manually",
+      completed: false,
+      tone: manualForm.priority === "Critical" ? "rose" : manualForm.priority === "High" ? "amber" : "cyan",
+    };
+
+    saveUndo();
+    setActions((items) => [newAction, ...items]);
+    setSelectedActionId(newAction.id);
+    setLocalState((current) => ({
+      ...current,
+      [newAction.id]: {
+        audit: [makeAuditEntry("Manual action created", `${newAction.actionTitle} was added manually.`, "Created")],
+      },
+    }));
+    setManualModalOpen(false);
+    setManualForm({
+      actionTitle: "",
+      buyerName: "",
+      productContext: "",
+      recoveryType: "Follow-up nudge",
+      revenueAtRisk: "",
+      owner: "Amara Shah",
+      roleTeam: "Recovery Lead",
+      priority: "High",
+      dueStatus: "Due today",
+      source: "Manual entry",
+      relatedRecoveryCase: "Manual case",
+      nextAction: "",
+      messageTemplate: "",
+      internalNotesPreview: "",
+    });
+    setNotice({
+      title: "Assigned action added",
+      description: `${newAction.actionTitle} is now visible in the assigned action list.`,
+      actionLabel: "Undo",
+      action: "undo",
+    });
+  }
+
+  function exportAssignedActions() {
+    const headers = ["Action", "Buyer", "Recovery Type", "Owner", "Role", "Due Status", "Priority", "Revenue", "Related Case", "Next Action"];
+    const rows = actions.map((item) => [
+      item.actionTitle,
+      item.buyerName,
+      item.recoveryType,
+      item.owner,
+      item.roleTeam,
+      actionStatusLabel(item),
+      item.priority,
+      item.revenueAtRisk,
+      item.relatedRecoveryCase,
+      item.nextAction,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `altynx-assigned-actions-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({
+      title: "Assigned actions exported",
+      description: "A CSV report has been downloaded with the current assigned recovery actions.",
+    });
+  }
+
+  if (!selectedAction) {
+    return (
+      <div className="recovery-page ara-page">
+        <section className="glass-card panel-card ara-empty-card">
+          <h2>No assigned recovery actions found</h2>
+          <p>Add an assigned action to start tracking team recovery work.</p>
+          <button type="button" className="primary-btn" onClick={() => setManualModalOpen(true)}>
+            Add Assigned Action
+          </button>
+        </section>
+      </div>
+    );
   }
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
+    <div className="recovery-page ara-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid ara-kpi-grid">
         {actionKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
         ))}
       </section>
 
-      <section className="queue-toolbar">
+      <section className="queue-toolbar ara-filter-bar">
         <div className="queue-tabs" aria-label="Assigned recovery action filters">
           {assignedRecoveryActionFilters.map((filter) => (
             <button
@@ -16606,162 +26446,522 @@ function AssignedRecoveryActions() {
         <Badge tone="cyan">{filteredActions.length} assigned actions</Badge>
       </section>
 
-      <section className="recovery-workspace">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Assigned Recovery Actions</h2>
-              <p>Every assigned recovery action by owner, due status, priority, revenue at risk, and next best action.</p>
-            </div>
-            <Badge tone="rose">Owner execution</Badge>
-          </div>
+      <section className="ara-action-status-card" role="status">
+        <div>
+          <span>Action status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
+        </div>
+        <div className="ara-notice-actions">
+          {notice.action === "undo" && undoSnapshot ? (
+            <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+              Undo
+            </button>
+          ) : null}
+          {notice.action === "threads" ? (
+            <button type="button" className="secondary-btn" onClick={() => onNavigate?.("Recovery Threads")}>
+              Open Recovery Threads
+            </button>
+          ) : null}
+          {notice.action === "teamload" ? (
+            <button type="button" className="secondary-btn" onClick={() => onNavigate?.("Team Load")}>
+              Open Team Load
+            </button>
+          ) : null}
+          {notice.action === "audit" ? (
+            <button type="button" className="secondary-btn" onClick={() => setAuditModalOpen(true)}>
+              View Audit Trail
+            </button>
+          ) : null}
+          <button type="button" className="secondary-btn" onClick={exportAssignedActions}>
+            Export Actions
+          </button>
+          <button type="button" className="primary-btn" onClick={() => setManualModalOpen(true)}>
+            Add Assigned Action
+          </button>
+        </div>
+      </section>
 
-          <div className="recovery-list">
-            {filteredActions.map((item) => (
-              <button
-                className={`product-card recovery-task-card ${item.tone} ${
-                  selectedAction.id === item.id ? "selected" : ""
-                }`}
-                key={item.id}
-                onClick={() => setSelectedActionId(item.id)}
-                type="button"
-              >
-                <div className="recovery-task-main">
+      <section className="glass-card panel-card ara-list-panel">
+        <div className="ara-list-header">
+          <div>
+            <h2>Assigned Recovery Actions</h2>
+            <p>Team work by owner, priority, due status, related case, and recovery value.</p>
+          </div>
+          <span>{filteredActions.length} actions shown</span>
+        </div>
+
+        <div className="ara-list">
+          {filteredActions.map((item) => {
+            const status = actionStatusLabel(item);
+            const isSelected = selectedAction.id === item.id;
+
+            return (
+              <article className={`ara-card ${isSelected ? "selected" : ""}`} key={item.id}>
+                <div className="ara-card-main">
                   <Avatar name={item.buyerName} />
                   <div>
-                    <div className="recovery-row-title">
+                    <div className="ara-title-row">
                       <h3>{item.actionTitle}</h3>
-                      <Badge tone={item.tone}>{item.recoveryType}</Badge>
+                      <span className="ara-badge soft">{item.recoveryType}</span>
+                      <span className={`ara-badge status-${actionStatusClass(item)}`}>{status}</span>
                     </div>
                     <p>{item.buyerName} - {item.productContext}</p>
-                    <div className="recovery-meta">
+                    <div className="ara-meta-row">
                       <span>{item.owner}</span>
                       <span>{item.roleTeam}</span>
                       <span>{item.priority}</span>
-                      <span>{item.dueStatus}</span>
                       <span>{item.source}</span>
                       <span>{item.relatedRecoveryCase}</span>
                     </div>
-                    <small className="queue-next-action">{item.nextAction}</small>
+                    <p className="ara-next-action">{item.nextAction}</p>
                   </div>
                 </div>
-                <div className="task-money">
-                  <strong>{item.revenueAtRisk}</strong>
-                  <span>at risk</span>
+
+                <div className="ara-card-side">
+                  <div>
+                    <strong>{item.revenueAtRisk}</strong>
+                    <span>at risk</span>
+                  </div>
+                  <div className="ara-card-actions">
+                    {item.completed || item.dueStatus === "Completed" || item.handoffStatus.toLowerCase().includes("escalated") ? (
+                      <button type="button" className="secondary-btn" onClick={() => reopenAction(item)}>
+                        Reopen
+                      </button>
+                    ) : item.owner === "Unassigned" ? (
+                      <button type="button" className="primary-btn" onClick={() => openReassignModal(item)}>
+                        Reassign
+                      </button>
+                    ) : (
+                      <button type="button" className="primary-btn" onClick={() => openCompleteModal(item)}>
+                        Mark Complete
+                      </button>
+                    )}
+                    <button type="button" className="secondary-btn" onClick={() => openDetails(item)}>
+                      View More
+                    </button>
+                  </div>
                 </div>
-              </button>
-            ))}
-          </div>
-        </article>
-
-        <aside className="glass-card panel-card recovery-detail-panel">
-          <div className="detail-heading">
-            <div className="detail-person">
-              <Avatar name={selectedAction.buyerName} />
-              <div>
-                <h2>{selectedAction.buyerName}</h2>
-                <p>{selectedAction.productContext}</p>
-              </div>
-            </div>
-            <strong>{selectedAction.revenueAtRisk}</strong>
-          </div>
-
-          <div className="detail-grid">
-            <div>
-              <span>Recovery type</span>
-              <strong>{selectedAction.recoveryType}</strong>
-            </div>
-            <div>
-              <span>Owner</span>
-              <strong>{selectedAction.owner}</strong>
-            </div>
-            <div>
-              <span>Role / team</span>
-              <strong>{selectedAction.roleTeam}</strong>
-            </div>
-            <div>
-              <span>Due status</span>
-              <strong>{selectedAction.dueStatus}</strong>
-            </div>
-            <div>
-              <span>Priority</span>
-              <strong>{selectedAction.priority}</strong>
-            </div>
-            <div>
-              <span>Related case</span>
-              <strong>{selectedAction.relatedRecoveryCase}</strong>
-            </div>
-          </div>
-
-          <div className="detail-callout">
-            <span>Recommended next action</span>
-            <p>{selectedAction.nextAction}</p>
-          </div>
-
-          <div className="template-box">
-            <div>
-              <span>{selectedAction.messageTemplateStatus}</span>
-              <button type="button" onClick={() => setNotice(`Template copied for ${selectedAction.buyerName}.`)}>
-                Copy Template
-              </button>
-            </div>
-            <p>{selectedAction.messageTemplate}</p>
-          </div>
-
-          <div className="detail-callout">
-            <span>Internal notes / thread preview</span>
-            <p>{selectedAction.internalNotesPreview}</p>
-          </div>
-
-          <div className="detail-callout">
-            <span>Handoff status</span>
-            <p>{selectedAction.handoffStatus}</p>
-          </div>
-
-          <p className="detail-notice">{notice}</p>
-
-          <div className="detail-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() => updateSelectedAction({ dueStatus: "Completed", completed: true }, "Action marked complete")}
-            >
-              Mark complete
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() =>
-                updateSelectedAction(
-                  {
-                    owner: selectedAction.owner === "Unassigned" ? "Amara Shah" : "Mina Cole",
-                    roleTeam: selectedAction.owner === "Unassigned" ? "Recovery Lead" : "Beauty Specialist",
-                  },
-                  "Recovery owner updated",
-                )
-              }
-            >
-              Reassign
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedAction({ dueStatus: "Snoozed" }, "Action snoozed")}
-            >
-              Snooze
-            </button>
-            <button type="button" className="secondary-btn">Add internal note</button>
-            <button type="button" className="secondary-btn">Open related case</button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => updateSelectedAction({ priority: "Critical", handoffStatus: "Escalated for owner review" }, "Action escalated")}
-            >
-              Escalate
-            </button>
-          </div>
-        </aside>
+              </article>
+            );
+          })}
+        </div>
       </section>
+
+      {detailModalOpen && selectedAction ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setDetailModalOpen(false)}>
+          <div className="ara-modal-card wide" onClick={(event) => event.stopPropagation()}>
+            <div className="ara-modal-heading">
+              <div>
+                <span>Assigned action details</span>
+                <h2>{selectedAction.actionTitle}</h2>
+              </div>
+              <button type="button" onClick={() => setDetailModalOpen(false)} aria-label="Close details">
+                ×
+              </button>
+            </div>
+
+            <div className="ara-detail-top">
+              <div className="detail-person">
+                <Avatar name={selectedAction.buyerName} />
+                <div>
+                  <h2>{selectedAction.buyerName}</h2>
+                  <p>{selectedAction.productContext}</p>
+                </div>
+              </div>
+              <strong>{selectedAction.revenueAtRisk}</strong>
+            </div>
+
+            <div className="ara-detail-grid">
+              <div><span>Recovery type</span><strong>{selectedAction.recoveryType}</strong></div>
+              <div><span>Owner</span><strong>{selectedAction.owner}</strong></div>
+              <div><span>Role / team</span><strong>{selectedAction.roleTeam}</strong></div>
+              <div><span>Due status</span><strong>{actionStatusLabel(selectedAction)}</strong></div>
+              <div><span>Priority</span><strong>{selectedAction.priority}</strong></div>
+              <div><span>Related case</span><strong>{selectedAction.relatedRecoveryCase}</strong></div>
+              <div><span>Source</span><strong>{selectedAction.source}</strong></div>
+              <div><span>Last activity</span><strong>{selectedAction.lastActivity}</strong></div>
+            </div>
+
+            <div className="ara-callout green">
+              <span>Recommended next action</span>
+              <p>{selectedAction.nextAction}</p>
+            </div>
+
+            <div className="ara-template-box">
+              <div className="ara-template-head">
+                <span>{selectedAction.messageTemplateStatus}</span>
+                <div>
+                  <button type="button" className="secondary-btn" onClick={() => copyTemplate(selectedAction)}>
+                    {selectedLocalState.copied ? "Template Copied" : "Copy Template"}
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => openTemplateModal(selectedAction)}>
+                    Create New Template
+                  </button>
+                </div>
+              </div>
+              <p>{getActionMessage(selectedAction)}</p>
+            </div>
+
+            <div className="ara-callout">
+              <span>Internal notes / thread preview</span>
+              <p>{selectedLocalState.internalNote || selectedAction.internalNotesPreview}</p>
+            </div>
+
+            <div className="ara-callout">
+              <span>Handoff status</span>
+              <p>{selectedAction.handoffStatus}</p>
+            </div>
+
+            <div className="ara-modal-actions left">
+              {selectedAction.completed || selectedAction.dueStatus === "Completed" || selectedAction.handoffStatus.toLowerCase().includes("escalated") ? (
+                <button type="button" className="secondary-btn" onClick={() => reopenAction(selectedAction)}>
+                  Reopen
+                </button>
+              ) : (
+                <button type="button" className="primary-btn" onClick={() => openCompleteModal(selectedAction)}>
+                  Mark Complete
+                </button>
+              )}
+              <button type="button" className="secondary-btn" onClick={() => openReassignModal(selectedAction)}>
+                Reassign
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => openRelatedModal(selectedAction)}>
+                Open Related Case
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => openEscalateModal(selectedAction)}>
+                Escalate
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => {
+                  setNoteDraft(selectedLocalState.internalNote || selectedAction.internalNotesPreview);
+                  setNotePanelOpen(true);
+                }}
+              >
+                Add Internal Note
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setAuditModalOpen(true)}>
+                Audit Trail
+              </button>
+            </div>
+
+            {notePanelOpen ? (
+              <div className="ara-note-panel">
+                <div>
+                  <span>Internal note</span>
+                  <h3>Keep context attached to this action.</h3>
+                </div>
+                <textarea rows={5} value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} />
+                <div className="ara-panel-actions">
+                  <button type="button" className="primary-btn" onClick={() => saveInternalNote(selectedAction)}>
+                    Save Note
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => deleteInternalNote(selectedAction)}>
+                    Delete Note
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => setNotePanelOpen(false)}>
+                    Close Note
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="ara-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setDetailModalOpen(false)}>
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {completeModalOpen && selectedAction ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setCompleteModalOpen(false)}>
+          <form
+            className="ara-modal-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              markActionComplete(selectedAction);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ara-modal-heading">
+              <div>
+                <span>Mark complete</span>
+                <h2>Confirm the outcome before closing this action.</h2>
+              </div>
+              <button type="button" onClick={() => setCompleteModalOpen(false)} aria-label="Close complete modal">×</button>
+            </div>
+            <label>
+              Outcome
+              <select value={completeForm.outcome} onChange={(event) => setCompleteForm((current) => ({ ...current, outcome: event.target.value }))}>
+                <option>Action completed</option>
+                <option>Message sent</option>
+                <option>Buyer replied</option>
+                <option>Payment recovered</option>
+                <option>Case resolved</option>
+                <option>No action needed</option>
+              </select>
+            </label>
+            <label>
+              Completion note
+              <textarea rows={4} value={completeForm.completionNote} onChange={(event) => setCompleteForm((current) => ({ ...current, completionNote: event.target.value }))} />
+            </label>
+            <label>
+              Recovered amount optional
+              <input value={completeForm.recoveredAmount} onChange={(event) => setCompleteForm((current) => ({ ...current, recoveredAmount: event.target.value }))} placeholder="$0" />
+            </label>
+            <div className="ara-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setCompleteModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Confirm Complete</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {reassignModalOpen && selectedAction ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setReassignModalOpen(false)}>
+          <form
+            className="ara-modal-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              reassignAction(selectedAction);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ara-modal-heading">
+              <div>
+                <span>Reassign action</span>
+                <h2>Move this action to another owner.</h2>
+              </div>
+              <button type="button" onClick={() => setReassignModalOpen(false)} aria-label="Close reassign modal">×</button>
+            </div>
+            <label>
+              New owner
+              <input value={reassignForm.newOwner} onChange={(event) => setReassignForm((current) => ({ ...current, newOwner: event.target.value }))} list="ara-owner-list" />
+              <datalist id="ara-owner-list">
+                {fallbackCaptureAssignees.map((owner) => (
+                  <option key={owner.id} value={owner.name} />
+                ))}
+                <option value="Unassigned" />
+              </datalist>
+            </label>
+            <label>
+              Role / team
+              <select value={reassignForm.roleTeam} onChange={(event) => setReassignForm((current) => ({ ...current, roleTeam: event.target.value as RecoveryOwnerRole }))}>
+                {roleOptions.map((role) => <option key={role}>{role}</option>)}
+              </select>
+            </label>
+            <label>
+              Reason
+              <textarea rows={3} value={reassignForm.reason} onChange={(event) => setReassignForm((current) => ({ ...current, reason: event.target.value }))} />
+            </label>
+            <label>
+              Handoff note
+              <textarea rows={3} value={reassignForm.handoffNote} onChange={(event) => setReassignForm((current) => ({ ...current, handoffNote: event.target.value }))} />
+            </label>
+            <div className="ara-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setReassignModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Confirm Reassign</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {escalateModalOpen && selectedAction ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setEscalateModalOpen(false)}>
+          <form
+            className="ara-modal-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              escalateAction(selectedAction);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ara-modal-heading">
+              <div>
+                <span>Escalate action</span>
+                <h2>Send this action for higher-priority review.</h2>
+              </div>
+              <button type="button" onClick={() => setEscalateModalOpen(false)} aria-label="Close escalate modal">×</button>
+            </div>
+            <label>
+              Escalate to
+              <select value={escalateForm.escalateTo} onChange={(event) => setEscalateForm((current) => ({ ...current, escalateTo: event.target.value as RecoveryOwnerRole }))}>
+                {roleOptions.filter((role) => role !== "Unassigned").map((role) => <option key={role}>{role}</option>)}
+              </select>
+            </label>
+            <label>
+              Urgency
+              <select value={escalateForm.urgency} onChange={(event) => setEscalateForm((current) => ({ ...current, urgency: event.target.value as Priority }))}>
+                <option>Critical</option>
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+            </label>
+            <label>
+              Reason
+              <textarea rows={3} value={escalateForm.reason} onChange={(event) => setEscalateForm((current) => ({ ...current, reason: event.target.value }))} />
+            </label>
+            <label>
+              Escalation note
+              <textarea rows={3} value={escalateForm.note} onChange={(event) => setEscalateForm((current) => ({ ...current, note: event.target.value }))} />
+            </label>
+            <div className="ara-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setEscalateModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Confirm Escalation</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {relatedModalOpen && selectedAction ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setRelatedModalOpen(false)}>
+          <div className="ara-modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="ara-modal-heading">
+              <div>
+                <span>Open related case</span>
+                <h2>{getRelatedDestination(selectedAction)}</h2>
+              </div>
+              <button type="button" onClick={() => setRelatedModalOpen(false)} aria-label="Close related modal">×</button>
+            </div>
+            <div className="ara-callout green">
+              <span>Destination</span>
+              <p>
+                This will open {getRelatedDestination(selectedAction)} and pass the related case, buyer, and action ID for highlighting when that page supports it.
+              </p>
+            </div>
+            <div className="ara-detail-grid compact">
+              <div><span>Buyer</span><strong>{selectedAction.buyerName}</strong></div>
+              <div><span>Related case</span><strong>{selectedAction.relatedRecoveryCase}</strong></div>
+              <div><span>Recovery type</span><strong>{selectedAction.recoveryType}</strong></div>
+              <div><span>Value</span><strong>{selectedAction.revenueAtRisk}</strong></div>
+            </div>
+            <div className="ara-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setRelatedModalOpen(false)}>Stay Here</button>
+              <button type="button" className="primary-btn" onClick={() => confirmOpenRelatedCase(selectedAction)}>Open Related Case</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {templateModalOpen && selectedAction ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setTemplateModalOpen(false)}>
+          <form className="ara-modal-card" onSubmit={createTemplateFromAction} onClick={(event) => event.stopPropagation()}>
+            <div className="ara-modal-heading">
+              <div>
+                <span>Create template</span>
+                <h2>Add this message to Setup &gt; Templates.</h2>
+              </div>
+              <button type="button" onClick={() => setTemplateModalOpen(false)} aria-label="Close template modal">×</button>
+            </div>
+            <label>
+              Template name
+              <input value={templateForm.templateName} onChange={(event) => setTemplateForm((current) => ({ ...current, templateName: event.target.value }))} />
+            </label>
+            <label>
+              Channel
+              <select value={templateForm.channel} onChange={(event) => setTemplateForm((current) => ({ ...current, channel: event.target.value as MessageTemplate["channel"] }))}>
+                <option>Manual Copy</option>
+                <option>WhatsApp</option>
+                <option>Instagram DM</option>
+                <option>Email</option>
+                <option>SMS</option>
+              </select>
+            </label>
+            <label>
+              Message text
+              <textarea rows={5} value={templateForm.previewText} onChange={(event) => setTemplateForm((current) => ({ ...current, previewText: event.target.value }))} />
+            </label>
+            <div className="ara-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setTemplateModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Create Template</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {manualModalOpen ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setManualModalOpen(false)}>
+          <form className="ara-modal-card wide" onSubmit={createManualAssignedAction} onClick={(event) => event.stopPropagation()}>
+            <div className="ara-modal-heading">
+              <div>
+                <span>Add assigned action</span>
+                <h2>Create a recovery action for a buyer, order, payment, refill, or team handoff.</h2>
+              </div>
+              <button type="button" onClick={() => setManualModalOpen(false)} aria-label="Close manual action modal">×</button>
+            </div>
+            <div className="ara-form-grid">
+              <label>Action title<input value={manualForm.actionTitle} onChange={(event) => setManualForm((current) => ({ ...current, actionTitle: event.target.value }))} /></label>
+              <label>Buyer name<input value={manualForm.buyerName} onChange={(event) => setManualForm((current) => ({ ...current, buyerName: event.target.value }))} /></label>
+              <label>Product / case context<input value={manualForm.productContext} onChange={(event) => setManualForm((current) => ({ ...current, productContext: event.target.value }))} /></label>
+              <label>Revenue at risk<input value={manualForm.revenueAtRisk} onChange={(event) => setManualForm((current) => ({ ...current, revenueAtRisk: event.target.value }))} placeholder="$0" /></label>
+              <label>Recovery type<select value={manualForm.recoveryType} onChange={(event) => setManualForm((current) => ({ ...current, recoveryType: event.target.value as AssignedRecoveryAction["recoveryType"] }))}>{recoveryTypeOptions.map((type) => <option key={type}>{type}</option>)}</select></label>
+              <label>Owner<input value={manualForm.owner} onChange={(event) => setManualForm((current) => ({ ...current, owner: event.target.value }))} /></label>
+              <label>Role / team<select value={manualForm.roleTeam} onChange={(event) => setManualForm((current) => ({ ...current, roleTeam: event.target.value as RecoveryOwnerRole }))}>{roleOptions.map((role) => <option key={role}>{role}</option>)}</select></label>
+              <label>Priority<select value={manualForm.priority} onChange={(event) => setManualForm((current) => ({ ...current, priority: event.target.value as Priority }))}><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select></label>
+              <label>Due status<select value={manualForm.dueStatus} onChange={(event) => setManualForm((current) => ({ ...current, dueStatus: event.target.value as DueStatus }))}><option>Overdue</option><option>Due today</option><option>Due soon</option><option>Monitoring</option></select></label>
+              <label>Source<input value={manualForm.source} onChange={(event) => setManualForm((current) => ({ ...current, source: event.target.value }))} /></label>
+              <label>Related case<input value={manualForm.relatedRecoveryCase} onChange={(event) => setManualForm((current) => ({ ...current, relatedRecoveryCase: event.target.value }))} /></label>
+            </div>
+            <label>
+              Recommended next action
+              <textarea rows={3} value={manualForm.nextAction} onChange={(event) => setManualForm((current) => ({ ...current, nextAction: event.target.value }))} />
+            </label>
+            <label>
+              Message template
+              <textarea rows={4} value={manualForm.messageTemplate} onChange={(event) => setManualForm((current) => ({ ...current, messageTemplate: event.target.value }))} />
+            </label>
+            <label>
+              Internal note
+              <textarea rows={3} value={manualForm.internalNotesPreview} onChange={(event) => setManualForm((current) => ({ ...current, internalNotesPreview: event.target.value }))} />
+            </label>
+            <div className="ara-modal-actions">
+              <button type="button" className="secondary-btn" onClick={() => setManualModalOpen(false)}>Cancel</button>
+              <button type="submit" className="primary-btn">Add Assigned Action</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {auditModalOpen && selectedAction ? (
+        <div className="ara-modal-backdrop" role="presentation" onClick={() => setAuditModalOpen(false)}>
+          <div className="ara-modal-card wide" onClick={(event) => event.stopPropagation()}>
+            <div className="ara-modal-heading">
+              <div>
+                <span>Audit trail</span>
+                <h2>{selectedAction.actionTitle}</h2>
+              </div>
+              <button type="button" onClick={() => setAuditModalOpen(false)} aria-label="Close audit trail">×</button>
+            </div>
+            <div className="ara-audit-list">
+              {selectedLocalState.audit.length > 0 ? (
+                selectedLocalState.audit.map((entry) => (
+                  <div key={entry.id} className="ara-audit-row">
+                    <span>{entry.status}</span>
+                    <div>
+                      <h3>{entry.title}</h3>
+                      <p>{entry.description}</p>
+                      <small>{entry.time}</small>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="ara-audit-empty">
+                  <h3>No actions logged yet</h3>
+                  <p>Complete, reassign, escalate, open, copy, create a template, or add a note to build this action history.</p>
+                </div>
+              )}
+            </div>
+            <div className="ara-modal-actions">
+              <button type="button" className="primary-btn" onClick={() => setAuditModalOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -16969,17 +27169,157 @@ function RecoveryThreads() {
   );
 }
 
-function TeamLoad() {
-  const [activeTeamLoadFilter, setActiveTeamLoadFilter] = useState<TeamLoadFilter>("All");
-  const filteredLoads = teamMemberLoads.filter((item) => matchesTeamLoadFilter(item, activeTeamLoadFilter));
+function TeamLoad({ onNavigate }: { onNavigate?: (page: string) => void } = {}) {
+  const teamLoadPageFilters = [
+    "All",
+    "Sales",
+    "Support",
+    "Operations",
+    "Marketing",
+    "Recovery Lead",
+    "Overloaded",
+    "Overdue",
+    "High Revenue Risk",
+    "Unassigned Work",
+    "Reviewed",
+  ] as const;
+
+  type TeamLoadPageFilter = (typeof teamLoadPageFilters)[number];
+  type TeamLoadModal = "ownerQueue" | "overdue" | "review" | "details" | "rebalance" | "unassigned" | null;
+  type TeamLoadAuditEntry = {
+    id: string;
+    title: string;
+    description: string;
+    time: string;
+  };
+  type TeamLoadRow = TeamMemberLoad & {
+    reviewed?: boolean;
+    lastReviewNote?: string;
+    lastAction?: string;
+    audit: TeamLoadAuditEntry[];
+  };
+  type TeamLoadNotice = {
+    title: string;
+    description: string;
+    action?: "undo" | "assigned" | "queue" | "details";
+  };
+  type TeamLoadPreviewAction = {
+    id: string;
+    title: string;
+    buyerContext: string;
+    dueStatus: string;
+    priority: string;
+    value: string;
+    nextAction: string;
+    recoveryType: string;
+  };
+
+  const [activeTeamLoadFilter, setActiveTeamLoadFilter] = useState<TeamLoadPageFilter>("All");
+  const [loadRows, setLoadRows] = useState<TeamLoadRow[]>(() =>
+    teamMemberLoads.map((member) => ({
+      ...member,
+      reviewed: false,
+      lastReviewNote: "",
+      lastAction: "Not reviewed yet",
+      audit: [
+        {
+          id: `audit-${member.id}-created`,
+          title: "Workload visible",
+          description: `${member.memberName}'s workload is visible with ${member.activeActions} active actions and ${member.overdueActions} overdue actions.`,
+          time: "Loaded today",
+        },
+      ],
+    })),
+  );
+  const [selectedMemberId, setSelectedMemberId] = useState(loadRows[0]?.id ?? "");
+  const [activeModal, setActiveModal] = useState<TeamLoadModal>(null);
+  const [undoRows, setUndoRows] = useState<TeamLoadRow[] | null>(null);
+  const [notice, setNotice] = useState<TeamLoadNotice>({
+    title: "Team workload ready",
+    description: "Open an owner queue, review overdue work, or mark workload reviewed after checking the owner load.",
+  });
+  const [reviewForm, setReviewForm] = useState({ note: "", nextAction: "" });
+  const [rebalanceForm, setRebalanceForm] = useState({
+    targetOwner: "",
+    actionCount: "3",
+    priority: "Medium / Low",
+    reason: "Move lower-priority work so high-value recovery actions are handled today.",
+  });
+  const [unassignedForm, setUnassignedForm] = useState({
+    targetOwner: "",
+    actionCount: "2",
+    note: "Assign owner so these recovery actions do not sit unworked.",
+  });
+
+  const ownerTargets = loadRows.filter((member) => member.role !== "Unassigned");
+  const selectedMember = loadRows.find((member) => member.id === selectedMemberId) ?? loadRows[0];
+  const unassignedMember = loadRows.find((member) => member.role === "Unassigned" || member.memberName === "Unassigned Queue");
+
+  useEffect(() => {
+    const openUnassignedWork = () => {
+      const targetMember = loadRows.find((member) => member.role === "Unassigned" || member.memberName === "Unassigned Queue") ?? loadRows[0];
+      setSelectedMemberId(targetMember?.id ?? "");
+      setUnassignedForm((current) => ({
+        ...current,
+        targetOwner: ownerTargets[0]?.memberName ?? "",
+      }));
+      setActiveModal("unassigned");
+    };
+
+    window.addEventListener("altynx-teamload-open-unassigned", openUnassignedWork);
+
+    return () => {
+      window.removeEventListener("altynx-teamload-open-unassigned", openUnassignedWork);
+    };
+  }, [loadRows, ownerTargets]);
+
+  function makeAuditEntry(title: string, description: string): TeamLoadAuditEntry {
+    return {
+      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title,
+      description,
+      time: "Just now",
+    };
+  }
+
+  function saveUndoSnapshot() {
+    setUndoRows(loadRows.map((member) => ({ ...member, audit: [...member.audit] })));
+  }
+
+  function restoreLastAction() {
+    if (!undoRows) return;
+
+    setLoadRows(undoRows);
+    setUndoRows(null);
+    setNotice({
+      title: "Action reverted",
+      description: "The team workload table has been restored to the previous state.",
+    });
+  }
+
+  function matchesLocalTeamLoadFilter(member: TeamLoadRow, filter: TeamLoadPageFilter) {
+    if (filter === "All") return true;
+    if (filter === "Sales") return member.role === "Sales" || member.memberName === "Amara Shah";
+    if (filter === "Support") return member.role === "Support";
+    if (filter === "Operations") return member.role === "Operations" || member.role === "Order Recovery";
+    if (filter === "Marketing") return member.role === "Marketing" || member.role === "Post-Purchase";
+    if (filter === "Recovery Lead") return member.role === "Recovery Lead";
+    if (filter === "Overloaded") return member.activeActions >= 14 || member.bottleneckStatus.toLowerCase().includes("overloaded");
+    if (filter === "Overdue") return member.overdueActions > 0;
+    if (filter === "High Revenue Risk") return moneyToNumber(member.revenueAtRiskOwned) >= 8000;
+    if (filter === "Unassigned Work") return member.role === "Unassigned" || member.memberName === "Unassigned Queue";
+    return Boolean(member.reviewed);
+  }
+
+  const filteredLoads = loadRows.filter((item) => matchesLocalTeamLoadFilter(item, activeTeamLoadFilter));
 
   const teamLoadKpis = useMemo<KPI[]>(() => {
-    const activeMembers = teamMemberLoads.filter((item) => item.role !== "Unassigned").length;
-    const openActions = teamMemberLoads.reduce((total, item) => total + item.activeActions, 0);
-    const overdue = teamMemberLoads.reduce((total, item) => total + item.overdueActions, 0);
-    const risk = teamMemberLoads.reduce((total, item) => total + moneyToNumber(item.revenueAtRiskOwned), 0);
-    const unassigned = teamMemberLoads.find((item) => item.role === "Unassigned")?.activeActions ?? 0;
-    const completed = teamMemberLoads.reduce((total, item) => total + item.completedActionsThisWeek, 0);
+    const activeMembers = loadRows.filter((item) => item.role !== "Unassigned").length;
+    const openActions = loadRows.reduce((total, item) => total + item.activeActions, 0);
+    const overdue = loadRows.reduce((total, item) => total + item.overdueActions, 0);
+    const risk = loadRows.reduce((total, item) => total + moneyToNumber(item.revenueAtRiskOwned), 0);
+    const unassigned = loadRows.find((item) => item.role === "Unassigned")?.activeActions ?? 0;
+    const completed = loadRows.reduce((total, item) => total + item.completedActionsThisWeek, 0);
 
     return [
       { label: "Active Team Members", value: `${activeMembers}`, caption: "Owners with recovery work", tone: "cyan" },
@@ -16989,23 +27329,309 @@ function TeamLoad() {
       { label: "Unassigned Work", value: `${unassigned}`, caption: "Owner missing", tone: "amber" },
       { label: "Completed Actions This Week", value: `${completed}`, caption: "Execution completed", tone: "emerald" },
     ];
-  }, []);
+  }, [loadRows]);
 
-  const overloaded = teamMemberLoads.filter((item) => item.activeActions >= 14 || item.overdueActions >= 4);
-  const unassignedQueue = teamMemberLoads.filter((item) => item.role === "Unassigned");
-  const performanceRows = teamMemberLoads.filter((item) => item.role !== "Unassigned");
+  const overloaded = loadRows.filter((item) => item.activeActions >= 14 || item.overdueActions >= 4);
+  const unassignedQueue = loadRows.filter((item) => item.role === "Unassigned");
+  const performanceRows = loadRows.filter((item) => item.role !== "Unassigned");
+
+  function buildOwnerActions(member: TeamLoadRow, mode: "all" | "overdue" = "all"): TeamLoadPreviewAction[] {
+    const directTasks = recoveryTasks
+      .filter((task) => task.assignedOwner === member.memberName || (member.role === "Unassigned" && task.assignedOwner === "Unassigned"))
+      .map((task) => ({
+        id: task.id,
+        title: task.productInterest,
+        buyerContext: `${task.customer} - ${task.brandContext}`,
+        dueStatus: task.dueStatus,
+        priority: task.priority,
+        value: task.estimatedRevenueAtRisk,
+        nextAction: task.recommendedNextAction,
+        recoveryType: task.category,
+      }));
+
+    const fallbackCount = mode === "overdue" ? Math.max(1, member.overdueActions) : Math.max(3, Math.min(5, member.activeActions));
+    const fallbackTasks = Array.from({ length: fallbackCount }).map((_, index) => {
+      const isOverdue = mode === "overdue" || index < member.overdueActions;
+      return {
+        id: `${member.id}-generated-${index}`,
+        title: isOverdue ? "Overdue recovery follow-up" : "Open recovery action",
+        buyerContext: `${member.focusArea} - action ${index + 1}`,
+        dueStatus: isOverdue ? "Overdue" : index % 2 === 0 ? "Due today" : "Due soon",
+        priority: isOverdue ? "High" : index % 2 === 0 ? "Medium" : "Low",
+        value: index === 0 ? member.revenueAtRiskOwned : formatCompactMoney(Math.max(120, moneyToNumber(member.revenueAtRiskOwned) / Math.max(2, index + 3))),
+        nextAction: index === 0 ? member.nextRecommendedWorkloadAction : "Review owner queue and complete the next buyer recovery action.",
+        recoveryType: member.role === "Unassigned" ? "Unassigned work" : member.focusArea,
+      };
+    });
+
+    const merged = [...directTasks, ...fallbackTasks];
+    const filtered = mode === "overdue" ? merged.filter((item) => item.dueStatus === "Overdue") : merged;
+
+    return filtered.slice(0, 6);
+  }
+
+  function openMemberModal(member: TeamLoadRow, modal: Exclude<TeamLoadModal, null>) {
+    setSelectedMemberId(member.id);
+    setActiveModal(modal);
+
+    if (modal === "review") {
+      setReviewForm({
+        note: member.lastReviewNote || `Reviewed ${member.memberName}'s active, overdue, and handoff work.`,
+        nextAction: member.nextRecommendedWorkloadAction,
+      });
+    }
+
+    if (modal === "rebalance") {
+      const target = ownerTargets.find((owner) => owner.id !== member.id)?.memberName ?? ownerTargets[0]?.memberName ?? "";
+      setRebalanceForm({
+        targetOwner: target,
+        actionCount: member.activeActions >= 3 ? "3" : "1",
+        priority: "Medium / Low",
+        reason: "Move lower-priority work so high-value recovery actions are handled today.",
+      });
+    }
+
+    if (modal === "unassigned") {
+      setUnassignedForm({
+        targetOwner: ownerTargets[0]?.memberName ?? "",
+        actionCount: `${Math.min(3, Math.max(1, member.activeActions))}`,
+        note: "Assign owner so these recovery actions do not sit unworked.",
+      });
+    }
+  }
+
+  function closeModal() {
+    setActiveModal(null);
+  }
+
+  function markWorkloadReviewed(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedMember) return;
+
+    saveUndoSnapshot();
+    setLoadRows((currentRows) =>
+      currentRows.map((member) =>
+        member.id === selectedMember.id
+          ? {
+              ...member,
+              reviewed: true,
+              lastReviewNote: reviewForm.note.trim() || "Workload reviewed.",
+              lastAction: "Reviewed just now",
+              bottleneckStatus: member.bottleneckStatus.includes("Reviewed") ? member.bottleneckStatus : `${member.bottleneckStatus} - Reviewed today`,
+              audit: [
+                makeAuditEntry(
+                  "Workload reviewed",
+                  `${member.memberName}'s active actions, overdue work, and handoffs were reviewed. Next action: ${reviewForm.nextAction || member.nextRecommendedWorkloadAction}`,
+                ),
+                ...member.audit,
+              ],
+            }
+          : member,
+      ),
+    );
+    setActiveModal(null);
+    setNotice({
+      title: "Workload reviewed",
+      description: `${selectedMember.memberName}'s workload was marked reviewed. Undo is available if this was clicked by mistake.`,
+      action: "undo",
+    });
+  }
+
+  function markVisibleReviewed() {
+    const filteredIds = new Set(filteredLoads.map((member) => member.id));
+
+    saveUndoSnapshot();
+    setLoadRows((currentRows) =>
+      currentRows.map((member) =>
+        filteredIds.has(member.id)
+          ? {
+              ...member,
+              reviewed: true,
+              lastAction: "Reviewed just now",
+              lastReviewNote: "Visible workload reviewed from the Team Load action panel.",
+              audit: [makeAuditEntry("Visible workload reviewed", `${member.memberName}'s visible workload row was marked reviewed.`), ...member.audit],
+            }
+          : member,
+      ),
+    );
+    setNotice({
+      title: "Visible workload reviewed",
+      description: `${filteredLoads.length} owner row${filteredLoads.length === 1 ? "" : "s"} marked reviewed. Undo is available.`,
+      action: "undo",
+    });
+  }
+
+  function rebalanceWork(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedMember) return;
+
+    const moveCount = Math.max(1, Number.parseInt(rebalanceForm.actionCount, 10) || 1);
+    const targetOwner = rebalanceForm.targetOwner || ownerTargets.find((owner) => owner.id !== selectedMember.id)?.memberName;
+
+    if (!targetOwner) {
+      setNotice({ title: "Select a target owner", description: "Choose who should receive the reassigned recovery actions." });
+      return;
+    }
+
+    saveUndoSnapshot();
+    setLoadRows((currentRows) =>
+      currentRows.map((member) => {
+        if (member.id === selectedMember.id) {
+          return {
+            ...member,
+            activeActions: Math.max(0, member.activeActions - moveCount),
+            overdueActions: Math.max(0, member.overdueActions - Math.min(member.overdueActions, Math.ceil(moveCount / 2))),
+            lastAction: `${moveCount} action${moveCount === 1 ? "" : "s"} moved just now`,
+            audit: [
+              makeAuditEntry(
+                "Workload rebalanced out",
+                `${moveCount} ${rebalanceForm.priority} recovery action${moveCount === 1 ? "" : "s"} moved from ${member.memberName} to ${targetOwner}. Reason: ${rebalanceForm.reason}`,
+              ),
+              ...member.audit,
+            ],
+          };
+        }
+
+        if (member.memberName === targetOwner) {
+          return {
+            ...member,
+            activeActions: member.activeActions + moveCount,
+            lastAction: `${moveCount} reassigned action${moveCount === 1 ? "" : "s"} received`,
+            audit: [
+              makeAuditEntry(
+                "Workload received",
+                `${member.memberName} received ${moveCount} recovery action${moveCount === 1 ? "" : "s"} from ${selectedMember.memberName}.`,
+              ),
+              ...member.audit,
+            ],
+          };
+        }
+
+        return member;
+      }),
+    );
+    setActiveModal(null);
+    setNotice({
+      title: "Workload rebalanced",
+      description: `${moveCount} recovery action${moveCount === 1 ? "" : "s"} moved from ${selectedMember.memberName} to ${targetOwner}. Undo is available.`,
+      action: "undo",
+    });
+  }
+
+  function assignUnassignedWork(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const sourceMember = selectedMember?.role === "Unassigned" ? selectedMember : unassignedMember;
+    const targetOwner = unassignedForm.targetOwner || ownerTargets[0]?.memberName;
+    const assignCount = Math.max(1, Number.parseInt(unassignedForm.actionCount, 10) || 1);
+
+    if (!sourceMember || !targetOwner) {
+      setNotice({ title: "Assignment unavailable", description: "No unassigned queue or target owner was found." });
+      return;
+    }
+
+    saveUndoSnapshot();
+    setLoadRows((currentRows) =>
+      currentRows.map((member) => {
+        if (member.id === sourceMember.id) {
+          return {
+            ...member,
+            activeActions: Math.max(0, member.activeActions - assignCount),
+            lastAction: `${assignCount} unassigned action${assignCount === 1 ? "" : "s"} assigned`,
+            audit: [
+              makeAuditEntry("Unassigned work assigned", `${assignCount} recovery action${assignCount === 1 ? "" : "s"} assigned to ${targetOwner}. Note: ${unassignedForm.note}`),
+              ...member.audit,
+            ],
+          };
+        }
+
+        if (member.memberName === targetOwner) {
+          return {
+            ...member,
+            activeActions: member.activeActions + assignCount,
+            lastAction: `${assignCount} assigned action${assignCount === 1 ? "" : "s"} received`,
+            audit: [makeAuditEntry("Assigned work received", `${member.memberName} received ${assignCount} unassigned recovery action${assignCount === 1 ? "" : "s"}.`), ...member.audit],
+          };
+        }
+
+        return member;
+      }),
+    );
+    setActiveModal(null);
+    setNotice({
+      title: "Unassigned work assigned",
+      description: `${assignCount} recovery action${assignCount === 1 ? "" : "s"} assigned to ${targetOwner}. Undo is available.`,
+      action: "undo",
+    });
+  }
+
+  function exportTeamWorkload() {
+    const headers = ["Owner", "Role", "Active Actions", "Overdue", "Open Handoffs", "Revenue At Risk", "Recovered", "Reviewed", "Recommended Action"];
+    const rows = filteredLoads.map((member) => [
+      member.memberName,
+      member.role,
+      member.activeActions,
+      member.overdueActions,
+      member.openHandoffs,
+      member.revenueAtRiskOwned,
+      member.recoveredValueThisMonth,
+      member.reviewed ? "Yes" : "No",
+      member.nextRecommendedWorkloadAction,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `altynx-team-load-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({ title: "Team workload exported", description: "The current Team Load view was downloaded as a CSV file." });
+  }
+
+  function openAssignedActions(member: TeamLoadRow) {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-teamload-owner-filter", member.memberName);
+    }
+
+    onNavigate?.("Assigned Recovery Actions");
+  }
+
+  function openOverdueQueue(member: TeamLoadRow) {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-teamload-overdue-owner", member.memberName);
+    }
+
+    onNavigate?.("Today's Recovery Queue");
+  }
+
+  function openThreads(member: TeamLoadRow) {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("altynx-teamload-thread-owner", member.memberName);
+    }
+
+    onNavigate?.("Recovery Threads");
+  }
+
+  function defaultRebalanceMember() {
+    return overloaded[0] ?? loadRows.find((member) => member.role !== "Unassigned") ?? loadRows[0];
+  }
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
+    <div className="recovery-page tl-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid tl-kpi-grid">
         {teamLoadKpis.map((item) => (
           <KpiCard key={item.label} item={item} />
         ))}
       </section>
 
-      <section className="queue-toolbar">
+      <section className="queue-toolbar tl-filter-card">
         <div className="queue-tabs" aria-label="Team load filters">
-          {teamLoadFilters.map((filter) => (
+          {teamLoadPageFilters.map((filter) => (
             <button
               className={`queue-tab ${activeTeamLoadFilter === filter ? "active" : ""}`}
               key={filter}
@@ -17016,55 +27642,105 @@ function TeamLoad() {
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredLoads.length} owner rows</Badge>
+        <span className="tl-count-pill">{filteredLoads.length} owner rows</span>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
+      <section className="tl-action-status-card" role="status">
+        <div>
+          <span>Action status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
+        </div>
+        <div className="tl-notice-actions">
+          {notice.action === "undo" && undoRows ? (
+            <button type="button" className="secondary-btn" onClick={restoreLastAction}>
+              Undo
+            </button>
+          ) : null}
+          {notice.action === "assigned" && selectedMember ? (
+            <button type="button" className="secondary-btn" onClick={() => openAssignedActions(selectedMember)}>
+              Open Assigned Actions
+            </button>
+          ) : null}
+          {notice.action === "queue" && selectedMember ? (
+            <button type="button" className="secondary-btn" onClick={() => openOverdueQueue(selectedMember)}>
+              Open Recovery Queue
+            </button>
+          ) : null}
+          <button type="button" className="secondary-btn" onClick={exportTeamWorkload}>
+            Export current view
+          </button>
+        </div>
+      </section>
+
+      <section className="glass-card panel-card tl-list-panel">
+        <div className="tl-section-header">
           <div>
             <h2>Team Workload Overview</h2>
-            <p>Owner workload, overdue revenue work, open handoffs, bottlenecks, and recovered value by owner.</p>
+            <p>Owner workload, overdue recovery work, open handoffs, bottlenecks, and recovered value by owner.</p>
           </div>
-          <Badge tone="amber">Owner workload</Badge>
+          <span className="tl-soft-badge">Owner workload</span>
         </div>
 
-        <div className="team-load-grid team-workload-grid">
-          {filteredLoads.map((member) => (
-            <article className={`team-load-card ${member.tone}`} key={member.id}>
-              <div>
-                <div className="recovery-row-title">
-                  <h3>{member.memberName}</h3>
-                  <Badge tone={member.tone}>{member.role}</Badge>
+        <div className="tl-owner-list">
+          {filteredLoads.map((member) => {
+            const overdueDisabled = member.overdueActions <= 0;
+            const isReviewed = Boolean(member.reviewed);
+
+            return (
+              <article className="tl-owner-card" key={member.id}>
+                <div className="tl-card-main">
+                  <div className="tl-title-row">
+                    <h3>{member.memberName}</h3>
+                    <span className="tl-badge role">{member.role}</span>
+                    {member.activeActions >= 14 || member.overdueActions >= 4 ? <span className="tl-badge alert">Overloaded</span> : null}
+                    {isReviewed ? <span className="tl-badge reviewed">Reviewed</span> : null}
+                  </div>
+                  <p>{member.focusArea}</p>
+                  <div className="tl-stat-row">
+                    <span>{member.activeActions} active actions</span>
+                    <span>{member.overdueActions} overdue</span>
+                    <span>{member.openHandoffs} open handoffs</span>
+                    <span>{member.averageResponseTime} avg response</span>
+                    <span>{member.recoveredValueThisMonth} recovered</span>
+                  </div>
+                  <div className="tl-next-box">
+                    <span>{member.bottleneckStatus}</span>
+                    <p>{member.nextRecommendedWorkloadAction}</p>
+                  </div>
                 </div>
-                <p>{member.focusArea}</p>
-              </div>
-              <div className="capture-value-stack">
-                <strong>{member.revenueAtRiskOwned}</strong>
-                <span>revenue at risk</span>
-              </div>
-              <div className="team-load-stats">
-                <span>{member.activeActions} active actions</span>
-                <span>{member.overdueActions} overdue</span>
-                <span>{member.openHandoffs} open handoffs</span>
-                <span>{member.averageResponseTime} avg response</span>
-                <span>{member.recoveredValueThisMonth} recovered</span>
-              </div>
-              <div className="team-load-detail">
-                <span>{member.bottleneckStatus}</span>
-                <p>{member.nextRecommendedWorkloadAction}</p>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Open owner queue</button>
-                <button type="button" className="secondary-btn">View overdue work</button>
-                <button type="button" className="secondary-btn">Mark workload reviewed</button>
-              </div>
-            </article>
-          ))}
+
+                <div className="tl-card-side">
+                  <strong>{member.revenueAtRiskOwned}</strong>
+                  <span>revenue at risk</span>
+                  <div className="tl-card-actions">
+                    <button type="button" className="primary-btn" onClick={() => openMemberModal(member, "ownerQueue")}>
+                      Open owner queue
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      disabled={overdueDisabled}
+                      onClick={() => openMemberModal(member, "overdue")}
+                    >
+                      View overdue work
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => openMemberModal(member, "review")}>
+                      Mark reviewed
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => openMemberModal(member, "details")}>
+                      View details
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
+      <section className="tl-breakdown-grid">
+        <article className="tl-breakdown-card">
           <h3>Bottlenecks</h3>
           {overloaded.map((member) => (
             <div key={member.id}>
@@ -17073,7 +27749,7 @@ function TeamLoad() {
             </div>
           ))}
         </article>
-        <article className="summary-breakdown-card">
+        <article className="tl-breakdown-card">
           <h3>Unassigned Work</h3>
           {unassignedQueue.map((member) => (
             <div key={member.id}>
@@ -17082,7 +27758,7 @@ function TeamLoad() {
             </div>
           ))}
         </article>
-        <article className="summary-breakdown-card">
+        <article className="tl-breakdown-card">
           <h3>Recovery Performance By Owner</h3>
           {performanceRows.map((member) => (
             <div key={member.id}>
@@ -17093,222 +27769,1129 @@ function TeamLoad() {
         </article>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
+      <section className="glass-card panel-card tl-control-panel">
+        <div className="tl-section-header compact">
           <div>
             <h2>Workload Actions</h2>
-            <p>Rebalance owner workload, assign unassigned recovery actions, and export team recovery performance.</p>
+            <p>Review workload, rebalance overloaded owners, assign unassigned recovery actions, and export team performance.</p>
           </div>
-          <Badge tone="emerald">Execution control</Badge>
+          <span className="tl-soft-badge green">Execution control</span>
         </div>
-        <div className="capture-actions">
-          <button type="button" className="primary-btn">Rebalance workload</button>
-          <button type="button" className="secondary-btn">Assign unassigned actions</button>
-          <button type="button" className="secondary-btn">Export team report</button>
-          <button type="button" className="secondary-btn">Mark workload reviewed</button>
+        <div className="tl-control-actions">
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => {
+              const target = defaultRebalanceMember();
+              if (target) openMemberModal(target, "rebalance");
+            }}
+          >
+            Rebalance workload
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => {
+              const target = unassignedMember ?? loadRows[0];
+              if (target) openMemberModal(target, "unassigned");
+            }}
+          >
+            Assign unassigned actions
+          </button>
+          <button type="button" className="secondary-btn" onClick={exportTeamWorkload}>
+            Export team report
+          </button>
+          <button type="button" className="secondary-btn" onClick={markVisibleReviewed}>
+            Mark visible reviewed
+          </button>
         </div>
       </section>
+
+      {activeModal === "ownerQueue" && selectedMember ? (
+        <div className="tl-modal-backdrop" role="presentation" onClick={closeModal}>
+          <div className="tl-modal-card wide" onClick={(event) => event.stopPropagation()}>
+            <div className="tl-modal-header">
+              <div>
+                <span>Owner queue</span>
+                <h2>{selectedMember.memberName}</h2>
+                <p>{selectedMember.activeActions} active actions · {selectedMember.openHandoffs} open handoffs · {selectedMember.revenueAtRiskOwned} at risk</p>
+              </div>
+              <button type="button" onClick={closeModal}>×</button>
+            </div>
+            <div className="tl-modal-summary-grid">
+              <div><span>Role</span><strong>{selectedMember.role}</strong></div>
+              <div><span>Active actions</span><strong>{selectedMember.activeActions}</strong></div>
+              <div><span>Overdue</span><strong>{selectedMember.overdueActions}</strong></div>
+              <div><span>Recovered</span><strong>{selectedMember.recoveredValueThisMonth}</strong></div>
+            </div>
+            <div className="tl-action-list">
+              {buildOwnerActions(selectedMember).map((action) => (
+                <article key={action.id}>
+                  <div>
+                    <h3>{action.title}</h3>
+                    <p>{action.buyerContext}</p>
+                    <div className="tl-stat-row compact">
+                      <span>{action.recoveryType}</span>
+                      <span>{action.dueStatus}</span>
+                      <span>{action.priority}</span>
+                    </div>
+                  </div>
+                  <strong>{action.value}</strong>
+                </article>
+              ))}
+            </div>
+            <div className="tl-modal-footer">
+              <button type="button" className="primary-btn" onClick={() => openAssignedActions(selectedMember)}>
+                Open Assigned Actions
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => openOverdueQueue(selectedMember)}>
+                Open Recovery Queue
+              </button>
+              <button type="button" className="secondary-btn" onClick={closeModal}>
+                Stay here
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activeModal === "overdue" && selectedMember ? (
+        <div className="tl-modal-backdrop" role="presentation" onClick={closeModal}>
+          <div className="tl-modal-card wide" onClick={(event) => event.stopPropagation()}>
+            <div className="tl-modal-header">
+              <div>
+                <span>Overdue work</span>
+                <h2>{selectedMember.memberName}</h2>
+                <p>{selectedMember.overdueActions} overdue actions need review before more revenue slips.</p>
+              </div>
+              <button type="button" onClick={closeModal}>×</button>
+            </div>
+            <div className="tl-action-list overdue">
+              {buildOwnerActions(selectedMember, "overdue").map((action) => (
+                <article key={action.id}>
+                  <div>
+                    <h3>{action.title}</h3>
+                    <p>{action.buyerContext}</p>
+                    <div className="tl-stat-row compact">
+                      <span>{action.dueStatus}</span>
+                      <span>{action.priority}</span>
+                      <span>{action.recoveryType}</span>
+                    </div>
+                    <small>{action.nextAction}</small>
+                  </div>
+                  <strong>{action.value}</strong>
+                </article>
+              ))}
+            </div>
+            <div className="tl-modal-footer">
+              <button type="button" className="primary-btn" onClick={() => openOverdueQueue(selectedMember)}>
+                Open overdue queue
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => openThreads(selectedMember)}>
+                Open handoff threads
+              </button>
+              <button type="button" className="secondary-btn" onClick={closeModal}>
+                Stay here
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {activeModal === "review" && selectedMember ? (
+        <div className="tl-modal-backdrop" role="presentation" onClick={closeModal}>
+          <form className="tl-modal-card" onSubmit={markWorkloadReviewed} onClick={(event) => event.stopPropagation()}>
+            <div className="tl-modal-header">
+              <div>
+                <span>Mark workload reviewed</span>
+                <h2>{selectedMember.memberName}</h2>
+                <p>Use this after checking active, overdue, and handoff work for this owner.</p>
+              </div>
+              <button type="button" onClick={closeModal}>×</button>
+            </div>
+            <label>
+              Review note
+              <textarea
+                rows={4}
+                value={reviewForm.note}
+                onChange={(event) => setReviewForm((current) => ({ ...current, note: event.target.value }))}
+              />
+            </label>
+            <label>
+              Next workload action
+              <textarea
+                rows={3}
+                value={reviewForm.nextAction}
+                onChange={(event) => setReviewForm((current) => ({ ...current, nextAction: event.target.value }))}
+              />
+            </label>
+            <div className="tl-modal-footer">
+              <button type="button" className="secondary-btn" onClick={closeModal}>Cancel</button>
+              <button type="submit" className="primary-btn">Confirm reviewed</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {activeModal === "rebalance" && selectedMember ? (
+        <div className="tl-modal-backdrop" role="presentation" onClick={closeModal}>
+          <form className="tl-modal-card" onSubmit={rebalanceWork} onClick={(event) => event.stopPropagation()}>
+            <div className="tl-modal-header">
+              <div>
+                <span>Rebalance workload</span>
+                <h2>Move work from {selectedMember.memberName}</h2>
+                <p>Move lower-priority work so the owner can focus on higher-value or overdue recovery.</p>
+              </div>
+              <button type="button" onClick={closeModal}>×</button>
+            </div>
+            <label>
+              Move to owner
+              <select
+                value={rebalanceForm.targetOwner}
+                onChange={(event) => setRebalanceForm((current) => ({ ...current, targetOwner: event.target.value }))}
+              >
+                {ownerTargets
+                  .filter((owner) => owner.id !== selectedMember.id)
+                  .map((owner) => (
+                    <option key={owner.id} value={owner.memberName}>{owner.memberName} - {owner.role}</option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              Number of actions
+              <input
+                min="1"
+                type="number"
+                value={rebalanceForm.actionCount}
+                onChange={(event) => setRebalanceForm((current) => ({ ...current, actionCount: event.target.value }))}
+              />
+            </label>
+            <label>
+              Priority to move
+              <select
+                value={rebalanceForm.priority}
+                onChange={(event) => setRebalanceForm((current) => ({ ...current, priority: event.target.value }))}
+              >
+                <option>Medium / Low</option>
+                <option>Low only</option>
+                <option>All non-critical</option>
+              </select>
+            </label>
+            <label>
+              Reason
+              <textarea
+                rows={3}
+                value={rebalanceForm.reason}
+                onChange={(event) => setRebalanceForm((current) => ({ ...current, reason: event.target.value }))}
+              />
+            </label>
+            <div className="tl-modal-footer">
+              <button type="button" className="secondary-btn" onClick={closeModal}>Cancel</button>
+              <button type="submit" className="primary-btn">Confirm rebalance</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {activeModal === "unassigned" ? (
+        <div className="tl-modal-backdrop" role="presentation" onClick={closeModal}>
+          <form className="tl-modal-card" onSubmit={assignUnassignedWork} onClick={(event) => event.stopPropagation()}>
+            <div className="tl-modal-header">
+              <div>
+                <span>Assign unassigned work</span>
+                <h2>Move owner-missing work to a team member</h2>
+                <p>{unassignedMember?.activeActions ?? 0} unassigned recovery actions are waiting for ownership.</p>
+              </div>
+              <button type="button" onClick={closeModal}>×</button>
+            </div>
+            <label>
+              Assign to
+              <select
+                value={unassignedForm.targetOwner}
+                onChange={(event) => setUnassignedForm((current) => ({ ...current, targetOwner: event.target.value }))}
+              >
+                {ownerTargets.map((owner) => (
+                  <option key={owner.id} value={owner.memberName}>{owner.memberName} - {owner.role}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Number of actions
+              <input
+                min="1"
+                type="number"
+                value={unassignedForm.actionCount}
+                onChange={(event) => setUnassignedForm((current) => ({ ...current, actionCount: event.target.value }))}
+              />
+            </label>
+            <label>
+              Assignment note
+              <textarea
+                rows={3}
+                value={unassignedForm.note}
+                onChange={(event) => setUnassignedForm((current) => ({ ...current, note: event.target.value }))}
+              />
+            </label>
+            <div className="tl-modal-footer">
+              <button type="button" className="secondary-btn" onClick={closeModal}>Cancel</button>
+              <button type="submit" className="primary-btn">Assign work</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {activeModal === "details" && selectedMember ? (
+        <div className="tl-modal-backdrop" role="presentation" onClick={closeModal}>
+          <div className="tl-modal-card wide" onClick={(event) => event.stopPropagation()}>
+            <div className="tl-modal-header">
+              <div>
+                <span>Owner details</span>
+                <h2>{selectedMember.memberName}</h2>
+                <p>{selectedMember.focusArea}</p>
+              </div>
+              <button type="button" onClick={closeModal}>×</button>
+            </div>
+            <div className="tl-modal-summary-grid">
+              <div><span>Role</span><strong>{selectedMember.role}</strong></div>
+              <div><span>Active actions</span><strong>{selectedMember.activeActions}</strong></div>
+              <div><span>Overdue actions</span><strong>{selectedMember.overdueActions}</strong></div>
+              <div><span>Open handoffs</span><strong>{selectedMember.openHandoffs}</strong></div>
+              <div><span>Revenue at risk</span><strong>{selectedMember.revenueAtRiskOwned}</strong></div>
+              <div><span>Recovered this month</span><strong>{selectedMember.recoveredValueThisMonth}</strong></div>
+              <div><span>Average response</span><strong>{selectedMember.averageResponseTime}</strong></div>
+              <div><span>Review status</span><strong>{selectedMember.reviewed ? "Reviewed today" : "Needs review"}</strong></div>
+            </div>
+            <div className="tl-next-box detail">
+              <span>{selectedMember.bottleneckStatus}</span>
+              <p>{selectedMember.nextRecommendedWorkloadAction}</p>
+              {selectedMember.lastReviewNote ? <small>{selectedMember.lastReviewNote}</small> : null}
+            </div>
+            <div className="tl-audit-list">
+              <h3>Audit trail</h3>
+              {selectedMember.audit.map((entry) => (
+                <article key={entry.id}>
+                  <div>
+                    <strong>{entry.title}</strong>
+                    <span>{entry.time}</span>
+                  </div>
+                  <p>{entry.description}</p>
+                </article>
+              ))}
+            </div>
+            <div className="tl-modal-footer">
+              <button type="button" className="primary-btn" onClick={() => openMemberModal(selectedMember, "ownerQueue")}>Open owner queue</button>
+              <button type="button" className="secondary-btn" onClick={() => openMemberModal(selectedMember, "overdue")}>View overdue work</button>
+              <button type="button" className="secondary-btn" onClick={() => openMemberModal(selectedMember, "review")}>Mark reviewed</button>
+              <button type="button" className="secondary-btn" onClick={() => openMemberModal(selectedMember, "rebalance")}>Rebalance work</button>
+              <button type="button" className="secondary-btn" onClick={() => openThreads(selectedMember)}>Open Recovery Threads</button>
+              <button type="button" className="secondary-btn" onClick={closeModal}>Close details</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function AutomationHealth() {
-  const [activeAutomationFilter, setActiveAutomationFilter] = useState<AutomationHealthFilter>("All");
-  const filteredRecords = automationHealthRecords.filter((item) =>
-    matchesAutomationHealthFilter(item, activeAutomationFilter),
-  );
+function AutomationHealth({
+  onNavigate,
+  onActivity,
+  onCreateTemplate,
+}: {
+  onNavigate?: (page: string) => void;
+  onActivity?: (activity: NewRecoveryActivity) => void;
+  onCreateTemplate?: (template: MessageTemplate) => void;
+} = {}) {
+  const automationTabs = [
+    "All",
+    "Inbound Events",
+    "Outbound Updates",
+    "Failed",
+    "Needs Review",
+    "Missing Fields",
+    "Duplicate Records",
+    "Manual Entries",
+    "Workflow Pending",
+    "Reviewed",
+  ] as const;
 
-  const automationKpis = useMemo<KPI[]>(() => {
-    const connectedSources = new Set(automationHealthRecords.map((item) => item.thirdPartySource)).size;
-    const eventsCaptured = automationHealthRecords.reduce((total, item) => total + item.recordsProcessed, 0);
-    const successfulSyncs = automationHealthRecords.filter((item) => item.syncStatus === "Healthy").length;
-    const failedSyncs = automationHealthRecords.reduce((total, item) => total + item.failedRecords, 0);
-    const reviewRecords = automationHealthRecords.reduce(
-      (total, item) => total + item.failedRecords + item.missingFields + item.duplicateRecords,
-      0,
+  type AutomationTab = (typeof automationTabs)[number];
+  type AutomationRowType = "Inbound event" | "Outbound update" | "Manual entry sync" | "Failed record" | "Recovery action created";
+  type AutomationReviewStatus = "Open" | "Needs Review" | "Reviewed" | "Re-sync requested" | "Action created";
+  type AutomationWorkflowResponse = "Workflow accepted" | "Waiting for response" | "Retry required" | "Delivered";
+  type ReportAuditEntry = { id: string; title: string; description: string; time: string };
+  type AutomationRow = AutomationHealthRecord & {
+    recordType: AutomationRowType;
+    reviewStatus: AutomationReviewStatus;
+    outboundUpdates: number;
+    manualEntriesSynced: number;
+    workflowResponse: AutomationWorkflowResponse;
+    audit: ReportAuditEntry[];
+  };
+  type AutomationModal =
+    | "details"
+    | "reviewIssue"
+    | "fieldMapping"
+    | "assignOwner"
+    | "requestResync"
+    | "relatedCases"
+    | "createAction"
+    | "markReviewed"
+    | "audit"
+    | null;
+  type AutomationNotice = { title: string; description: string; action?: "undo" | "openQueue" | "openActions" };
+  type AutomationUndo = { rows: AutomationRow[]; selectedId: string; notice: AutomationNotice } | null;
+
+  const buildAutomationRows = (): AutomationRow[] =>
+    automationHealthRecords.map((item, index) => {
+      const hasFailure = item.failedRecords > 0 || item.missingFields > 0 || item.duplicateRecords > 0;
+      const recordType: AutomationRowType = hasFailure
+        ? "Failed record"
+        : index % 5 === 0
+          ? "Outbound update"
+          : index % 4 === 0
+            ? "Manual entry sync"
+            : index % 3 === 0
+              ? "Recovery action created"
+              : "Inbound event";
+
+      return {
+        ...item,
+        recordType,
+        reviewStatus: hasFailure || item.syncStatus === "Needs Review" || item.syncStatus === "Partial" ? "Needs Review" : "Open",
+        outboundUpdates: item.recordsUpdated + Math.max(0, item.relatedRecoveryCases - 1),
+        manualEntriesSynced: recordType === "Manual entry sync" ? Math.max(1, Math.round(item.recordsCreated / 3)) : 0,
+        workflowResponse: hasFailure ? "Retry required" : item.syncStatus === "Partial" ? "Waiting for response" : "Workflow accepted",
+        audit: [
+          {
+            id: `${item.id}-audit-1`,
+            title: "Automation event received",
+            description: `${item.eventType} from ${item.thirdPartySource} was recorded in Altynx.`,
+            time: item.lastRunTime,
+          },
+          {
+            id: `${item.id}-audit-2`,
+            title: hasFailure ? "Review needed" : "Source monitored",
+            description: hasFailure ? item.recommendedFix : "No blocking recovery issue found in the latest sync.",
+            time: "Current view",
+          },
+        ],
+      };
+    });
+
+  const [rows, setRows] = useState<AutomationRow[]>(buildAutomationRows);
+  const [activeTab, setActiveTab] = useState<AutomationTab>("All");
+  const [selectedId, setSelectedId] = useState(rows[0]?.id ?? "");
+  const [modal, setModal] = useState<AutomationModal>(null);
+  const [undo, setUndo] = useState<AutomationUndo>(null);
+  const [notice, setNotice] = useState<AutomationNotice>({
+    title: "Automation and action sync ready",
+    description: "Review failed records, request re-syncs, and send Altynx recovery updates to connected workflows.",
+  });
+  const [ownerForm, setOwnerForm] = useState({ owner: "Operations", reason: "Review failed records and confirm workflow response." });
+  const [resyncForm, setResyncForm] = useState({ scope: "Failed records only", note: "Request the connected workflow to resend failed records." });
+  const [reviewForm, setReviewForm] = useState({ note: "Checked affected records and recovery impact.", outcome: "Keep monitoring" });
+  const [actionForm, setActionForm] = useState({
+    actionTitle: "Review automation issue and create recovery follow-up",
+    recoveryType: "Source sync review",
+    owner: "Operations",
+    priority: "High" as Priority,
+    dueStatus: "Due today" as DueStatus,
+    nextAction: "Review failed records and send update to workflow.",
+    message: "We found a source sync issue that may delay recovery actions. Please review the affected records before outreach continues.",
+    createTemplate: false,
+  });
+
+  const selected = rows.find((item) => item.id === selectedId) ?? rows[0];
+
+  function addAudit(rowId: string, title: string, description: string) {
+    setRows((currentRows) =>
+      currentRows.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              audit: [{ id: `${row.id}-audit-${Date.now()}`, title, description, time: "Just now" }, ...row.audit],
+            }
+          : row,
+      ),
     );
-    const recoveryActions = automationHealthRecords.reduce((total, item) => total + item.recordsCreated, 0);
+  }
+
+  function saveUndo() {
+    setUndo({ rows, selectedId, notice });
+  }
+
+  function restoreUndo() {
+    if (!undo) return;
+    setRows(undo.rows);
+    setSelectedId(undo.selectedId);
+    setNotice({ title: "Action reverted", description: "The automation health record returned to its previous state." });
+    setUndo(null);
+  }
+
+  function matchesAutomationTab(item: AutomationRow, tab: AutomationTab) {
+    if (tab === "All") return true;
+    if (tab === "Inbound Events") return item.recordType === "Inbound event";
+    if (tab === "Outbound Updates") return item.recordType === "Outbound update" || item.outboundUpdates > 20;
+    if (tab === "Failed") return item.syncStatus === "Failed" || item.failedRecords > 0;
+    if (tab === "Needs Review") return item.reviewStatus === "Needs Review" || item.syncStatus === "Partial" || item.syncStatus === "Needs Review";
+    if (tab === "Missing Fields") return item.missingFields > 0;
+    if (tab === "Duplicate Records") return item.duplicateRecords > 0;
+    if (tab === "Manual Entries") return item.recordType === "Manual entry sync" || item.manualEntriesSynced > 0;
+    if (tab === "Workflow Pending") return item.workflowResponse === "Waiting for response" || item.reviewStatus === "Re-sync requested";
+    return item.reviewStatus === "Reviewed";
+  }
+
+  const filteredRows = rows.filter((item) => matchesAutomationTab(item, activeTab));
+
+  const kpiCards = useMemo<KPI[]>(() => {
+    const connectedSources = new Set(rows.map((item) => item.thirdPartySource)).size;
+    const eventsCaptured = rows.reduce((total, item) => total + item.recordsProcessed, 0);
+    const healthy = rows.filter((item) => item.syncStatus === "Healthy").length;
+    const failed = rows.reduce((total, item) => total + item.failedRecords, 0);
+    const needsReview = rows.reduce((total, item) => total + item.failedRecords + item.missingFields + item.duplicateRecords, 0);
+    const recoveryActions = rows.reduce((total, item) => total + item.relatedRecoveryCases, 0);
+    const outboundUpdates = rows.reduce((total, item) => total + item.outboundUpdates, 0);
+    const manualSynced = rows.reduce((total, item) => total + item.manualEntriesSynced, 0);
 
     return [
-      { label: "Connected Sources", value: `${connectedSources}`, caption: "Third-party sources monitored", tone: "cyan" },
-      { label: "Events Captured Today", value: `${eventsCaptured}`, caption: "External source events", tone: "emerald" },
-      { label: "Successful Syncs", value: `${successfulSyncs}`, caption: "Healthy source records", tone: "emerald" },
-      { label: "Failed Syncs", value: `${failedSyncs}`, caption: "Failed records", tone: "rose" },
-      { label: "Records Needing Review", value: `${reviewRecords}`, caption: "Missing, failed, or duplicate", tone: "amber" },
-      { label: "Recovery Actions Created", value: `${recoveryActions}`, caption: "Actions created from syncs", tone: "cyan" },
-      { label: "Last Sync Time", value: "8m", caption: "Most recent successful sync", tone: "emerald" },
-      { label: "Automation Uptime", value: "98.6%", caption: "External sync availability", tone: "cyan" },
+      { label: "Connected Sources", value: `${connectedSources}`, caption: "External sources monitored", tone: "cyan" },
+      { label: "Events Captured Today", value: `${eventsCaptured}`, caption: "Inbound workflow events", tone: "emerald" },
+      { label: "Healthy Syncs", value: `${healthy}`, caption: "Accepted source records", tone: "emerald" },
+      { label: "Failed Records", value: `${failed}`, caption: "Needs review", tone: "rose" },
+      { label: "Records Needing Review", value: `${needsReview}`, caption: "Missing, failed, or duplicate", tone: "amber" },
+      { label: "Recovery Actions Created", value: `${recoveryActions}`, caption: "Cases/actions created", tone: "cyan" },
+      { label: "Outbound Updates", value: `${outboundUpdates}`, caption: "Altynx actions synced", tone: "emerald" },
+      { label: "Manual Entries Synced", value: `${manualSynced}`, caption: "Manual updates sent", tone: "cyan" },
     ];
-  }, []);
+  }, [rows]);
+
+  useEffect(() => {
+    function openReview() {
+      const firstIssue = rows.find((item) => item.reviewStatus !== "Reviewed" && (item.failedRecords > 0 || item.missingFields > 0 || item.duplicateRecords > 0)) ?? rows[0];
+      if (firstIssue) {
+        setSelectedId(firstIssue.id);
+        setModal("reviewIssue");
+      }
+    }
+
+    window.addEventListener("altynx-automation-review-issues", openReview);
+    return () => window.removeEventListener("altynx-automation-review-issues", openReview);
+  }, [rows]);
+
+  function openModal(row: AutomationRow, nextModal: AutomationModal) {
+    setSelectedId(row.id);
+    setOwnerForm({ owner: row.reviewOwner, reason: `Review ${row.automationName} and confirm recovery impact.` });
+    setActionForm((current) => ({
+      ...current,
+      actionTitle: `Review ${row.automationName}`,
+      owner: row.reviewOwner,
+      recoveryType: row.sourceCategory === "Ecommerce" ? "Order issue resolution" : row.sourceCategory === "Forms" ? "First reply" : "Source sync review",
+      nextAction: row.recommendedFix,
+    }));
+    setModal(nextModal);
+  }
+
+  function markReviewed(row: AutomationRow) {
+    saveUndo();
+    setRows((currentRows) =>
+      currentRows.map((item) =>
+        item.id === row.id
+          ? { ...item, reviewStatus: "Reviewed", syncStatus: item.syncStatus === "Failed" ? "Needs Review" : item.syncStatus, workflowResponse: "Delivered" }
+          : item,
+      ),
+    );
+    addAudit(row.id, "Record reviewed", reviewForm.note || "Automation health record reviewed.");
+    setModal(null);
+    setNotice({
+      title: "Automation record reviewed",
+      description: `${row.automationName} moved to Reviewed. Undo is available if this was marked by mistake.`,
+      action: "undo",
+    });
+    onActivity?.({
+      category: "Automation",
+      title: "Automation health record reviewed",
+      description: `${row.automationName} was reviewed for recovery impact.`,
+      impactBadge: `${row.relatedRecoveryCases} related cases`,
+      relatedRecord: row.id,
+      owner: row.reviewOwner,
+      status: "Reviewed",
+      nextAction: row.recommendedFix,
+      tone: "emerald",
+    });
+  }
+
+  function reopenReview(row: AutomationRow) {
+    saveUndo();
+    setRows((currentRows) => currentRows.map((item) => (item.id === row.id ? { ...item, reviewStatus: "Needs Review" } : item)));
+    addAudit(row.id, "Review reopened", "Record reopened for another workflow/source check.");
+    setNotice({ title: "Review reopened", description: `${row.automationName} is back in Needs Review.`, action: "undo" });
+  }
+
+  function assignOwner(row: AutomationRow) {
+    saveUndo();
+    setRows((currentRows) =>
+      currentRows.map((item) =>
+        item.id === row.id ? { ...item, reviewOwner: ownerForm.owner, reviewStatus: "Needs Review" } : item,
+      ),
+    );
+    addAudit(row.id, "Review owner assigned", `${ownerForm.owner} assigned. Reason: ${ownerForm.reason}`);
+    setModal(null);
+    setNotice({ title: "Review owner assigned", description: `${ownerForm.owner} now owns this sync review.`, action: "undo" });
+  }
+
+  function requestResync(row: AutomationRow) {
+    saveUndo();
+    setRows((currentRows) =>
+      currentRows.map((item) =>
+        item.id === row.id ? { ...item, reviewStatus: "Re-sync requested", workflowResponse: "Waiting for response" } : item,
+      ),
+    );
+    addAudit(row.id, "Re-sync requested", `${resyncForm.scope}. Note: ${resyncForm.note}`);
+    setModal(null);
+    setNotice({
+      title: "Re-sync request logged",
+      description: "Altynx will track whether the connected automation/source sends fresh records back.",
+      action: "undo",
+    });
+  }
+
+  function createRecoveryAction(row: AutomationRow) {
+    saveUndo();
+    setRows((currentRows) =>
+      currentRows.map((item) =>
+        item.id === row.id
+          ? { ...item, relatedRecoveryCases: item.relatedRecoveryCases + 1, reviewStatus: "Action created", outboundUpdates: item.outboundUpdates + 1 }
+          : item,
+      ),
+    );
+
+    if (actionForm.createTemplate) {
+      onCreateTemplate?.({
+        id: `template-auto-${row.id}-${Date.now()}`,
+        templateName: `${row.automationName} recovery update`,
+        recoveryType: actionForm.recoveryType,
+        industryFit: "Hybrid",
+        channel: "Manual Copy",
+        owner: actionForm.owner,
+        approvalStatus: "Draft",
+        lastUpdated: "Just now",
+        usageCount: 0,
+        linkedStageTag: "Automation Health",
+        previewText: actionForm.message,
+        tone: row.tone,
+      });
+    }
+
+    addAudit(row.id, "Recovery action created", `${actionForm.actionTitle} assigned to ${actionForm.owner}.`);
+    setModal(null);
+    setNotice({
+      title: "Recovery action created",
+      description: "The reviewed automation record now has a recovery action and outbound workflow update logged.",
+      action: "openActions",
+    });
+  }
+
+  function exportSyncLog(row?: AutomationRow) {
+    const sourceRows = row ? [row] : filteredRows;
+    const csv = [
+      ["Automation", "Source", "Type", "Status", "Failed", "Missing", "Duplicates", "Related Cases", "Owner", "Next Action"],
+      ...sourceRows.map((item) => [
+        item.automationName,
+        item.thirdPartySource,
+        item.recordType,
+        item.reviewStatus,
+        item.failedRecords,
+        item.missingFields,
+        item.duplicateRecords,
+        item.relatedRecoveryCases,
+        item.reviewOwner,
+        item.recommendedFix,
+      ]),
+    ]
+      .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `altynx-automation-health-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({ title: "Sync log exported", description: "Automation health records were exported as CSV." });
+  }
+
+  if (!selected) return null;
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {automationKpis.map((item) => (
+    <div className="ra-page ah-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid ra-kpi-grid">
+        {kpiCards.map((item) => (
           <KpiCard key={item.label} item={item} />
         ))}
       </section>
 
-      <section className="queue-toolbar">
-        <div className="queue-tabs" aria-label="Automation health filters">
-          {automationHealthFilters.map((filter) => (
-            <button
-              className={`queue-tab ${activeAutomationFilter === filter ? "active" : ""}`}
-              key={filter}
-              onClick={() => setActiveAutomationFilter(filter)}
-              type="button"
-            >
-              {filter}
+      <section className="glass-card panel-card ra-filter-card">
+        <div className="filter-pills">
+          {automationTabs.map((tab) => (
+            <button key={tab} type="button" className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>
+              {tab}
             </button>
           ))}
         </div>
-        <Badge tone="cyan">{filteredRecords.length} sync records</Badge>
+        <span className="ra-count-pill">{filteredRows.length} sync records</span>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
+      <section className="ra-action-card">
+        <div>
+          <span>Action status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
+        </div>
+        <div className="ra-action-row">
+          {notice.action === "undo" && undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}
+          {notice.action === "openQueue" ? <button className="secondary-btn" type="button" onClick={() => onNavigate?.("Today's Recovery Queue")}>Open Recovery Queue</button> : null}
+          {notice.action === "openActions" ? <button className="secondary-btn" type="button" onClick={() => onNavigate?.("Assigned Recovery Actions")}>Open Assigned Actions</button> : null}
+          <button className="secondary-btn" type="button" onClick={() => exportSyncLog()}>Export current view</button>
+        </div>
+      </section>
+
+      <section className="glass-card panel-card ra-list-panel">
+        <div className="section-heading ra-section-heading">
           <div>
-            <h2>Automation Health</h2>
-            <p>Third-party automation sync health, failed records, review needs, and recovery actions created.</p>
+            <h2>Automation & Sync Health</h2>
+            <p>Track inbound automation events, Altynx outbound action updates, failed records, and workflow responses.</p>
           </div>
-          <Badge tone="emerald">Monitoring only</Badge>
+          <span className="pill emerald">Recovery sync control</span>
         </div>
 
-        <div className="capture-card-list">
-          {filteredRecords.map((record) => (
-            <article className={`product-card ${record.tone}`} key={record.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{record.automationName}</h3>
-                    <Badge tone={record.tone}>{record.syncStatus}</Badge>
+        <div className="ra-list">
+          {filteredRows.map((item) => {
+            const needsIssueReview = item.reviewStatus !== "Reviewed" && (item.failedRecords > 0 || item.missingFields > 0 || item.duplicateRecords > 0 || item.workflowResponse === "Retry required");
+
+            return (
+              <article className={`ra-card ${selectedId === item.id ? "selected" : ""}`} key={item.id}>
+                <div className="ra-card-main">
+                  <div className="ra-card-title-row">
+                    <h3>{item.automationName}</h3>
+                    <span className={`ra-status status-${item.reviewStatus.toLowerCase().replace(/\s+/g, "-")}`}>{item.reviewStatus}</span>
+                    <span className="ra-soft-badge">{item.recordType}</span>
                   </div>
-                  <p>{record.thirdPartySource} - {record.eventType} - Last run {record.lastRunTime}</p>
-                  <div className="recovery-meta">
-                    <span>{record.sourceCategory}</span>
-                    <span>{record.recordsProcessed} processed</span>
-                    <span>{record.recordsCreated} created</span>
-                    <span>{record.recordsUpdated} updated</span>
-                    <span>{record.failedRecords} failed</span>
-                    <span>{record.reviewOwner}</span>
+                  <p>{item.thirdPartySource} · {item.eventType} · Last event {item.lastRunTime}</p>
+                  <div className="ra-chip-row">
+                    <span>{item.sourceCategory}</span>
+                    <span>{item.recordsProcessed} processed</span>
+                    <span>{item.recordsCreated} created</span>
+                    <span>{item.recordsUpdated} updated</span>
+                    <span>{item.failedRecords} failed</span>
+                    <span>{item.relatedRecoveryCases} related cases</span>
+                    <span>{item.workflowResponse}</span>
+                  </div>
+                  <div className="ra-impact-grid">
+                    <div><span>Impact</span><strong>{item.impactOnRecovery}</strong></div>
+                    <div><span>Next action</span><strong>{item.recommendedFix}</strong></div>
                   </div>
                 </div>
-                <div className="capture-value-stack">
-                  <strong>{record.relatedRecoveryCases}</strong>
+
+                <div className="ra-card-side">
+                  <strong>{item.relatedRecoveryCases}</strong>
                   <span>related cases</span>
+                  <div className="ra-card-actions">
+                    {item.reviewStatus === "Reviewed" ? (
+                      <button className="secondary-btn" type="button" onClick={() => reopenReview(item)}>Reopen Review</button>
+                    ) : needsIssueReview ? (
+                      <button className="primary-btn" type="button" onClick={() => openModal(item, "reviewIssue")}>Review Issue</button>
+                    ) : null}
+                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "details")}>View Details</button>
+                  </div>
                 </div>
-              </div>
-
-              <div className="capture-stat-grid source-stat-grid">
-                <div>
-                  <span>Missing fields</span>
-                  <strong>{record.missingFields}</strong>
-                </div>
-                <div>
-                  <span>Duplicate records</span>
-                  <strong>{record.duplicateRecords}</strong>
-                </div>
-                <div>
-                  <span>Impact</span>
-                  <strong>{record.impactOnRecovery}</strong>
-                </div>
-                <div>
-                  <span>Next action</span>
-                  <strong>{record.recommendedFix}</strong>
-                </div>
-              </div>
-
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Review failed records</button>
-                <button type="button" className="secondary-btn">Mark reviewed</button>
-                <button type="button" className="secondary-btn">Re-run sync placeholder</button>
-                <button type="button" className="secondary-btn">Open related recovery cases</button>
-                <button type="button" className="secondary-btn">Assign review owner</button>
-                <button type="button" className="secondary-btn">Export sync log</button>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       </section>
+
+      {modal === "details" ? (
+        <ModalShell title={`${selected.automationName} details`} wide onClose={() => setModal(null)}>
+          <div className="ra-modal-grid">
+            <DetailField label="Automation source" value={selected.thirdPartySource} />
+            <DetailField label="Source category" value={selected.sourceCategory} />
+            <DetailField label="Event type" value={selected.eventType} />
+            <DetailField label="Sync status" value={selected.syncStatus} />
+            <DetailField label="Review status" value={selected.reviewStatus} />
+            <DetailField label="Workflow response" value={selected.workflowResponse} />
+            <DetailField label="Review owner" value={selected.reviewOwner} />
+            <DetailField label="Related cases" value={selected.relatedRecoveryCases} />
+          </div>
+          <div className="detail-callout"><span>Impact on recovery</span><p>{selected.impactOnRecovery}</p></div>
+          <div className="detail-callout"><span>Recommended fix</span><p>{selected.recommendedFix}</p></div>
+          <div className="ra-modal-actions">
+            <button className="primary-btn" type="button" onClick={() => setModal("reviewIssue")}>Review Failed Records</button>
+            <button className="secondary-btn" type="button" onClick={() => setModal("fieldMapping")}>Review Field Mapping</button>
+            <button className="secondary-btn" type="button" onClick={() => setModal("assignOwner")}>Assign Review Owner</button>
+            <button className="secondary-btn" type="button" onClick={() => setModal("requestResync")}>Request Re-sync</button>
+            <button className="secondary-btn" type="button" onClick={() => setModal("relatedCases")}>Open Related Cases</button>
+            <button className="secondary-btn" type="button" onClick={() => setModal("createAction")}>Create Recovery Action</button>
+            <button className="secondary-btn" type="button" onClick={() => setModal("markReviewed")}>Mark Reviewed</button>
+            <button className="secondary-btn" type="button" onClick={() => exportSyncLog(selected)}>Export Sync Log</button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {modal === "reviewIssue" ? (
+        <ModalShell title="Review sync issue" wide onClose={() => setModal(null)}>
+          <div className="ra-failed-table">
+            {["Buyer/order identity", "Product/SKU mapping", "Recovery case routing"].map((label, index) => (
+              <div className="ra-failed-row" key={label}>
+                <strong>{label}</strong>
+                <span>{index === 0 ? selected.thirdPartySource : index === 1 ? "Missing or duplicate source fields" : `${selected.relatedRecoveryCases} affected recovery cases`}</span>
+                <p>{index === 0 ? selected.eventType : index === 1 ? `Missing fields: ${selected.missingFields}; duplicates: ${selected.duplicateRecords}` : selected.impactOnRecovery}</p>
+              </div>
+            ))}
+          </div>
+          <div className="ra-modal-actions">
+            <button className="secondary-btn" type="button" onClick={() => setModal("fieldMapping")}>Review Field Mapping</button>
+            <button className="secondary-btn" type="button" onClick={() => setModal("createAction")}>Create Recovery Action</button>
+            <button className="primary-btn" type="button" onClick={() => setModal("markReviewed")}>Mark Reviewed</button>
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {modal === "fieldMapping" ? (
+        <ModalShell title="Review field mapping" onClose={() => setModal(null)}>
+          <div className="ra-modal-grid">
+            <DetailField label="Expected field" value="buyer_email, sku, order_id, source_event_id" />
+            <DetailField label="Received from source" value={selected.missingFields > 0 ? "SKU or buyer identifier missing" : "All required fields found"} />
+            <DetailField label="Impact" value={selected.impactOnRecovery} />
+            <DetailField label="Suggested mapping" value="Confirm source field names before recovery reminders continue." />
+          </div>
+          <button className="primary-btn" type="button" onClick={() => setModal("requestResync")}>Request Re-sync After Mapping Review</button>
+        </ModalShell>
+      ) : null}
+
+      {modal === "assignOwner" ? (
+        <ModalShell title="Assign review owner" onClose={() => setModal(null)}>
+          <label className="ra-field">Review owner<select value={ownerForm.owner} onChange={(event) => setOwnerForm((current) => ({ ...current, owner: event.target.value }))}>{["Operations", "Amara Shah", "Mina Cole", "Tessa Nguyen", "Luis Park"].map((owner) => <option key={owner}>{owner}</option>)}</select></label>
+          <label className="ra-field">Reason<textarea rows={3} value={ownerForm.reason} onChange={(event) => setOwnerForm((current) => ({ ...current, reason: event.target.value }))} /></label>
+          <button className="primary-btn" type="button" onClick={() => assignOwner(selected)}>Confirm Owner</button>
+        </ModalShell>
+      ) : null}
+
+      {modal === "requestResync" ? (
+        <ModalShell title="Request re-sync" onClose={() => setModal(null)}>
+          <p>Altynx will log the request and track whether fresh events arrive from the connected source or workflow.</p>
+          <label className="ra-field">Records to request<select value={resyncForm.scope} onChange={(event) => setResyncForm((current) => ({ ...current, scope: event.target.value }))}><option>Failed records only</option><option>Missing fields</option><option>All recent records</option></select></label>
+          <label className="ra-field">Note for workflow/source owner<textarea rows={3} value={resyncForm.note} onChange={(event) => setResyncForm((current) => ({ ...current, note: event.target.value }))} /></label>
+          <button className="primary-btn" type="button" onClick={() => requestResync(selected)}>Request Re-sync</button>
+        </ModalShell>
+      ) : null}
+
+      {modal === "relatedCases" ? (
+        <ModalShell title="Related recovery cases" wide onClose={() => setModal(null)}>
+          <div className="ra-related-list">
+            {Array.from({ length: Math.max(1, selected.relatedRecoveryCases) }).slice(0, 5).map((_, index) => (
+              <div className="ra-related-card" key={`${selected.id}-case-${index}`}>
+                <div><strong>{selected.sourceCategory === "Ecommerce" ? "Order / payment recovery" : "Follow-up recovery case"} #{index + 1}</strong><p>{selected.impactOnRecovery}</p></div>
+                <button className="secondary-btn" type="button" onClick={() => onNavigate?.(selected.sourceCategory === "Ecommerce" ? "Order Risk Monitor" : "Follow-up Recovery")}>Open case</button>
+              </div>
+            ))}
+          </div>
+        </ModalShell>
+      ) : null}
+
+      {modal === "createAction" ? (
+        <ModalShell title="Create recovery action from sync record" wide onClose={() => setModal(null)}>
+          <div className="ra-modal-grid">
+            <label className="ra-field">Action title<input value={actionForm.actionTitle} onChange={(event) => setActionForm((current) => ({ ...current, actionTitle: event.target.value }))} /></label>
+            <label className="ra-field">Recovery type<input value={actionForm.recoveryType} onChange={(event) => setActionForm((current) => ({ ...current, recoveryType: event.target.value }))} /></label>
+            <label className="ra-field">Owner<select value={actionForm.owner} onChange={(event) => setActionForm((current) => ({ ...current, owner: event.target.value }))}>{["Operations", "Amara Shah", "Mina Cole", "Tessa Nguyen", "Luis Park"].map((owner) => <option key={owner}>{owner}</option>)}</select></label>
+            <label className="ra-field">Priority<select value={actionForm.priority} onChange={(event) => setActionForm((current) => ({ ...current, priority: event.target.value as Priority }))}>{["Critical", "High", "Medium", "Low"].map((priority) => <option key={priority}>{priority}</option>)}</select></label>
+          </div>
+          <label className="ra-field">Next action<textarea rows={3} value={actionForm.nextAction} onChange={(event) => setActionForm((current) => ({ ...current, nextAction: event.target.value }))} /></label>
+          <label className="ra-field">Suggested workflow/message note<textarea rows={4} value={actionForm.message} onChange={(event) => setActionForm((current) => ({ ...current, message: event.target.value }))} /></label>
+          <label className="ra-checkbox"><input type="checkbox" checked={actionForm.createTemplate} onChange={(event) => setActionForm((current) => ({ ...current, createTemplate: event.target.checked }))} /> Create message template from edited note</label>
+          <button className="primary-btn" type="button" onClick={() => createRecoveryAction(selected)}>Create Recovery Action</button>
+        </ModalShell>
+      ) : null}
+
+      {modal === "markReviewed" ? (
+        <ModalShell title="Mark automation record reviewed" onClose={() => setModal(null)}>
+          <label className="ra-field">Review note<textarea rows={4} value={reviewForm.note} onChange={(event) => setReviewForm((current) => ({ ...current, note: event.target.value }))} /></label>
+          <label className="ra-field">Outcome<select value={reviewForm.outcome} onChange={(event) => setReviewForm((current) => ({ ...current, outcome: event.target.value }))}><option>Keep monitoring</option><option>Resolved for now</option><option>Create follow-up action next</option></select></label>
+          <button className="primary-btn" type="button" onClick={() => markReviewed(selected)}>Confirm Reviewed</button>
+        </ModalShell>
+      ) : null}
     </div>
   );
 }
 
-function RevenueLeakReports() {
-  const [activeReportFilter, setActiveReportFilter] = useState<RevenueLeakReportFilter>("All");
-  const filteredLeakItems = revenueLeakReportItems.filter((item) =>
-    matchesRevenueLeakReportFilter(item, activeReportFilter),
-  );
+function RevenueLeakReports({
+  onNavigate,
+  onActivity,
+}: {
+  onNavigate?: (page: string) => void;
+  onActivity?: (activity: NewRecoveryActivity) => void;
+} = {}) {
+  const reportTabs = [
+    "All",
+    "Inquiry Leaks",
+    "Follow-up Leaks",
+    "Payment Pending",
+    "Repeat Revenue",
+    "Post-Purchase",
+    "Order Risk",
+    "Source Leakage",
+    "Team Ownership",
+    "Product Demand",
+    "Reviewed",
+    "Assigned",
+    "Resolved",
+  ] as const;
 
-  const reportKpis = useMemo<KPI[]>(() => {
-    const totalRisk = revenueLeakReportItems.reduce((total, item) => total + moneyToNumber(item.revenueAtRisk), 0);
-    const recovered = revenueLeakReportItems.reduce((total, item) => total + moneyToNumber(item.recoveredValue), 0);
-    const lost = revenueLeakReportItems.reduce((total, item) => total + moneyToNumber(item.lostValue), 0);
-    const openLeak = Math.max(0, totalRisk - recovered);
-    const recoveryRate = totalRisk > 0 ? Math.round((recovered / totalRisk) * 100) : 0;
-    const overdue = teamOwnershipReportItems.reduce((total, item) => total + item.overdueActions, 0);
+  type ReportTab = (typeof reportTabs)[number];
+  type ReportStatus = "Open" | "Assigned" | "Reviewed" | "Resolved";
+  type ReportAuditEntry = { id: string; title: string; description: string; time: string };
+  type LeakRow = RevenueLeakReportItem & {
+    title: string;
+    owner: string;
+    priority: Priority;
+    status: ReportStatus;
+    managementNotes: string[];
+    assignedActions: string[];
+    relatedCases: string[];
+    audit: ReportAuditEntry[];
+  };
+  type ReportModal = "details" | "relatedCases" | "assignAction" | "review" | "note" | "createAction" | "audit" | null;
+  type ReportNotice = { title: string; description: string; action?: "undo" | "openActions" | "openCases" };
+  type ReportUndo = { rows: LeakRow[]; selectedId: string; notice: ReportNotice } | null;
 
+  function titleForLeak(item: RevenueLeakReportItem) {
+    if (item.leakType === "Inquiry leak") return "Reduce Instagram follow-up delay";
+    if (item.leakType === "Follow-up leak") return "Clear overdue follow-up actions";
+    if (item.leakType === "Payment pending leak") return "Recover pending payment value";
+    if (item.leakType === "Repeat purchase leak") return "Create refill and repeat purchase actions";
+    if (item.leakType === "Post-purchase leak") return "Turn delivered orders into reviews and referrals";
+    if (item.leakType === "Order risk leak") return "Resolve order risk before refunds or complaints";
+    if (item.leakType === "Source sync leak") return "Clean missing source fields and sync issues";
+    if (item.leakType === "Ownership leak") return "Assign unowned recovery work";
+    return "Prioritize product demand recovery";
+  }
+
+  function ownerForLeak(item: RevenueLeakReportItem) {
+    if (item.leakType.includes("Payment")) return "Tessa Nguyen";
+    if (item.leakType.includes("Repeat") || item.leakType.includes("Refill") || item.leakType.includes("Restock")) return "Mina Cole";
+    if (item.leakType.includes("Post")) return "Luis Park";
+    if (item.leakType.includes("Source") || item.leakType.includes("Order")) return "Operations";
+    return "Amara Shah";
+  }
+
+  const buildRows = (): LeakRow[] =>
+    revenueLeakReportItems.map((item, index) => ({
+      ...item,
+      title: titleForLeak(item),
+      owner: ownerForLeak(item),
+      priority: moneyToNumber(item.revenueAtRisk) >= 7000 ? "Critical" : moneyToNumber(item.revenueAtRisk) >= 3500 ? "High" : "Medium",
+      status: "Open",
+      managementNotes: [],
+      assignedActions: [],
+      relatedCases: Array.from({ length: Math.max(1, Math.min(5, item.openCases)) }, (_, caseIndex) => `${item.id}-CASE-${caseIndex + 1}`),
+      audit: [
+        {
+          id: `${item.id}-audit-1`,
+          title: "Leak report generated",
+          description: `${item.leakType} has ${item.openCases} open cases and ${item.revenueAtRisk} at risk.`,
+          time: "Current month",
+        },
+      ],
+    }));
+
+  const [rows, setRows] = useState<LeakRow[]>(buildRows);
+  const [activeTab, setActiveTab] = useState<ReportTab>("All");
+  const [selectedId, setSelectedId] = useState(rows[0]?.id ?? "");
+  const [modal, setModal] = useState<ReportModal>(null);
+  const [undo, setUndo] = useState<ReportUndo>(null);
+  const [notice, setNotice] = useState<ReportNotice>({
+    title: "Revenue leak report ready",
+    description: "Open related cases, assign report actions, review recommendations, and send workflow updates from one report view.",
+  });
+  const [assignForm, setAssignForm] = useState({ actionTitle: "Reduce revenue leak", owner: "Amara Shah", priority: "High" as Priority, due: "This week", note: "Create assigned action from report recommendation." });
+  const [reviewForm, setReviewForm] = useState({ note: "Recommendation reviewed and next action confirmed.", outcome: "Keep open" });
+  const [noteForm, setNoteForm] = useState({ note: "", visibility: "Internal" });
+
+  const selected = rows.find((item) => item.id === selectedId) ?? rows[0];
+
+  function saveUndo() {
+    setUndo({ rows, selectedId, notice });
+  }
+
+  function restoreUndo() {
+    if (!undo) return;
+    setRows(undo.rows);
+    setSelectedId(undo.selectedId);
+    setNotice({ title: "Action reverted", description: "The report recommendation returned to its previous state." });
+    setUndo(null);
+  }
+
+  function addAudit(rowId: string, title: string, description: string) {
+    setRows((currentRows) =>
+      currentRows.map((row) =>
+        row.id === rowId
+          ? { ...row, audit: [{ id: `${row.id}-audit-${Date.now()}`, title, description, time: "Just now" }, ...row.audit] }
+          : row,
+      ),
+    );
+  }
+
+  function matchesTab(row: LeakRow, tab: ReportTab) {
+    if (tab === "All") return true;
+    if (tab === "Reviewed") return row.status === "Reviewed";
+    if (tab === "Assigned") return row.status === "Assigned";
+    if (tab === "Resolved") return row.status === "Resolved";
+    if (tab === "Inquiry Leaks") return row.leakType === "Inquiry leak";
+    if (tab === "Follow-up Leaks") return row.leakType === "Follow-up leak";
+    if (tab === "Payment Pending") return row.leakType === "Payment pending leak";
+    if (tab === "Repeat Revenue") return row.leakType === "Repeat purchase leak" || row.leakType === "Refill leak" || row.leakType === "Restock/new drop leak";
+    if (tab === "Post-Purchase") return row.leakType === "Post-purchase leak";
+    if (tab === "Order Risk") return row.leakType === "Order risk leak";
+    if (tab === "Source Leakage") return row.leakType === "Source sync leak";
+    if (tab === "Team Ownership") return row.leakType === "Ownership leak";
+    return row.leakType === "Refill leak" || row.leakType === "Restock/new drop leak";
+  }
+
+  const filteredRows = rows.filter((item) => matchesTab(item, activeTab));
+
+  const kpis = useMemo<KPI[]>(() => {
+    const totalRisk = rows.reduce((total, item) => total + moneyToNumber(item.revenueAtRisk), 0);
+    const recovered = rows.reduce((total, item) => total + moneyToNumber(item.recoveredValue), 0);
+    const lost = rows.reduce((total, item) => total + moneyToNumber(item.lostValue), 0);
+    const open = Math.max(0, totalRisk - recovered);
+    const rate = totalRisk > 0 ? Math.round((recovered / totalRisk) * 100) : 0;
     return [
       { label: "Total Revenue At Risk", value: formatCompactMoney(totalRisk), caption: "Across leak reports", tone: "rose" },
       { label: "Revenue Recovered", value: formatCompactMoney(recovered), caption: "Recovered value", tone: "emerald" },
-      { label: "Open Leak Value", value: formatCompactMoney(openLeak), caption: "Still needs recovery", tone: "amber" },
+      { label: "Open Leak Value", value: formatCompactMoney(open), caption: "Still needs recovery", tone: "amber" },
       { label: "Lost / Inactive Value", value: formatCompactMoney(lost), caption: "Lost or inactive value", tone: "rose" },
-      { label: "Recovery Rate", value: `${recoveryRate}%`, caption: "Recovered vs at risk", tone: "emerald" },
+      { label: "Recovery Rate", value: `${rate}%`, caption: "Recovered vs at risk", tone: "emerald" },
       { label: "Highest Leak Source", value: "Instagram", caption: "DM follow-up delay", tone: "cyan" },
       { label: "Highest Leak Type", value: "Restock", caption: "New drop and restock demand", tone: "amber" },
-      { label: "Actions Overdue", value: `${overdue}`, caption: "Owner work late", tone: "rose" },
+      { label: "Reviewed Recommendations", value: `${rows.filter((item) => item.status === "Reviewed" || item.status === "Resolved").length}`, caption: "Report actions checked", tone: "emerald" },
     ];
-  }, []);
+  }, [rows]);
+
+  useEffect(() => {
+    function openCreate() {
+      const firstOpen = rows.find((item) => item.status === "Open") ?? rows[0];
+      if (firstOpen) {
+        setSelectedId(firstOpen.id);
+        setAssignForm((current) => ({ ...current, actionTitle: firstOpen.title, owner: firstOpen.owner, priority: firstOpen.priority }));
+        setModal("assignAction");
+      }
+    }
+    window.addEventListener("altynx-revenueleak-create-action", openCreate);
+    return () => window.removeEventListener("altynx-revenueleak-create-action", openCreate);
+  }, [rows]);
+
+  function openModal(row: LeakRow, nextModal: ReportModal) {
+    setSelectedId(row.id);
+    setAssignForm({ actionTitle: row.title, owner: row.owner, priority: row.priority, due: "This week", note: row.recommendedFix });
+    setNoteForm({ note: row.managementNotes[0] ?? "", visibility: "Internal" });
+    setModal(nextModal);
+  }
+
+  function assignReportAction(row: LeakRow) {
+    saveUndo();
+    setRows((currentRows) => currentRows.map((item) => item.id === row.id ? { ...item, status: "Assigned", assignedActions: [`${assignForm.actionTitle} · ${assignForm.owner}`, ...item.assignedActions] } : item));
+    addAudit(row.id, "Report action assigned", `${assignForm.actionTitle} assigned to ${assignForm.owner}.`);
+    setModal(null);
+    setNotice({ title: "Report action assigned", description: "Assigned Recovery Actions now has a report-linked action and workflow update can be synced.", action: "openActions" });
+  }
+
+  function markReviewed(row: LeakRow) {
+    saveUndo();
+    const nextStatus: ReportStatus = reviewForm.outcome === "Resolved" ? "Resolved" : "Reviewed";
+    setRows((currentRows) => currentRows.map((item) => item.id === row.id ? { ...item, status: nextStatus } : item));
+    addAudit(row.id, "Recommendation reviewed", `${reviewForm.note} Outcome: ${reviewForm.outcome}.`);
+    setModal(null);
+    setNotice({ title: "Recommendation reviewed", description: `${row.title} moved to ${nextStatus}.`, action: "undo" });
+  }
+
+  function addManagementNote(row: LeakRow) {
+    saveUndo();
+    const noteText = noteForm.note.trim() || "Management note added for this leak recommendation.";
+    setRows((currentRows) => currentRows.map((item) => item.id === row.id ? { ...item, managementNotes: [`${noteForm.visibility}: ${noteText}`, ...item.managementNotes] } : item));
+    addAudit(row.id, "Management note added", `${noteForm.visibility}: ${noteText}`);
+    setModal(null);
+    setNotice({ title: "Management note added", description: "The note is available in this report and can feed the monthly summary.", action: "undo" });
+  }
+
+  function reopen(row: LeakRow) {
+    saveUndo();
+    setRows((currentRows) => currentRows.map((item) => item.id === row.id ? { ...item, status: "Open" } : item));
+    addAudit(row.id, "Recommendation reopened", "Report recommendation reopened for action.");
+    setNotice({ title: "Recommendation reopened", description: `${row.title} is open again.`, action: "undo" });
+  }
+
+  function exportReportRows() {
+    const csv = [
+      ["Title", "Leak Type", "Status", "Owner", "Risk", "Recovered", "Lost", "Open Cases", "Fix"],
+      ...filteredRows.map((item) => [item.title, item.leakType, item.status, item.owner, item.revenueAtRisk, item.recoveredValue, item.lostValue, item.openCases, item.recommendedFix]),
+    ].map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    link.href = url;
+    link.download = `altynx-revenue-leak-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({ title: "Leak report exported", description: "Current report view downloaded as CSV." });
+  }
+
+  if (!selected) return null;
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {reportKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
+    <div className="ra-page rlr-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid ra-kpi-grid">
+        {kpis.map((item) => <KpiCard key={item.label} item={item} />)}
       </section>
 
-      <section className="queue-toolbar">
-        <div className="queue-tabs" aria-label="Revenue leak report filters">
-          {revenueLeakReportFilters.map((filter) => (
-            <button
-              className={`queue-tab ${activeReportFilter === filter ? "active" : ""}`}
-              key={filter}
-              onClick={() => setActiveReportFilter(filter)}
-              type="button"
-            >
-              {filter}
-            </button>
-          ))}
+      <section className="glass-card panel-card ra-filter-card">
+        <div className="filter-pills">
+          {reportTabs.map((tab) => <button key={tab} type="button" className={activeTab === tab ? "active" : ""} onClick={() => setActiveTab(tab)}>{tab}</button>)}
         </div>
-        <Badge tone="cyan">{filteredLeakItems.length} leak rows</Badge>
+        <span className="ra-count-pill">{filteredRows.length} leak rows</span>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Leak Type Breakdown</h2>
-            <p>Where revenue leaked, how much was recovered, what remains open, and the fix to prioritize.</p>
-          </div>
-          <Badge tone="rose">Revenue leak report</Badge>
+      <section className="ra-action-card">
+        <div>
+          <span>Action status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
         </div>
+        <div className="ra-action-row">
+          {notice.action === "undo" && undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}
+          {notice.action === "openActions" ? <button className="secondary-btn" type="button" onClick={() => onNavigate?.("Assigned Recovery Actions")}>Open Assigned Actions</button> : null}
+          <button className="secondary-btn" type="button" onClick={exportReportRows}>Export current view</button>
+        </div>
+      </section>
 
-        <div className="capture-card-list">
-          {filteredLeakItems.map((item) => (
-            <article className={`product-card ${item.tone}`} key={item.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{item.leakType}</h3>
-                    <Badge tone={item.tone}>{item.recoveryRate} recovery rate</Badge>
-                  </div>
-                  <p>{item.recommendedFix}</p>
-                  <div className="recovery-meta">
-                    <span>{item.openCases} open cases</span>
-                    <span>{item.revenueAtRisk} at risk</span>
-                    <span>{item.recoveredValue} recovered</span>
-                    <span>{item.lostValue} lost value</span>
-                  </div>
+      <section className="glass-card panel-card ra-list-panel">
+        <div className="section-heading ra-section-heading">
+          <div><h2>Revenue Leak Breakdown</h2><p>See where revenue leaked, what was recovered, what remains open, and which recommendation needs action.</p></div>
+          <span className="pill rose">Revenue leak report</span>
+        </div>
+        <div className="ra-list">
+          {filteredRows.map((item) => (
+            <article className={`ra-card ${selectedId === item.id ? "selected" : ""}`} key={item.id}>
+              <div className="ra-card-main">
+                <div className="ra-card-title-row"><h3>{item.title}</h3><span className={`ra-status status-${item.status.toLowerCase()}`}>{item.status}</span><span className="ra-soft-badge">{item.priority}</span></div>
+                <p>{item.recommendedFix}</p>
+                <div className="ra-chip-row"><span>{item.openCases} open cases</span><span>{item.revenueAtRisk} at risk</span><span>{item.recoveredValue} recovered</span><span>{item.lostValue} lost</span><span>{item.owner}</span><span>{item.recoveryRate} recovery rate</span></div>
+              </div>
+              <div className="ra-card-side">
+                <strong>{item.revenueAtRisk}</strong><span>at risk</span>
+                <div className="ra-card-actions">
+                  {item.status === "Open" ? <button className="primary-btn" type="button" onClick={() => openModal(item, "assignAction")}>Assign Action</button> : null}
+                  {item.status === "Reviewed" || item.status === "Resolved" ? <button className="secondary-btn" type="button" onClick={() => reopen(item)}>Reopen</button> : null}
+                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "details")}>View Details</button>
                 </div>
               </div>
             </article>
@@ -17316,787 +28899,1056 @@ function RevenueLeakReports() {
         </div>
       </section>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
-          <h3>Source Leakage Report</h3>
-          {sourceLeakReportItems.slice(0, 6).map((source) => (
-            <div key={source.id}>
-              <span>{source.sourceName} - {source.sourceQualityNote}</span>
-              <strong>{source.paymentPendingValue}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Product / Category Leak Report</h3>
-          {productLeakReportItems.slice(0, 6).map((product) => (
-            <div key={product.id}>
-              <span>{product.productCategory} - {product.openRecoveryCases} cases</span>
-              <strong>{product.demandValue}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Team Ownership Report</h3>
-          {teamOwnershipReportItems.slice(0, 6).map((owner) => (
-            <div key={owner.id}>
-              <span>{owner.owner} - {owner.overdueActions} overdue</span>
-              <strong>{owner.revenueAtRiskOwned}</strong>
-            </div>
-          ))}
-        </article>
-      </section>
+      {modal === "details" ? (
+        <ModalShell title={`${selected.title} details`} wide onClose={() => setModal(null)}>
+          <div className="ra-modal-grid"><DetailField label="Leak type" value={selected.leakType} /><DetailField label="Status" value={selected.status} /><DetailField label="Owner" value={selected.owner} /><DetailField label="Open cases" value={selected.openCases} /><DetailField label="Revenue at risk" value={selected.revenueAtRisk} /><DetailField label="Recovered" value={selected.recoveredValue} /><DetailField label="Lost" value={selected.lostValue} /><DetailField label="Priority" value={selected.priority} /></div>
+          <div className="detail-callout"><span>Recommended fix</span><p>{selected.recommendedFix}</p></div>
+          <div className="detail-callout"><span>Management notes</span>{selected.managementNotes.length ? selected.managementNotes.map((note) => <p key={note}>{note}</p>) : <p>No management notes yet.</p>}</div>
+          <div className="ra-modal-actions"><button className="primary-btn" type="button" onClick={() => setModal("relatedCases")}>Open Related Cases</button><button className="secondary-btn" type="button" onClick={() => setModal("assignAction")}>Assign Report Action</button><button className="secondary-btn" type="button" onClick={() => setModal("review")}>Mark Reviewed</button><button className="secondary-btn" type="button" onClick={() => setModal("note")}>Add Management Note</button><button className="secondary-btn" type="button" onClick={() => setModal("audit")}>Audit Trail</button></div>
+        </ModalShell>
+      ) : null}
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Open Recommendations</h2>
-            <p>Management actions that reduce revenue leaks across owners, sources, products, and sync status.</p>
-          </div>
-          <Badge tone="amber">Next best actions</Badge>
-        </div>
+      {modal === "relatedCases" ? (
+        <ModalShell title="Open related cases" wide onClose={() => setModal(null)}>
+          <div className="ra-related-list">{selected.relatedCases.map((caseId, index) => <div className="ra-related-card" key={caseId}><div><strong>{caseId}</strong><p>{selected.leakType} · {selected.revenueAtRisk} at risk · Owner: {selected.owner}</p></div><button className="secondary-btn" type="button" onClick={() => onNavigate?.(selected.leakType.includes("Payment") ? "Payment Recovery" : selected.leakType.includes("Order") ? "Order Risk Monitor" : selected.leakType.includes("Repeat") || selected.leakType.includes("Refill") ? "Refill Opportunities" : "Follow-up Recovery")}>Open case</button></div>)}</div>
+        </ModalShell>
+      ) : null}
 
-        <div className="capture-card-list">
-          {monthlyRecommendations.map((item) => (
-            <article className={`product-card ${item.tone}`} key={item.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{item.recommendation}</h3>
-                    <Badge tone={item.tone}>{item.priority}</Badge>
-                  </div>
-                  <p>{item.reason}</p>
-                  <div className="recovery-meta">
-                    <span>{item.owner}</span>
-                    <span>{item.impact}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Open related cases</button>
-                <button type="button" className="secondary-btn">Assign report actions</button>
-                <button type="button" className="secondary-btn">Mark recommendation reviewed</button>
-                <button type="button" className="secondary-btn">Add management note</button>
-              </div>
-            </article>
-          ))}
-        </div>
+      {modal === "assignAction" || modal === "createAction" ? (
+        <ModalShell title="Assign report action" onClose={() => setModal(null)}>
+          <label className="ra-field">Action title<input value={assignForm.actionTitle} onChange={(event) => setAssignForm((current) => ({ ...current, actionTitle: event.target.value }))} /></label>
+          <label className="ra-field">Owner<select value={assignForm.owner} onChange={(event) => setAssignForm((current) => ({ ...current, owner: event.target.value }))}>{["Amara Shah", "Mina Cole", "Tessa Nguyen", "Luis Park", "Operations"].map((owner) => <option key={owner}>{owner}</option>)}</select></label>
+          <label className="ra-field">Priority<select value={assignForm.priority} onChange={(event) => setAssignForm((current) => ({ ...current, priority: event.target.value as Priority }))}>{["Critical", "High", "Medium", "Low"].map((priority) => <option key={priority}>{priority}</option>)}</select></label>
+          <label className="ra-field">Action note<textarea rows={4} value={assignForm.note} onChange={(event) => setAssignForm((current) => ({ ...current, note: event.target.value }))} /></label>
+          <button className="primary-btn" type="button" onClick={() => assignReportAction(selected)}>Create Assigned Action</button>
+        </ModalShell>
+      ) : null}
 
-        <div className="capture-actions">
-          <button type="button" className="primary-btn">Export report</button>
-          <button type="button" className="secondary-btn">Open related cases</button>
-        </div>
-      </section>
+      {modal === "review" ? (
+        <ModalShell title="Mark recommendation reviewed" onClose={() => setModal(null)}>
+          <label className="ra-field">Review note<textarea rows={4} value={reviewForm.note} onChange={(event) => setReviewForm((current) => ({ ...current, note: event.target.value }))} /></label>
+          <label className="ra-field">Outcome<select value={reviewForm.outcome} onChange={(event) => setReviewForm((current) => ({ ...current, outcome: event.target.value }))}><option>Keep open</option><option>Monitor next month</option><option>Resolved</option></select></label>
+          <button className="primary-btn" type="button" onClick={() => markReviewed(selected)}>Confirm Reviewed</button>
+        </ModalShell>
+      ) : null}
+
+      {modal === "note" ? (
+        <ModalShell title="Add management note" onClose={() => setModal(null)}>
+          <label className="ra-field">Visibility<select value={noteForm.visibility} onChange={(event) => setNoteForm((current) => ({ ...current, visibility: event.target.value }))}><option>Internal</option><option>Client summary</option></select></label>
+          <label className="ra-field">Note<textarea rows={5} value={noteForm.note} onChange={(event) => setNoteForm((current) => ({ ...current, note: event.target.value }))} placeholder="Add context for this leak and next month focus." /></label>
+          <button className="primary-btn" type="button" onClick={() => addManagementNote(selected)}>Save Note</button>
+        </ModalShell>
+      ) : null}
+
+      {modal === "audit" ? (
+        <ModalShell title="Audit trail" onClose={() => setModal(null)}>{selected.audit.map((entry) => <div className="ra-audit-row" key={entry.id}><strong>{entry.title}</strong><p>{entry.description}</p><span>{entry.time}</span></div>)}</ModalShell>
+      ) : null}
     </div>
   );
 }
 
-function MonthlySummary() {
+function MonthlySummary({
+  onNavigate,
+  onActivity,
+}: {
+  onNavigate?: (page: string) => void;
+  onActivity?: (activity: NewRecoveryActivity) => void;
+} = {}) {
+  type MonthlyStatus = "Open" | "Assigned" | "Reviewed" | "Completed";
+  type MonthlyAuditEntry = { id: string; title: string; description: string; time: string };
+  type MonthlyRecRow = MonthlyRecommendation & { status: MonthlyStatus; audit: MonthlyAuditEntry[]; assignedAction?: string };
+  type MonthlyModal = "reviewComplete" | "addRecommendation" | "createAction" | "priorityCases" | "details" | null;
+  type MonthlyNotice = { title: string; description: string; action?: "undo" | "openActions" };
+  type MonthlyUndo = { recs: MonthlyRecRow[]; reviewCompleted: boolean; notice: MonthlyNotice } | null;
+
+  const [recommendations, setRecommendations] = useState<MonthlyRecRow[]>(() =>
+    monthlyRecommendations.map((item) => ({
+      ...item,
+      status: "Open",
+      audit: [{ id: `${item.id}-audit-1`, title: "Monthly recommendation prepared", description: item.reason, time: "This month" }],
+    })),
+  );
+  const [selectedId, setSelectedId] = useState(monthlyRecommendations[0]?.id ?? "");
+  const [modal, setModal] = useState<MonthlyModal>(null);
+  const [reviewCompleted, setReviewCompleted] = useState(false);
+  const [undo, setUndo] = useState<MonthlyUndo>(null);
+  const [notice, setNotice] = useState<MonthlyNotice>({ title: "Monthly summary ready", description: "Use this client-ready report to copy summary, export, and create next month actions." });
+  const [copied, setCopied] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ note: "Monthly review completed and next month focus confirmed.", carryRisks: true });
+  const [recommendationForm, setRecommendationForm] = useState({ recommendation: "", reason: "", owner: "Operations", priority: "High" as Priority, impact: "Revenue recovery improvement" });
+  const [actionForm, setActionForm] = useState({ owner: "Operations", due: "Next month", note: "Create assigned action from monthly summary recommendation." });
+
+  const selected = recommendations.find((item) => item.id === selectedId) ?? recommendations[0];
+
   const monthlyKpis: KPI[] = [
     { label: "Revenue Recovered This Month", value: "$18.4K", caption: "Across recovery actions", tone: "emerald" },
     { label: "Revenue Still At Risk", value: "$22.7K", caption: "Open recovery value", tone: "rose" },
     { label: "Recovery Actions Completed", value: "110", caption: "Completed owner actions", tone: "cyan" },
-    { label: "Automations Monitored", value: "11", caption: "Third-party automations monitored", tone: "cyan" },
+    { label: "Automations Monitored", value: "11", caption: "Workflow/source checks", tone: "cyan" },
     { label: "Sync Issues Resolved", value: "17", caption: "Failed sync cleanup", tone: "emerald" },
     { label: "Repeat Revenue Created", value: "$7.1K", caption: "Refill and restock value", tone: "emerald" },
     { label: "Payment Value Recovered", value: "$8.9K", caption: "Payment reminders", tone: "amber" },
     { label: "Post-Purchase Actions Completed", value: "42", caption: "Reviews, referrals, UGC", tone: "cyan" },
   ];
 
+  const clientSummary =
+    "This month, Altynx recovered $18.4K across payment reminders, refill opportunities, restock notices, and follow-up recovery. $22.7K remains at risk, mainly from Instagram follow-up delay, missing SKU fields, and unassigned event leads. Next month focus is to reduce source leakage, clean product data, and assign high-value recovery actions earlier.";
+
+  function saveUndo() {
+    setUndo({ recs: recommendations, reviewCompleted, notice });
+  }
+
+  function restoreUndo() {
+    if (!undo) return;
+    setRecommendations(undo.recs);
+    setReviewCompleted(undo.reviewCompleted);
+    setNotice({ title: "Action reverted", description: "Monthly summary state returned to the previous version." });
+    setUndo(null);
+  }
+
+  useEffect(() => {
+    function openReview() {
+      setModal("reviewComplete");
+    }
+    window.addEventListener("altynx-monthly-review-complete", openReview);
+    return () => window.removeEventListener("altynx-monthly-review-complete", openReview);
+  }, []);
+
+  async function copyClientSummary() {
+    try {
+      await navigator.clipboard.writeText(clientSummary);
+      setCopied(true);
+      setNotice({ title: "Client summary copied", description: "The client-ready summary is ready to share." });
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setNotice({ title: "Copy failed", description: "Clipboard access was blocked. Copy the summary manually from the page." });
+    }
+  }
+
+  function exportCsv() {
+    const csv = [
+      ["Recommendation", "Priority", "Owner", "Reason", "Impact", "Status"],
+      ...recommendations.map((item) => [item.recommendation, item.priority, item.owner, item.reason, item.impact, item.status]),
+    ].map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `altynx-monthly-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice({ title: "Monthly CSV exported", description: "Monthly summary recommendations were downloaded." });
+  }
+
+  function exportPdf() {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Altynx Monthly Summary", 14, 20);
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(clientSummary, 180);
+    doc.text(lines, 14, 34);
+    let y = 58;
+    monthlyKpis.forEach((item) => {
+      doc.text(`${item.label}: ${item.value} - ${item.caption}`, 14, y);
+      y += 7;
+    });
+    y += 6;
+    doc.setFontSize(12);
+    doc.text("Next Month Focus", 14, y);
+    y += 8;
+    doc.setFontSize(10);
+    recommendations.forEach((item) => {
+      doc.text(`${item.priority}: ${item.recommendation} (${item.owner})`, 14, y);
+      y += 7;
+    });
+    doc.save(`altynx-monthly-summary-${new Date().toISOString().slice(0, 10)}.pdf`);
+    setNotice({ title: "Monthly PDF exported", description: "Client-ready PDF summary has been downloaded." });
+  }
+
+  function markReviewComplete() {
+    saveUndo();
+    setReviewCompleted(true);
+    setRecommendations((items) => items.map((item) => item.status === "Open" ? { ...item, status: "Reviewed" } : item));
+    setModal(null);
+    setNotice({ title: "Monthly review complete", description: reviewForm.carryRisks ? "Open risks are carried into next month focus." : "Monthly review was completed without carrying open risks.", action: "undo" });
+    onActivity?.({ category: "Reports", title: "Monthly review completed", description: reviewForm.note, impactBadge: "$18.4K recovered", relatedRecord: "Monthly Summary", owner: "Operations", status: "Completed", nextAction: "Share client-ready report and track next month focus.", tone: "emerald" });
+  }
+
+  function addRecommendation() {
+    saveUndo();
+    const newRec: MonthlyRecRow = {
+      id: `REC-MANUAL-${Date.now()}`,
+      recommendation: recommendationForm.recommendation || "New next month focus",
+      reason: recommendationForm.reason || "Added from monthly review.",
+      owner: recommendationForm.owner,
+      priority: recommendationForm.priority,
+      impact: recommendationForm.impact,
+      tone: recommendationForm.priority === "Critical" ? "rose" : recommendationForm.priority === "High" ? "amber" : "cyan",
+      status: "Open",
+      audit: [{ id: `audit-${Date.now()}`, title: "Recommendation added", description: recommendationForm.reason || "Manual recommendation added.", time: "Just now" }],
+    };
+    setRecommendations((items) => [newRec, ...items]);
+    setSelectedId(newRec.id);
+    setModal(null);
+    setRecommendationForm({ recommendation: "", reason: "", owner: "Operations", priority: "High", impact: "Revenue recovery improvement" });
+    setNotice({ title: "Recommendation added", description: "A new next-month focus item is now in the monthly summary.", action: "undo" });
+  }
+
+  function createAssignedAction(rec: MonthlyRecRow) {
+    saveUndo();
+    setRecommendations((items) => items.map((item) => item.id === rec.id ? { ...item, status: "Assigned", assignedAction: `${rec.recommendation} · ${actionForm.owner}` } : item));
+    setModal(null);
+    setNotice({ title: "Next month action created", description: `${rec.recommendation} is ready in Assigned Recovery Actions and can sync to workflow notifications.`, action: "openActions" });
+  }
+
+  if (!selected) return null;
+
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {monthlyKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
+    <div className="ra-page ms-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid ra-kpi-grid">{monthlyKpis.map((item) => <KpiCard key={item.label} item={item} />)}</section>
+
+      <section className="ra-action-card">
+        <div><span>Monthly review status</span><h3>{reviewCompleted ? "Monthly review completed" : notice.title}</h3><p>{reviewCompleted ? "Client summary is ready and next-month focus items have been reviewed." : notice.description}</p></div>
+        <div className="ra-action-row">{notice.action === "undo" && undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}{notice.action === "openActions" ? <button className="secondary-btn" type="button" onClick={() => onNavigate?.("Assigned Recovery Actions")}>Open Assigned Actions</button> : null}<button className="secondary-btn" type="button" onClick={copyClientSummary}>{copied ? "Copied" : "Copy Client Summary"}</button><button className="secondary-btn" type="button" onClick={exportPdf}>Export Monthly PDF</button><button className="secondary-btn" type="button" onClick={exportCsv}>Export CSV</button></div>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Executive Summary</h2>
-            <p>Client-ready monthly review for the managed automation layer and revenue recovery service.</p>
-          </div>
-          <Badge tone="emerald">Monthly summary</Badge>
-        </div>
-        <div className="detail-callout">
-          <span>Management summary</span>
-          <p>
-            This month, the system recovered $18.4K across payment reminders, refill opportunities,
-            restock notices, and follow-up recovery. The largest remaining leak is Instagram DM follow-up
-            delay, with $6.2K still at risk. Product data cleanup improved refill timing, while missing SKU
-            fields and unassigned pop-up leads remain the highest-priority fixes for next month.
-          </p>
-        </div>
-        <div className="capture-actions">
-          <button type="button" className="primary-btn">Copy client summary</button>
-          <button type="button" className="secondary-btn">Export monthly PDF placeholder</button>
-          <button type="button" className="secondary-btn">Export CSV placeholder</button>
-          <button type="button" className="secondary-btn">Mark monthly review complete</button>
-        </div>
+      <section className="glass-card panel-card ra-list-panel">
+        <div className="section-heading ra-section-heading"><div><h2>Executive Summary</h2><p>Client-ready monthly review for recovered revenue, remaining leaks, workflow monitoring, and next month focus.</p></div><span className="pill emerald">Monthly summary</span></div>
+        <div className="detail-callout"><span>Client Summary</span><p>{clientSummary}</p></div>
+        <div className="ra-modal-actions"><button className="primary-btn" type="button" onClick={copyClientSummary}>{copied ? "Copied" : "Copy Client Summary"}</button><button className="secondary-btn" type="button" onClick={exportPdf}>Export Monthly PDF</button><button className="secondary-btn" type="button" onClick={exportCsv}>Export CSV</button><button className="secondary-btn" type="button" onClick={() => setModal("reviewComplete")}>Mark Monthly Review Complete</button></div>
       </section>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
-          <h3>Revenue Recovered Breakdown</h3>
-          {monthlyRecoveredBreakdown.map((item) => (
-            <div key={item.id}>
-              <span>{item.label} - {item.note}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Open Revenue At Risk</h3>
-          {monthlyOpenRiskItems.map((item) => (
-            <div key={item.id}>
-              <span>{item.label} - {item.note}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Automation Monitoring Summary</h3>
-          {monthlyAutomationSummary.map((item) => (
-            <div key={item.id}>
-              <span>{item.label} - {item.note}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </article>
+      <section className="ra-summary-grid">
+        <article className="glass-card panel-card"><h3>Team Performance Summary</h3>{teamOwnershipReportItems.slice(0, 5).map((item) => <div className="ra-summary-row" key={item.id}><span>{item.owner} · {item.openActions} open · {item.overdueActions} overdue</span><strong>{item.recoveredValue}</strong></div>)}</article>
+        <article className="glass-card panel-card"><h3>Product / Buyer Insights</h3>{productLeakReportItems.slice(0, 5).map((item) => <div className="ra-summary-row" key={item.id}><span>{item.productCategory} · {item.recommendedAction}</span><strong>{item.demandValue}</strong></div>)}</article>
+        <article className="glass-card panel-card"><h3>Next Month Focus</h3>{recommendations.slice(0, 5).map((item) => <button className="ra-summary-row as-button" key={item.id} type="button" onClick={() => { setSelectedId(item.id); setModal("details"); }}><span>{item.recommendation}</span><strong>{item.priority}</strong></button>)}</article>
       </section>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
-          <h3>Team Performance Summary</h3>
-          {teamOwnershipReportItems.slice(0, 5).map((item) => (
-            <div key={item.id}>
-              <span>{item.owner} - {item.openActions} open - {item.overdueActions} overdue</span>
-              <strong>{item.recoveredValue}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Product / Buyer Insights</h3>
-          {productLeakReportItems.slice(0, 5).map((item) => (
-            <div key={item.id}>
-              <span>{item.productCategory} - {item.recommendedAction}</span>
-              <strong>{item.demandValue}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Next Month Focus</h3>
-          {monthlyRecommendations.slice(0, 5).map((item) => (
-            <div key={item.id}>
-              <span>{item.recommendation}</span>
-              <strong>{item.priority}</strong>
-            </div>
-          ))}
-        </article>
+      <section className="glass-card panel-card ra-list-panel">
+        <div className="section-heading ra-section-heading"><div><h2>Priority Recommendations</h2><p>Next month focus items for reducing source leakage, missing fields, repeat revenue leaks, and owner bottlenecks.</p></div><button className="secondary-btn" type="button" onClick={() => setModal("addRecommendation")}>Add Recommendation</button></div>
+        <div className="ra-list">{recommendations.map((item) => <article className="ra-card" key={item.id}><div className="ra-card-main"><div className="ra-card-title-row"><h3>{item.recommendation}</h3><span className="ra-soft-badge">{item.priority}</span><span className={`ra-status status-${item.status.toLowerCase()}`}>{item.status}</span></div><p>{item.reason}</p><div className="ra-chip-row"><span>{item.owner}</span><span>{item.impact}</span></div></div><div className="ra-card-side"><strong>{item.priority}</strong><span>priority</span><div className="ra-card-actions"><button className="primary-btn" type="button" onClick={() => { setSelectedId(item.id); setModal("createAction"); }}>Create Action</button><button className="secondary-btn" type="button" onClick={() => { setSelectedId(item.id); setModal("details"); }}>View Details</button></div></div></article>)}</div>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Priority Recommendations</h2>
-            <p>Next month focus items for reducing source leakage, missing fields, repeat revenue leaks, and owner bottlenecks.</p>
-          </div>
-          <Badge tone="amber">Next month focus</Badge>
-        </div>
-        <div className="capture-card-list">
-          {monthlyRecommendations.map((item) => (
-            <article className={`product-card ${item.tone}`} key={item.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{item.recommendation}</h3>
-                    <Badge tone={item.tone}>{item.priority}</Badge>
-                  </div>
-                  <p>{item.reason}</p>
-                  <div className="recovery-meta">
-                    <span>{item.owner}</span>
-                    <span>{item.impact}</span>
-                  </div>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="capture-actions">
-          <button type="button" className="primary-btn">Open priority cases</button>
-          <button type="button" className="secondary-btn">Add recommendation</button>
-          <button type="button" className="secondary-btn">Mark monthly review complete</button>
-        </div>
-      </section>
+      {modal === "reviewComplete" ? <ModalShell title="Mark monthly review complete" onClose={() => setModal(null)}><label className="ra-field">Review note<textarea rows={4} value={reviewForm.note} onChange={(event) => setReviewForm((current) => ({ ...current, note: event.target.value }))} /></label><label className="ra-checkbox"><input type="checkbox" checked={reviewForm.carryRisks} onChange={(event) => setReviewForm((current) => ({ ...current, carryRisks: event.target.checked }))} /> Include unresolved risks in next month focus</label><button className="primary-btn" type="button" onClick={markReviewComplete}>Confirm Monthly Review Complete</button></ModalShell> : null}
+
+      {modal === "addRecommendation" ? <ModalShell title="Add recommendation" onClose={() => setModal(null)}><label className="ra-field">Recommendation<input value={recommendationForm.recommendation} onChange={(event) => setRecommendationForm((current) => ({ ...current, recommendation: event.target.value }))} /></label><label className="ra-field">Reason<textarea rows={3} value={recommendationForm.reason} onChange={(event) => setRecommendationForm((current) => ({ ...current, reason: event.target.value }))} /></label><label className="ra-field">Owner<select value={recommendationForm.owner} onChange={(event) => setRecommendationForm((current) => ({ ...current, owner: event.target.value }))}>{["Operations", "Amara Shah", "Mina Cole", "Tessa Nguyen", "Luis Park"].map((owner) => <option key={owner}>{owner}</option>)}</select></label><label className="ra-field">Priority<select value={recommendationForm.priority} onChange={(event) => setRecommendationForm((current) => ({ ...current, priority: event.target.value as Priority }))}>{["Critical", "High", "Medium", "Low"].map((priority) => <option key={priority}>{priority}</option>)}</select></label><button className="primary-btn" type="button" onClick={addRecommendation}>Save Recommendation</button></ModalShell> : null}
+
+      {modal === "createAction" || modal === "details" ? <ModalShell title={modal === "details" ? selected.recommendation : "Create next month action"} onClose={() => setModal(null)}><div className="ra-modal-grid"><DetailField label="Owner" value={selected.owner} /><DetailField label="Priority" value={selected.priority} /><DetailField label="Impact" value={selected.impact} /><DetailField label="Status" value={selected.status} /></div><div className="detail-callout"><span>Reason</span><p>{selected.reason}</p></div>{modal === "createAction" ? <><label className="ra-field">Assign to<select value={actionForm.owner} onChange={(event) => setActionForm((current) => ({ ...current, owner: event.target.value }))}>{["Operations", "Amara Shah", "Mina Cole", "Tessa Nguyen", "Luis Park"].map((owner) => <option key={owner}>{owner}</option>)}</select></label><label className="ra-field">Action note<textarea rows={4} value={actionForm.note} onChange={(event) => setActionForm((current) => ({ ...current, note: event.target.value }))} /></label><button className="primary-btn" type="button" onClick={() => createAssignedAction(selected)}>Create Assigned Action</button></> : <div className="ra-modal-actions"><button className="primary-btn" type="button" onClick={() => setModal("createAction")}>Create Assigned Action</button><button className="secondary-btn" type="button" onClick={() => setModal("priorityCases")}>Open Priority Cases</button></div>}</ModalShell> : null}
+
+      {modal === "priorityCases" ? <ModalShell title="Open priority cases" onClose={() => setModal(null)}><p>Open the recovery workspace connected to this priority recommendation.</p><div className="ra-modal-actions"><button className="secondary-btn" type="button" onClick={() => onNavigate?.("Revenue Leak Reports")}>Open Revenue Leak Reports</button><button className="secondary-btn" type="button" onClick={() => onNavigate?.("Automation Health")}>Open Automation Health</button><button className="secondary-btn" type="button" onClick={() => onNavigate?.("Assigned Recovery Actions")}>Open Assigned Actions</button></div></ModalShell> : null}
     </div>
   );
 }
 
-function BrandSettingsPage() {
-  const brandKpis: KPI[] = [
+function BrandSettingsPage({ workspaceProfile, onWorkspaceProfileChange }: { workspaceProfile: WorkspaceOnboardingProfile; onWorkspaceProfileChange: (profile: WorkspaceOnboardingProfile) => void }) {
+  const [brand, setBrand] = useState<BrandSettings>(brandSettings);
+  const [modules, setModules] = useState<RecoveryModuleSetting[]>(recoveryModuleSettings);
+  const [windows, setWindows] = useState<RecoveryWindowSetting[]>(recoveryWindowSettings);
+  const [sources, setSources] = useState<SourceSetupRecord[]>(sourceSetupRecords);
+  const [modal, setModal] = useState<
+    | "editBrand"
+    | "saveSettings"
+    | "enableModule"
+    | "updateWindow"
+    | "assignOwner"
+    | "configureSource"
+    | null
+  >(null);
+  const [selectedSourceId, setSelectedSourceId] = useState(sources[0]?.id ?? "");
+  const [selectedModuleId, setSelectedModuleId] = useState(modules[0]?.id ?? "");
+  const [selectedWindowId, setSelectedWindowId] = useState(windows[0]?.id ?? "");
+  const [notice, setNotice] = useState({ title: "Brand recovery setup ready", description: "Default owners, recovery windows, and source rules are visible for the team." });
+  const [undo, setUndo] = useState<{ brand: BrandSettings; modules: RecoveryModuleSetting[]; windows: RecoveryWindowSetting[]; sources: SourceSetupRecord[] } | null>(null);
+  const [brandDraft, setBrandDraft] = useState({ ...brand, mainSalesChannels: brand.mainSalesChannels.join(", "), preferredCommunicationChannels: brand.preferredCommunicationChannels.join(", ") });
+  const [moduleForm, setModuleForm] = useState({ moduleId: selectedModuleId, owner: modules[0]?.defaultOwner ?? "Amara Shah" });
+  const [windowForm, setWindowForm] = useState({ windowId: selectedWindowId, value: windows[0]?.value ?? "", owner: windows[0]?.defaultOwner ?? "Recovery Lead" });
+  const [ownerForm, setOwnerForm] = useState({ sourceId: selectedSourceId, owner: sources[0]?.defaultOwner ?? "Amara Shah", fallback: "Unassigned Queue", note: "Route records to the correct recovery owner." });
+  const [sourceForm, setSourceForm] = useState({ sourceId: selectedSourceId, status: sources[0]?.sourceStatus ?? "Configured", rule: sources[0]?.recoveryRule ?? "", warning: sources[0]?.missingFieldWarning ?? "None", owner: sources[0]?.defaultOwner ?? "Amara Shah" });
+
+  const ownerOptions = ["Amara Shah", "Mina Cole", "Tessa Nguyen", "Luis Park", "Operations", "Unassigned Queue"];
+
+  function updateWorkspaceProfileField(field: keyof WorkspaceOnboardingProfile, value: string | string[]) {
+    onWorkspaceProfileChange({ ...workspaceProfile, [field]: value });
+    setNotice({
+      title: "Workspace personalization updated",
+      description: "Your selected industry, categories, sources, owners, and priorities are now reflected across the workspace.",
+    });
+  }
+
+  function toggleWorkspaceProfileArray(
+    field: "businessFocus" | "salesChannels" | "teamRoles" | "recoveryGoals",
+    value: string,
+  ) {
+    updateWorkspaceProfileField(field, toggleStringValue(workspaceProfile[field], value));
+  }
+
+  useEffect(() => {
+    function openSave() {
+      setModal("saveSettings");
+    }
+
+    window.addEventListener("altynx-brand-save-settings", openSave);
+    return () => window.removeEventListener("altynx-brand-save-settings", openSave);
+  }, []);
+
+  function saveSnapshot() {
+    setUndo({ brand, modules, windows, sources });
+  }
+
+  function restoreUndo() {
+    if (!undo) return;
+    setBrand(undo.brand);
+    setModules(undo.modules);
+    setWindows(undo.windows);
+    setSources(undo.sources);
+    setUndo(null);
+    setNotice({ title: "Previous setup restored", description: "The last setup change was reverted." });
+  }
+
+  function saveBrandProfile() {
+    saveSnapshot();
+    setBrand({
+      brandName: brandDraft.brandName,
+      industryFocus: brandDraft.industryFocus,
+      brandType: brandDraft.brandType,
+      primaryMarket: brandDraft.primaryMarket,
+      currency: brandDraft.currency,
+      timezone: brandDraft.timezone,
+      mainSalesChannels: brandDraft.mainSalesChannels.split(",").map((item) => item.trim()).filter(Boolean),
+      ecommercePlatform: brandDraft.ecommercePlatform,
+      preferredCommunicationChannels: brandDraft.preferredCommunicationChannels.split(",").map((item) => item.trim()).filter(Boolean),
+      defaultOwnerAdmin: brandDraft.defaultOwnerAdmin,
+    });
+    setModal(null);
+    setNotice({ title: "Brand profile saved", description: "Recovery settings now use the updated brand profile." });
+  }
+
+  function enableModule() {
+    saveSnapshot();
+    setModules((items) => items.map((item) => item.id === moduleForm.moduleId ? { ...item, status: "Enabled", defaultOwner: moduleForm.owner } : item));
+    setModal(null);
+    setNotice({ title: "Module enabled", description: "The selected recovery module is active with its default owner." });
+  }
+
+  function updateWindow() {
+    saveSnapshot();
+    setWindows((items) => items.map((item) => item.id === windowForm.windowId ? { ...item, value: windowForm.value, defaultOwner: windowForm.owner } : item));
+    setModal(null);
+    setNotice({ title: "Recovery window updated", description: "Timing rules now match the selected recovery process." });
+  }
+
+  function assignOwner() {
+    saveSnapshot();
+    setSources((items) => items.map((item) => item.id === ownerForm.sourceId ? { ...item, defaultOwner: ownerForm.owner, missingFieldWarning: ownerForm.fallback ? `Fallback: ${ownerForm.fallback}` : item.missingFieldWarning } : item));
+    setModal(null);
+    setNotice({ title: "Default owner assigned", description: "New records from this source will route to the selected owner." });
+  }
+
+  function configureSource() {
+    saveSnapshot();
+    setSources((items) => items.map((item) => item.id === sourceForm.sourceId ? { ...item, sourceStatus: sourceForm.status as SourceSetupRecord["sourceStatus"], defaultOwner: sourceForm.owner, recoveryRule: sourceForm.rule, missingFieldWarning: sourceForm.warning } : item));
+    setModal(null);
+    setNotice({ title: "Source rule saved", description: "The source now has updated routing, validation, and recovery action guidance." });
+  }
+
+  function openSourceModal(source: SourceSetupRecord, type: "configureSource" | "assignOwner") {
+    setSelectedSourceId(source.id);
+    setSourceForm({ sourceId: source.id, status: source.sourceStatus, rule: source.recoveryRule, warning: source.missingFieldWarning, owner: source.defaultOwner });
+    setOwnerForm({ sourceId: source.id, owner: source.defaultOwner, fallback: "Unassigned Queue", note: source.recoveryRule });
+    setModal(type);
+  }
+
+  const enabledModules = modules.filter((item) => item.status === "Enabled").length;
+  const configuredSources = sources.filter((item) => item.sourceStatus === "Configured").length;
+  const needsReviewSources = sources.filter((item) => item.sourceStatus !== "Configured").length;
+
+  const kpis: KPI[] = [
     { label: "Brand Profile Completion", value: "92%", caption: "Recovery profile fields set", tone: "emerald" },
-    { label: "Active Recovery Modules", value: `${recoveryModuleSettings.filter((item) => item.status === "Enabled").length}`, caption: "Enabled recovery modules", tone: "cyan" },
-    { label: "Connected Sources Configured", value: `${sourceSetupRecords.filter((item) => item.sourceStatus === "Configured").length}`, caption: "Source rules ready", tone: "emerald" },
-    { label: "Default Recovery Rules", value: `${ownershipRules.length}`, caption: "Owner routing rules", tone: "amber" },
-    { label: "Product Categories Enabled", value: "5", caption: "Fashion, beauty, skincare, cosmetics, hybrid", tone: "cyan" },
-    { label: "Reporting Cadence", value: "Monthly", caption: "Client review rhythm", tone: "rose" },
+    { label: "Active Recovery Modules", value: `${enabledModules}`, caption: "Enabled recovery modules", tone: "cyan" },
+    { label: "Sources Ready", value: `${configuredSources}`, caption: "Source rules configured", tone: "emerald" },
+    { label: "Default Recovery Rules", value: `${windows.length}`, caption: "Owner and timing rules", tone: "amber" },
+    { label: "Sources Needing Review", value: `${needsReviewSources}`, caption: "Review routing or fields", tone: needsReviewSources ? "rose" : "emerald" },
+    { label: "Reporting Cadence", value: "Monthly", caption: "Client review rhythm", tone: "cyan" },
   ];
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {brandKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
+    <div className="setup-control-page setup-brand-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid setup-kpi-grid">
+        {kpis.map((item) => <KpiCard key={item.label} item={item} />)}
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
+      <section className="setup-action-card">
+        <div>
+          <span>Setup status</span>
+          <h3>{notice.title}</h3>
+          <p>{notice.description}</p>
+        </div>
+        <div className="setup-action-row">
+          {undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}
+          <button className="secondary-btn" type="button" onClick={() => setModal("saveSettings")}>Save Settings</button>
+        </div>
+      </section>
+
+      <section className="glass-card panel-card setup-panel">
+        <div className="panel-header setup-panel-header">
           <div>
             <h2>Brand Profile</h2>
-            <p>Configure the brand recovery profile and operating model around the brand sales process.</p>
+            <p>Set the brand context that powers recovery timing, owners, sources, and monthly review.</p>
           </div>
-          <Badge tone="emerald">{brandSettings.industryFocus}</Badge>
+          <Badge tone="emerald">{brand.industryFocus}</Badge>
         </div>
-
-        <div className="import-step-grid">
-          <div><span>Brand name</span><strong>{brandSettings.brandName}</strong></div>
-          <div><span>Industry focus</span><strong>{brandSettings.industryFocus}</strong></div>
-          <div><span>Brand type</span><strong>{brandSettings.brandType}</strong></div>
-          <div><span>Primary market</span><strong>{brandSettings.primaryMarket}</strong></div>
-          <div><span>Currency</span><strong>{brandSettings.currency}</strong></div>
-          <div><span>Timezone</span><strong>{brandSettings.timezone}</strong></div>
-          <div><span>Main sales channels</span><strong>{brandSettings.mainSalesChannels.join(", ")}</strong></div>
-          <div><span>Ecommerce platform</span><strong>{brandSettings.ecommercePlatform}</strong></div>
-          <div><span>Preferred communication channels</span><strong>{brandSettings.preferredCommunicationChannels.join(", ")}</strong></div>
-          <div><span>Default owner/admin</span><strong>{brandSettings.defaultOwnerAdmin}</strong></div>
+        <div className="setup-detail-grid">
+          <DetailField label="Brand Name" value={brand.brandName} />
+          <DetailField label="Industry Focus" value={brand.industryFocus} />
+          <DetailField label="Brand Type" value={brand.brandType} />
+          <DetailField label="Primary Market" value={brand.primaryMarket} />
+          <DetailField label="Currency" value={brand.currency} />
+          <DetailField label="Timezone" value={brand.timezone} />
+          <DetailField label="Main Sales Channels" value={brand.mainSalesChannels.join(", ")} />
+          <DetailField label="Default Admin" value={brand.defaultOwnerAdmin} />
         </div>
-
-        <div className="capture-actions">
-          <button type="button" className="primary-btn">Edit brand profile</button>
-          <button type="button" className="secondary-btn">Save settings</button>
+        <div className="setup-button-row">
+          <button className="primary-btn" type="button" onClick={() => { setBrandDraft({ ...brand, mainSalesChannels: brand.mainSalesChannels.join(", "), preferredCommunicationChannels: brand.preferredCommunicationChannels.join(", ") }); setModal("editBrand"); }}>Edit Brand Profile</button>
+          <button className="secondary-btn" type="button" onClick={() => setModal("saveSettings")}>Save Settings</button>
         </div>
       </section>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
+      <section className="setup-three-grid">
+        <article className="glass-card panel-card setup-mini-panel">
           <h3>Recovery Module Settings</h3>
-          {recoveryModuleSettings.slice(0, 6).map((module) => (
-            <div key={module.id}>
-              <span>{module.moduleName} - {module.defaultOwner}</span>
-              <strong>{module.status}</strong>
-            </div>
-          ))}
+          <div className="setup-row-list">
+            {modules.slice(0, 8).map((item) => <div className="setup-row" key={item.id}><span>{item.moduleName} · {item.defaultOwner}</span><strong>{item.status}</strong></div>)}
+          </div>
         </article>
-        <article className="summary-breakdown-card">
+        <article className="glass-card panel-card setup-mini-panel">
           <h3>Default Recovery Windows</h3>
-          {recoveryWindowSettings.slice(0, 6).map((setting) => (
-            <div key={setting.id}>
-              <span>{setting.settingName}</span>
-              <strong>{setting.value}</strong>
-            </div>
-          ))}
+          <div className="setup-row-list">
+            {windows.slice(0, 8).map((item) => <div className="setup-row" key={item.id}><span>{item.settingName}</span><strong>{item.value}</strong></div>)}
+          </div>
         </article>
-        <article className="summary-breakdown-card">
+        <article className="glass-card panel-card setup-mini-panel">
           <h3>Source Configuration Preview</h3>
-          {sourceSetupRecords.slice(0, 6).map((source) => (
-            <div key={source.id}>
-              <span>{source.sourceName} - {source.defaultOwner}</span>
-              <strong>{source.sourceStatus}</strong>
-            </div>
-          ))}
+          <div className="setup-row-list">
+            {sources.slice(0, 8).map((item) => <div className="setup-row" key={item.id}><span>{item.sourceName} · {item.defaultOwner}</span><strong>{item.sourceStatus}</strong></div>)}
+          </div>
         </article>
       </section>
 
-      <div className="capture-actions">
-        <button type="button" className="primary-btn">Enable module</button>
-        <button type="button" className="secondary-btn">Update recovery window</button>
-        <button type="button" className="secondary-btn">Assign default owner</button>
-        <button type="button" className="secondary-btn">Save settings</button>
+      <div className="setup-button-row">
+        <button className="primary-btn" type="button" onClick={() => { setModuleForm({ moduleId: modules[0]?.id ?? "", owner: modules[0]?.defaultOwner ?? "Amara Shah" }); setModal("enableModule"); }}>Enable Module</button>
+        <button className="secondary-btn" type="button" onClick={() => { setWindowForm({ windowId: windows[0]?.id ?? "", value: windows[0]?.value ?? "", owner: windows[0]?.defaultOwner ?? "Recovery Lead" }); setModal("updateWindow"); }}>Update Recovery Window</button>
+        <button className="secondary-btn" type="button" onClick={() => { setOwnerForm({ sourceId: sources[0]?.id ?? "", owner: sources[0]?.defaultOwner ?? "Amara Shah", fallback: "Unassigned Queue", note: sources[0]?.recoveryRule ?? "" }); setModal("assignOwner"); }}>Assign Default Owner</button>
+        <button className="secondary-btn" type="button" onClick={() => setModal("saveSettings")}>Save Settings</button>
       </div>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
+      <section className="glass-card panel-card setup-panel">
+        <div className="panel-header setup-panel-header">
           <div>
-            <h2>Source Configuration Preview</h2>
-            <p>Configured sources, owner routing, recovery rules, and missing field warnings.</p>
+            <h2>Source Configuration</h2>
+            <p>Review source rules, owner routing, and missing field warnings before records enter recovery work.</p>
           </div>
           <Badge tone="amber">Source rules</Badge>
         </div>
-        <div className="capture-card-list">
-          {sourceSetupRecords.map((source) => (
-            <article className={`product-card ${source.tone}`} key={source.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{source.sourceName}</h3>
-                    <Badge tone={source.tone}>{source.sourceStatus}</Badge>
-                  </div>
-                  <p>{source.recoveryRule}</p>
-                  <div className="recovery-meta">
-                    <span>{source.defaultOwner}</span>
-                    <span>{source.missingFieldWarning}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Configure source</button>
-                <button type="button" className="secondary-btn">Assign default owner</button>
-              </div>
-            </article>
-          ))}
+        <div className="setup-card-list">
+          {sources.map((source) => <article className="setup-card" key={source.id}>
+            <div>
+              <div className="setup-title-row"><h3>{source.sourceName}</h3><Badge tone={source.tone}>{source.sourceStatus}</Badge></div>
+              <p>{source.recoveryRule}</p>
+              <div className="setup-chip-row"><span>{source.defaultOwner}</span><span>{source.missingFieldWarning}</span></div>
+            </div>
+            <div className="setup-card-actions"><button className="primary-btn" type="button" onClick={() => openSourceModal(source, "configureSource")}>Configure Source</button><button className="secondary-btn" type="button" onClick={() => openSourceModal(source, "assignOwner")}>Assign Default Owner</button></div>
+          </article>)}
         </div>
       </section>
+
+      <section className="glass-card panel-card setup-panel workspace-personalization-panel">
+        <div className="panel-header setup-panel-header">
+          <div>
+            <h2>Workspace Personalization</h2>
+            <p>If anything was skipped during setup, choose the industry, categories, sources, owners, and priority recovery problems here.</p>
+          </div>
+          <Badge tone="cyan">Editable anytime</Badge>
+        </div>
+
+        <div className="workspace-personalization-section">
+          <h3>Industry / business type</h3>
+          <div className="workspace-business-option-grid">
+            {businessTypeCards.map((card) => (
+              <button
+                key={card.id}
+                type="button"
+                className={workspaceProfile.businessType === card.id ? "selected" : ""}
+                onClick={() => updateWorkspaceProfileField("businessType", card.id)}
+              >
+                <strong>{card.title}</strong>
+                <span>{card.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="workspace-personalization-grid">
+          <div className="workspace-personalization-section">
+            <h3>Categories / revenue areas</h3>
+            <div className="workspace-personalization-chip-row">
+              {onboardingFocusOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={workspaceProfile.businessFocus.includes(option) ? "selected" : ""}
+                  onClick={() => toggleWorkspaceProfileArray("businessFocus", option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="workspace-personalization-section">
+            <h3>Customer sources</h3>
+            <div className="workspace-personalization-chip-row">
+              {onboardingChannelOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={workspaceProfile.salesChannels.includes(option) ? "selected" : ""}
+                  onClick={() => toggleWorkspaceProfileArray("salesChannels", option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="workspace-personalization-section">
+            <h3>Recovery owners</h3>
+            <div className="workspace-personalization-chip-row">
+              {onboardingTeamRoleOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={workspaceProfile.teamRoles.includes(option) ? "selected" : ""}
+                  onClick={() => toggleWorkspaceProfileArray("teamRoles", option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="workspace-personalization-section">
+            <h3>Priority recovery problems</h3>
+            <div className="workspace-personalization-chip-row">
+              {onboardingGoalOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={workspaceProfile.recoveryGoals.includes(option) ? "selected" : ""}
+                  onClick={() => toggleWorkspaceProfileArray("recoveryGoals", option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {modal === "editBrand" ? <ModalShell title="Edit brand profile" onClose={() => setModal(null)} wide>
+        <div className="setup-form-grid">
+          {(["brandName", "industryFocus", "brandType", "primaryMarket", "currency", "timezone", "ecommercePlatform", "defaultOwnerAdmin"] as const).map((field) => <label className="setup-field" key={field}>{field.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}<input value={String(brandDraft[field])} onChange={(event) => setBrandDraft((current) => ({ ...current, [field]: event.target.value }))} /></label>)}
+          <label className="setup-field wide-field">Main Sales Channels<input value={brandDraft.mainSalesChannels} onChange={(event) => setBrandDraft((current) => ({ ...current, mainSalesChannels: event.target.value }))} /></label>
+          <label className="setup-field wide-field">Preferred Communication Channels<input value={brandDraft.preferredCommunicationChannels} onChange={(event) => setBrandDraft((current) => ({ ...current, preferredCommunicationChannels: event.target.value }))} /></label>
+        </div>
+        <div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={saveBrandProfile}>Save Brand Profile</button></div>
+      </ModalShell> : null}
+
+      {modal === "saveSettings" ? <ModalShell title="Save brand recovery settings" onClose={() => setModal(null)}>
+        <p>Save the current brand profile, owner routing, recovery windows, and source rules for future recovery work.</p>
+        <div className="setup-modal-actions"><button className="secondary-btn" type="button" onClick={() => setModal(null)}>Cancel</button><button className="primary-btn" type="button" onClick={() => { saveSnapshot(); setModal(null); setNotice({ title: "Settings saved", description: "Brand setup is ready for recovery actions and reporting." }); }}>Confirm Save</button></div>
+      </ModalShell> : null}
+
+      {modal === "enableModule" ? <ModalShell title="Enable recovery module" onClose={() => setModal(null)}>
+        <label className="setup-field">Module<select value={moduleForm.moduleId} onChange={(event) => { const module = modules.find((item) => item.id === event.target.value); setModuleForm({ moduleId: event.target.value, owner: module?.defaultOwner ?? "Amara Shah" }); }}>{modules.map((item) => <option key={item.id} value={item.id}>{item.moduleName}</option>)}</select></label>
+        <label className="setup-field">Default Owner<select value={moduleForm.owner} onChange={(event) => setModuleForm((current) => ({ ...current, owner: event.target.value }))}>{ownerOptions.map((owner) => <option key={owner}>{owner}</option>)}</select></label>
+        <div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={enableModule}>Enable Module</button></div>
+      </ModalShell> : null}
+
+      {modal === "updateWindow" ? <ModalShell title="Update recovery window" onClose={() => setModal(null)}>
+        <label className="setup-field">Recovery Window<select value={windowForm.windowId} onChange={(event) => { const windowItem = windows.find((item) => item.id === event.target.value); setWindowForm({ windowId: event.target.value, value: windowItem?.value ?? "", owner: windowItem?.defaultOwner ?? "Recovery Lead" }); }}>{windows.map((item) => <option key={item.id} value={item.id}>{item.settingName}</option>)}</select></label>
+        <label className="setup-field">Timing Rule<input value={windowForm.value} onChange={(event) => setWindowForm((current) => ({ ...current, value: event.target.value }))} /></label>
+        <label className="setup-field">Default Owner<input value={windowForm.owner} onChange={(event) => setWindowForm((current) => ({ ...current, owner: event.target.value }))} /></label>
+        <div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={updateWindow}>Save Recovery Window</button></div>
+      </ModalShell> : null}
+
+      {modal === "assignOwner" ? <ModalShell title="Assign default owner" onClose={() => setModal(null)}>
+        <label className="setup-field">Source<select value={ownerForm.sourceId} onChange={(event) => { const source = sources.find((item) => item.id === event.target.value); setOwnerForm((current) => ({ ...current, sourceId: event.target.value, owner: source?.defaultOwner ?? current.owner })); }}>{sources.map((item) => <option key={item.id} value={item.id}>{item.sourceName}</option>)}</select></label>
+        <label className="setup-field">Default Owner<select value={ownerForm.owner} onChange={(event) => setOwnerForm((current) => ({ ...current, owner: event.target.value }))}>{ownerOptions.map((owner) => <option key={owner}>{owner}</option>)}</select></label>
+        <label className="setup-field">Fallback Queue<input value={ownerForm.fallback} onChange={(event) => setOwnerForm((current) => ({ ...current, fallback: event.target.value }))} /></label>
+        <label className="setup-field">Routing Note<textarea rows={3} value={ownerForm.note} onChange={(event) => setOwnerForm((current) => ({ ...current, note: event.target.value }))} /></label>
+        <div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={assignOwner}>Save Owner Rule</button></div>
+      </ModalShell> : null}
+
+      {modal === "configureSource" ? <ModalShell title="Configure source" onClose={() => setModal(null)}>
+        <label className="setup-field">Source<select value={sourceForm.sourceId} onChange={(event) => { const source = sources.find((item) => item.id === event.target.value); if (source) setSourceForm({ sourceId: source.id, status: source.sourceStatus, rule: source.recoveryRule, warning: source.missingFieldWarning, owner: source.defaultOwner }); }}>{sources.map((item) => <option key={item.id} value={item.id}>{item.sourceName}</option>)}</select></label>
+        <label className="setup-field">Status<select value={sourceForm.status} onChange={(event) => setSourceForm((current) => ({ ...current, status: event.target.value as SourceSetupRecord["sourceStatus"] }))}>{["Configured", "Needs Review", "Missing Fields"].map((status) => <option key={status}>{status}</option>)}</select></label>
+        <label className="setup-field">Default Owner<select value={sourceForm.owner} onChange={(event) => setSourceForm((current) => ({ ...current, owner: event.target.value }))}>{ownerOptions.map((owner) => <option key={owner}>{owner}</option>)}</select></label>
+        <label className="setup-field">Recovery Rule<textarea rows={3} value={sourceForm.rule} onChange={(event) => setSourceForm((current) => ({ ...current, rule: event.target.value }))} /></label>
+        <label className="setup-field">Field Warning<input value={sourceForm.warning} onChange={(event) => setSourceForm((current) => ({ ...current, warning: event.target.value }))} /></label>
+        <div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={configureSource}>Save Source Rule</button></div>
+      </ModalShell> : null}
     </div>
   );
 }
 
-function TeamUsersSetup() {
-  const teamKpis: KPI[] = [
-    { label: "Active Users", value: `${setupTeamUsers.filter((user) => user.status === "Active").length}`, caption: "Can own recovery work", tone: "cyan" },
-    { label: "Recovery Owners", value: `${setupTeamUsers.filter((user) => user.role !== "Viewer" && user.role !== "Unassigned").length}`, caption: "Owner roles configured", tone: "emerald" },
+
+
+function TeamUsersSetup({ onNavigate }: { onNavigate: (page: string) => void }) {
+  const [users, setUsers] = useState<SetupTeamUser[]>(setupTeamUsers);
+  const [modal, setModal] = useState<"ownerQueue" | "editRole" | "assignArea" | "addUser" | "setDefaultOwner" | "deactivate" | null>(null);
+  const [selectedId, setSelectedId] = useState(users[0]?.id ?? "");
+  const [notice, setNotice] = useState({ title: "Owner routing ready", description: "Recovery owners, fallback queues, and assigned areas are visible for review." });
+  const [undo, setUndo] = useState<SetupTeamUser[] | null>(null);
+  const [roleForm, setRoleForm] = useState({ role: "Recovery Lead" as UserRole, permissionLevel: "Manage recovery cases and owners" });
+  const [areaForm, setAreaForm] = useState({ area: "Inquiry Recovery", backupOwner: "Unassigned Queue", note: "Route new records to this owner." });
+  const [newUserForm, setNewUserForm] = useState({ name: "", email: "", role: "Sales" as UserRole, area: "Inquiry Recovery", permissionLevel: "Manage assigned recovery actions" });
+  const [defaultOwnerForm, setDefaultOwnerForm] = useState({ area: "Website inquiries", owner: "Amara Shah", fallback: "Unassigned Queue" });
+  const [deactivateForm, setDeactivateForm] = useState({ replacementOwner: "Amara Shah", note: "Move open recovery work before deactivation." });
+
+  const selected = users.find((user) => user.id === selectedId) ?? users[0];
+  const ownerOptions = users.filter((user) => user.status !== "Inactive").map((user) => user.name);
+  const roleOptions: UserRole[] = ["Owner / Admin", "Recovery Lead", "Sales", "Support", "Operations", "Marketing", "Beauty Specialist", "Order Recovery", "Post-Purchase", "Viewer", "Unassigned"];
+  const areaOptions = ["Inquiry Recovery", "Follow-up Recovery", "Payment Recovery", "Refill Opportunities", "Restock Waitlist", "Order Risk", "Reviews / Referrals / UGC", "Inactive Buyer Recovery", "Source Review", "Missing owner records"];
+
+  useEffect(() => {
+    function openAddUser() {
+      setModal("addUser");
+    }
+
+    window.addEventListener("altynx-teamusers-add-user", openAddUser);
+    return () => window.removeEventListener("altynx-teamusers-add-user", openAddUser);
+  }, []);
+
+  function saveSnapshot() { setUndo(users); }
+  function restoreUndo() {
+    if (!undo) return;
+    setUsers(undo);
+    setUndo(null);
+    setNotice({ title: "Previous team setup restored", description: "The last user or owner routing change was reverted." });
+  }
+
+  function openForUser(user: SetupTeamUser, type: typeof modal) {
+    setSelectedId(user.id);
+    setRoleForm({ role: user.role, permissionLevel: user.permissionLevel });
+    setAreaForm({ area: user.assignedRecoveryAreas[0] ?? "Inquiry Recovery", backupOwner: "Unassigned Queue", note: "Route new records to this owner." });
+    setModal(type);
+  }
+
+  function saveRole() {
+    saveSnapshot();
+    setUsers((items) => items.map((item) => item.id === selected.id ? { ...item, role: roleForm.role, permissionLevel: roleForm.permissionLevel } : item));
+    setModal(null);
+    setNotice({ title: "Role updated", description: `${selected.name} now has updated recovery access and responsibility.` });
+  }
+
+  function assignArea() {
+    saveSnapshot();
+    setUsers((items) => items.map((item) => item.id === selected.id ? { ...item, assignedRecoveryAreas: Array.from(new Set([areaForm.area, ...item.assignedRecoveryAreas])) } : item));
+    setModal(null);
+    setNotice({ title: "Recovery area assigned", description: `${areaForm.area} now routes to ${selected.name}.` });
+  }
+
+  function addUser() {
+    saveSnapshot();
+    const user: SetupTeamUser = { id: `SETUSER-${Date.now()}`, name: newUserForm.name || "New recovery owner", email: newUserForm.email || "new-owner@example.com", role: newUserForm.role, status: "Active", assignedRecoveryAreas: [newUserForm.area], activeRecoveryActions: 0, overdueActions: 0, revenueAtRiskOwned: "$0", recoveredValueThisMonth: "$0", permissionLevel: newUserForm.permissionLevel, tone: "cyan" };
+    setUsers((items) => [user, ...items]);
+    setSelectedId(user.id);
+    setModal(null);
+    setNewUserForm({ name: "", email: "", role: "Sales", area: "Inquiry Recovery", permissionLevel: "Manage assigned recovery actions" });
+    setNotice({ title: "User added", description: `${user.name} is ready to receive assigned recovery work.` });
+  }
+
+  function saveDefaultOwner() {
+    saveSnapshot();
+    setModal(null);
+    setNotice({ title: "Default owner rule saved", description: `${defaultOwnerForm.area} now routes to ${defaultOwnerForm.owner}, with ${defaultOwnerForm.fallback} as fallback.` });
+  }
+
+  function deactivateUser() {
+    saveSnapshot();
+    setUsers((items) => items.map((item) => item.id === selected.id ? { ...item, status: "Inactive", assignedRecoveryAreas: [`Moved open work to ${deactivateForm.replacementOwner}`], activeRecoveryActions: 0, overdueActions: 0 } : item));
+    setModal(null);
+    setNotice({ title: "User deactivated", description: `${selected.name}'s open work was prepared for reassignment.` });
+  }
+
+  const kpis: KPI[] = [
+    { label: "Active Users", value: `${users.filter((user) => user.status === "Active").length}`, caption: "Can own recovery work", tone: "cyan" },
+    { label: "Recovery Owners", value: `${users.filter((user) => user.role !== "Viewer" && user.role !== "Unassigned").length}`, caption: "Owner roles configured", tone: "emerald" },
     { label: "Unassigned Work Rules", value: "1", caption: "Fallback queue configured", tone: "amber" },
-    { label: "Role Coverage", value: "8", caption: "Recovery roles represented", tone: "cyan" },
-    { label: "Users With Overdue Work", value: `${setupTeamUsers.filter((user) => user.overdueActions > 0).length}`, caption: "Needs workload review", tone: "rose" },
+    { label: "Role Coverage", value: `${new Set(users.map((user) => user.role)).size}`, caption: "Recovery roles represented", tone: "cyan" },
+    { label: "Users With Overdue Work", value: `${users.filter((user) => user.overdueActions > 0).length}`, caption: "Needs workload review", tone: "rose" },
     { label: "Default Owners Set", value: `${ownershipRules.length}`, caption: "Owner routing rules", tone: "emerald" },
   ];
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {teamKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
-      </section>
+    <div className="setup-control-page setup-team-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid setup-kpi-grid">{kpis.map((item) => <KpiCard key={item.label} item={item} />)}</section>
+      <section className="setup-action-card"><div><span>Team setup</span><h3>{notice.title}</h3><p>{notice.description}</p></div><div className="setup-action-row">{undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}<button className="primary-btn" type="button" onClick={() => setModal("addUser")}>Add User</button><button className="secondary-btn" type="button" onClick={() => setModal("setDefaultOwner")}>Set Default Owner</button></div></section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Team User List</h2>
-            <p>Recovery ownership setup for users, roles, assigned areas, risk owned, and permission level.</p>
-          </div>
-          <Badge tone="cyan">Recovery owners</Badge>
-        </div>
-        <div className="team-load-grid team-workload-grid">
-          {setupTeamUsers.map((user) => (
-            <article className={`team-load-card ${user.tone}`} key={user.id}>
-              <div>
-                <div className="recovery-row-title">
-                  <h3>{user.name}</h3>
-                  <Badge tone={user.tone}>{user.role}</Badge>
-                </div>
-                <p>{user.email} - {user.permissionLevel}</p>
-              </div>
-              <div className="capture-value-stack">
-                <strong>{user.revenueAtRiskOwned}</strong>
-                <span>risk owned</span>
-              </div>
-              <div className="team-load-stats">
-                <span>{user.status}</span>
-                <span>{user.activeRecoveryActions} active actions</span>
-                <span>{user.overdueActions} overdue</span>
-                <span>{user.recoveredValueThisMonth} recovered</span>
-              </div>
-              <div className="team-load-detail">
-                <span>Assigned recovery areas</span>
-                <p>{user.assignedRecoveryAreas.join(", ")}</p>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">View owner queue</button>
-                <button type="button" className="secondary-btn">Edit role</button>
-                <button type="button" className="secondary-btn">Assign recovery area</button>
-              </div>
-            </article>
-          ))}
+      <section className="glass-card panel-card setup-panel">
+        <div className="panel-header setup-panel-header"><div><h2>Team User List</h2><p>Set recovery owners, roles, assigned areas, workload visibility, and default owner routing.</p></div><Badge tone="emerald">Recovery owners</Badge></div>
+        <div className="setup-card-list">
+          {users.map((user) => <article className="setup-card setup-user-card" key={user.id}>
+            <div>
+              <div className="setup-title-row"><h3>{user.name}</h3><Badge tone={user.tone}>{user.role}</Badge><Badge tone={user.status === "Inactive" ? "rose" : user.status === "System Queue" ? "amber" : "emerald"}>{user.status}</Badge></div>
+              <p>{user.email} · {user.permissionLevel}</p>
+              <div className="setup-chip-row"><span>{user.activeRecoveryActions} active actions</span><span>{user.overdueActions} overdue</span><span>{user.recoveredValueThisMonth} recovered</span></div>
+              <div className="setup-note-box"><span>Assigned recovery areas</span><p>{user.assignedRecoveryAreas.join(", ")}</p></div>
+            </div>
+            <div className="setup-card-side"><strong>{user.revenueAtRiskOwned}</strong><span>risk owned</span><div className="setup-card-actions"><button className="primary-btn" type="button" onClick={() => openForUser(user, "ownerQueue")}>View Owner Queue</button><button className="secondary-btn" type="button" onClick={() => openForUser(user, "editRole")}>Edit Role</button><button className="secondary-btn" type="button" onClick={() => openForUser(user, "assignArea")}>Assign Recovery Area</button></div></div>
+          </article>)}
         </div>
       </section>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
-          <h3>Role Permissions</h3>
-          {permissionRules.map((rule) => (
-            <div key={rule.id}>
-              <span>{rule.permissionName}</span>
-              <strong>{rule.ownerAdmin ? "Admin" : "Restricted"}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Ownership Rules</h3>
-          {ownershipRules.map((rule) => (
-            <div key={rule.id}>
-              <span>{rule.trigger}</span>
-              <strong>{rule.defaultOwnerRole}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>User Actions</h3>
-          <div><span>Add user</span><strong>Visible</strong></div>
-          <div><span>Set default owner</span><strong>Visible</strong></div>
-          <div><span>Deactivate user</span><strong>Visible</strong></div>
-        </article>
+      <section className="setup-three-grid">
+        <article className="glass-card panel-card setup-mini-panel"><h3>Role Permissions</h3><div className="setup-row-list">{permissionRules.map((rule) => <div className="setup-row" key={rule.id}><span>{rule.permissionName}</span><strong>{rule.ownerAdmin ? "Admin" : "Limited"}</strong></div>)}</div></article>
+        <article className="glass-card panel-card setup-mini-panel"><h3>Ownership Rules</h3><div className="setup-row-list">{ownershipRules.map((rule) => <div className="setup-row" key={rule.id}><span>{rule.trigger}</span><strong>{rule.defaultOwnerRole}</strong></div>)}</div></article>
+        <article className="glass-card panel-card setup-mini-panel"><h3>User Actions</h3><div className="setup-row-list"><div className="setup-row"><span>Add user</span><strong>Visible</strong></div><div className="setup-row"><span>Set default owner</span><strong>Visible</strong></div><div className="setup-row"><span>Deactivate user</span><strong>Visible</strong></div></div></article>
       </section>
+      <div className="setup-button-row"><button className="primary-btn" type="button" onClick={() => setModal("addUser")}>Add User</button><button className="secondary-btn" type="button" onClick={() => setModal("setDefaultOwner")}>Set Default Owner</button><button className="secondary-btn" type="button" onClick={() => selected && setModal("deactivate")}>Deactivate Selected User</button></div>
 
-      <div className="capture-actions">
-        <button type="button" className="primary-btn">Add user</button>
-        <button type="button" className="secondary-btn">Set default owner</button>
-        <button type="button" className="secondary-btn">Deactivate user</button>
-      </div>
+      {modal === "ownerQueue" && selected ? <ModalShell title={`${selected.name} owner queue`} onClose={() => setModal(null)} wide><div className="setup-detail-grid"><DetailField label="Role" value={selected.role} /><DetailField label="Active Actions" value={selected.activeRecoveryActions} /><DetailField label="Overdue Actions" value={selected.overdueActions} /><DetailField label="Revenue At Risk" value={selected.revenueAtRiskOwned} /><DetailField label="Recovered This Month" value={selected.recoveredValueThisMonth} /><DetailField label="Assigned Areas" value={selected.assignedRecoveryAreas.join(", ")} /></div><div className="setup-note-box"><span>Next step</span><p>Open this owner in Team Load or Assigned Recovery Actions to review active recovery work.</p></div><div className="setup-modal-actions"><button className="secondary-btn" type="button" onClick={() => { setModal(null); onNavigate("Team Load"); }}>Open Team Load</button><button className="secondary-btn" type="button" onClick={() => { setModal(null); onNavigate("Assigned Recovery Actions"); }}>Open Assigned Actions</button></div></ModalShell> : null}
+      {modal === "editRole" && selected ? <ModalShell title={`Edit role for ${selected.name}`} onClose={() => setModal(null)}><label className="setup-field">Role<select value={roleForm.role} onChange={(event) => setRoleForm((current) => ({ ...current, role: event.target.value as UserRole }))}>{roleOptions.map((role) => <option key={role}>{role}</option>)}</select></label><label className="setup-field">Permission Summary<textarea rows={3} value={roleForm.permissionLevel} onChange={(event) => setRoleForm((current) => ({ ...current, permissionLevel: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={saveRole}>Save Role</button></div></ModalShell> : null}
+      {modal === "assignArea" && selected ? <ModalShell title={`Assign recovery area to ${selected.name}`} onClose={() => setModal(null)}><label className="setup-field">Recovery Area<select value={areaForm.area} onChange={(event) => setAreaForm((current) => ({ ...current, area: event.target.value }))}>{areaOptions.map((area) => <option key={area}>{area}</option>)}</select></label><label className="setup-field">Backup Owner<select value={areaForm.backupOwner} onChange={(event) => setAreaForm((current) => ({ ...current, backupOwner: event.target.value }))}>{ownerOptions.map((owner) => <option key={owner}>{owner}</option>)}</select></label><label className="setup-field">Routing Note<textarea rows={3} value={areaForm.note} onChange={(event) => setAreaForm((current) => ({ ...current, note: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={assignArea}>Assign Area</button></div></ModalShell> : null}
+      {modal === "addUser" ? <ModalShell title="Add recovery user" onClose={() => setModal(null)}><div className="setup-form-grid"><label className="setup-field">Name<input value={newUserForm.name} onChange={(event) => setNewUserForm((current) => ({ ...current, name: event.target.value }))} /></label><label className="setup-field">Email<input value={newUserForm.email} onChange={(event) => setNewUserForm((current) => ({ ...current, email: event.target.value }))} /></label><label className="setup-field">Role<select value={newUserForm.role} onChange={(event) => setNewUserForm((current) => ({ ...current, role: event.target.value as UserRole }))}>{roleOptions.map((role) => <option key={role}>{role}</option>)}</select></label><label className="setup-field">Recovery Area<select value={newUserForm.area} onChange={(event) => setNewUserForm((current) => ({ ...current, area: event.target.value }))}>{areaOptions.map((area) => <option key={area}>{area}</option>)}</select></label></div><label className="setup-field">Permission Summary<textarea rows={3} value={newUserForm.permissionLevel} onChange={(event) => setNewUserForm((current) => ({ ...current, permissionLevel: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={addUser}>Add User</button></div></ModalShell> : null}
+      {modal === "setDefaultOwner" ? <ModalShell title="Set default owner" onClose={() => setModal(null)}><label className="setup-field">Area / Source<input value={defaultOwnerForm.area} onChange={(event) => setDefaultOwnerForm((current) => ({ ...current, area: event.target.value }))} /></label><label className="setup-field">Default Owner<select value={defaultOwnerForm.owner} onChange={(event) => setDefaultOwnerForm((current) => ({ ...current, owner: event.target.value }))}>{ownerOptions.map((owner) => <option key={owner}>{owner}</option>)}</select></label><label className="setup-field">Fallback Owner<select value={defaultOwnerForm.fallback} onChange={(event) => setDefaultOwnerForm((current) => ({ ...current, fallback: event.target.value }))}>{ownerOptions.map((owner) => <option key={owner}>{owner}</option>)}</select></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={saveDefaultOwner}>Save Default Owner</button></div></ModalShell> : null}
+      {modal === "deactivate" && selected ? <ModalShell title={`Deactivate ${selected.name}`} onClose={() => setModal(null)}><p>Choose where open recovery work should move before this user is deactivated.</p><label className="setup-field">Replacement Owner<select value={deactivateForm.replacementOwner} onChange={(event) => setDeactivateForm((current) => ({ ...current, replacementOwner: event.target.value }))}>{ownerOptions.filter((owner) => owner !== selected.name).map((owner) => <option key={owner}>{owner}</option>)}</select></label><label className="setup-field">Note<textarea rows={3} value={deactivateForm.note} onChange={(event) => setDeactivateForm((current) => ({ ...current, note: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={deactivateUser}>Deactivate User</button></div></ModalShell> : null}
     </div>
   );
 }
+
+
 
 function TagsStagesSetup() {
-  const tagsKpis: KPI[] = [
-    { label: "Active Recovery Stages", value: `${setupRecoveryStages.length}`, caption: "Stage model ready", tone: "cyan" },
-    { label: "Buyer Tags", value: `${setupBuyerTags.length}`, caption: "Buyer recovery labels", tone: "emerald" },
-    { label: "Product Tags", value: `${setupProductTags.length}`, caption: "Product recovery labels", tone: "amber" },
-    { label: "Source Tags", value: `${setupSourceTags.length}`, caption: "Source leakage labels", tone: "cyan" },
+  const [stages, setStages] = useState<SetupRecoveryStage[]>(setupRecoveryStages);
+  const [buyerTagRows, setBuyerTagRows] = useState<BuyerTag[]>(setupBuyerTags);
+  const [productTagRows, setProductTagRows] = useState<ProductTag[]>(setupProductTags);
+  const [sourceTagRows, setSourceTagRows] = useState<SourceTag[]>(setupSourceTags);
+  const [suggestions, setSuggestions] = useState<(SetupSmartTagSuggestion & { status?: "Open" | "Applied" | "Reviewed" })[]>(setupSmartTagSuggestions.map((item) => ({ ...item, status: "Open" })));
+  const [modal, setModal] = useState<"editStage" | "createRule" | "addStage" | "addTag" | "mergeTags" | null>(null);
+  const [selectedStageId, setSelectedStageId] = useState(stages[0]?.id ?? "");
+  const [notice, setNotice] = useState({ title: "Tags and stages ready", description: "Recovery labels and stages are available for routing, reporting, and templates." });
+  const [undo, setUndo] = useState<{ stages: SetupRecoveryStage[]; buyerTagRows: BuyerTag[]; productTagRows: ProductTag[]; sourceTagRows: SourceTag[]; suggestions: (SetupSmartTagSuggestion & { status?: "Open" | "Applied" | "Reviewed" })[] } | null>(null);
+  const [stageForm, setStageForm] = useState({ stageName: stages[0]?.stageName ?? "", purpose: stages[0]?.purpose ?? "", owner: stages[0]?.defaultOwnerRole ?? "Recovery Lead", timingRule: stages[0]?.timingRule ?? "", nextAction: stages[0]?.nextRecommendedAction ?? "", linkedTemplates: stages[0]?.linkedTemplates.join(", ") ?? "" });
+  const [ruleForm, setRuleForm] = useState({ tag: "Payment Pending", action: "Create payment recovery action", owner: "Tessa Nguyen", timing: "24 hours", template: "Payment pending reminder" });
+  const [tagForm, setTagForm] = useState({ tagName: "", tagType: "Buyer", recoveryUse: "Organize recovery records", ownerRule: "No default owner change" });
+  const [mergeForm, setMergeForm] = useState({ duplicateTags: "High Intent, High-intent", primaryTag: "High Intent", note: "Merge duplicate labels and keep record history." });
+
+  useEffect(() => {
+    function openAddTag() { setModal("addTag"); }
+    window.addEventListener("altynx-tags-add-tag", openAddTag);
+    return () => window.removeEventListener("altynx-tags-add-tag", openAddTag);
+  }, []);
+
+  function saveSnapshot() { setUndo({ stages, buyerTagRows, productTagRows, sourceTagRows, suggestions }); }
+  function restoreUndo() {
+    if (!undo) return;
+    setStages(undo.stages); setBuyerTagRows(undo.buyerTagRows); setProductTagRows(undo.productTagRows); setSourceTagRows(undo.sourceTagRows); setSuggestions(undo.suggestions); setUndo(null);
+    setNotice({ title: "Previous tag setup restored", description: "The last stage or tag change was reverted." });
+  }
+
+  const selectedStage = stages.find((stage) => stage.id === selectedStageId) ?? stages[0];
+
+  function openEditStage(stage: SetupRecoveryStage) {
+    setSelectedStageId(stage.id);
+    setStageForm({ stageName: stage.stageName, purpose: stage.purpose, owner: stage.defaultOwnerRole, timingRule: stage.timingRule, nextAction: stage.nextRecommendedAction, linkedTemplates: stage.linkedTemplates.join(", ") });
+    setModal("editStage");
+  }
+
+  function saveStage() {
+    saveSnapshot();
+    setStages((items) => items.map((item) => item.id === selectedStage.id ? { ...item, stageName: stageForm.stageName, purpose: stageForm.purpose, defaultOwnerRole: stageForm.owner, timingRule: stageForm.timingRule, nextRecommendedAction: stageForm.nextAction, linkedTemplates: stageForm.linkedTemplates.split(",").map((tag) => tag.trim()).filter(Boolean) } : item));
+    setModal(null);
+    setNotice({ title: "Recovery stage saved", description: `${stageForm.stageName} now has updated timing, owner, and linked templates.` });
+  }
+
+  function addStage() {
+    saveSnapshot();
+    const stage: SetupRecoveryStage = { id: `STAGE-${Date.now()}`, stageName: stageForm.stageName || "New Recovery Stage", purpose: stageForm.purpose || "Organize recovery records into the right next action.", defaultOwnerRole: stageForm.owner, timingRule: stageForm.timingRule || "Review same day", nextRecommendedAction: stageForm.nextAction || "Review and assign the next recovery action.", linkedTemplates: stageForm.linkedTemplates.split(",").map((tag) => tag.trim()).filter(Boolean), tone: "cyan" };
+    setStages((items) => [stage, ...items]);
+    setModal(null);
+    setNotice({ title: "Stage added", description: `${stage.stageName} is now available for recovery routing and templates.` });
+  }
+
+  function createRule() {
+    saveSnapshot();
+    setModal(null);
+    setNotice({ title: "Recovery rule created", description: `${ruleForm.tag} now has a default action, owner, timing, and template recommendation.` });
+  }
+
+  function addTag() {
+    saveSnapshot();
+    if (tagForm.tagType === "Product") {
+      setProductTagRows((items) => [{ id: `PTAG-${Date.now()}`, tagName: tagForm.tagName || "New Product Tag", productCount: 0, recoveryRuleUse: tagForm.recoveryUse, tone: "cyan" }, ...items]);
+    } else if (tagForm.tagType === "Source") {
+      setSourceTagRows((items) => [{ id: `STAG-${Date.now()}`, tagName: tagForm.tagName || "New Source Tag", recordCount: 0, recoveryUse: tagForm.recoveryUse, tone: "amber" }, ...items]);
+    } else {
+      setBuyerTagRows((items) => [{ id: `BTAG-${Date.now()}`, tagName: tagForm.tagName || "New Buyer Tag", recordCount: 0, recoveryUse: tagForm.recoveryUse, tone: "emerald" }, ...items]);
+    }
+    setModal(null);
+    setTagForm({ tagName: "", tagType: "Buyer", recoveryUse: "Organize recovery records", ownerRule: "No default owner change" });
+    setNotice({ title: "Tag added", description: "The new tag is available for recovery records, templates, and reporting." });
+  }
+
+  function mergeTags() {
+    saveSnapshot();
+    setModal(null);
+    setNotice({ title: "Duplicate tags merged", description: `${mergeForm.primaryTag} is now the primary label for matching records.` });
+  }
+
+  function applySuggestion(suggestion: SetupSmartTagSuggestion & { status?: "Open" | "Applied" | "Reviewed" }) {
+    saveSnapshot();
+    setSuggestions((items) => items.map((item) => item.id === suggestion.id ? { ...item, status: "Applied" } : item));
+    suggestion.suggestedTags.forEach((tag) => {
+      if (!buyerTagRows.some((item) => item.tagName === tag) && !productTagRows.some((item) => item.tagName === tag) && !sourceTagRows.some((item) => item.tagName === tag)) {
+        setBuyerTagRows((items) => [{ id: `BTAG-${Date.now()}-${tag}`, tagName: tag, recordCount: suggestion.affectedRecords, recoveryUse: suggestion.reason, tone: suggestion.tone }, ...items]);
+      }
+    });
+    setNotice({ title: "Suggested tags applied", description: `${suggestion.affectedRecords} records are now ready with the suggested recovery labels.` });
+  }
+
+  function reviewSuggestion(id: string) {
+    saveSnapshot();
+    setSuggestions((items) => items.map((item) => item.id === id ? { ...item, status: "Reviewed" } : item));
+    setNotice({ title: "Suggestion reviewed", description: "The tag suggestion was marked reviewed." });
+  }
+
+  const kpis: KPI[] = [
+    { label: "Active Recovery Stages", value: `${stages.length}`, caption: "Stage model ready", tone: "cyan" },
+    { label: "Buyer Tags", value: `${buyerTagRows.length}`, caption: "Buyer recovery labels", tone: "emerald" },
+    { label: "Product Tags", value: `${productTagRows.length}`, caption: "Product recovery labels", tone: "amber" },
+    { label: "Source Tags", value: `${sourceTagRows.length}`, caption: "Source leakage labels", tone: "cyan" },
     { label: "Untagged Records", value: "31", caption: "Needs recovery labels", tone: "rose" },
-    { label: "Smart Tag Suggestions", value: `${setupSmartTagSuggestions.length}`, caption: "Suggested cleanup", tone: "emerald" },
+    { label: "Smart Tag Suggestions", value: `${suggestions.filter((item) => item.status === "Open").length}`, caption: "Suggested cleanup", tone: "emerald" },
   ];
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {tagsKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
+    <div className="setup-control-page setup-tags-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid setup-kpi-grid">{kpis.map((item) => <KpiCard key={item.label} item={item} />)}</section>
+      <section className="setup-action-card"><div><span>Tag setup</span><h3>{notice.title}</h3><p>{notice.description}</p></div><div className="setup-action-row">{undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}<button className="primary-btn" type="button" onClick={() => setModal("addTag")}>Add Tag</button><button className="secondary-btn" type="button" onClick={() => { setStageForm({ stageName: "", purpose: "", owner: "Recovery Lead", timingRule: "", nextAction: "", linkedTemplates: "" }); setModal("addStage"); }}>Add Stage</button></div></section>
+
+      <section className="glass-card panel-card setup-panel">
+        <div className="panel-header setup-panel-header"><div><h2>Recovery Stages</h2><p>Stages organize buyers, orders, products, and recovery cases into the right next action.</p></div><Badge tone="cyan">Stage setup</Badge></div>
+        <div className="setup-card-list">{stages.map((stage) => <article className="setup-card" key={stage.id}><div><div className="setup-title-row"><h3>{stage.stageName}</h3><Badge tone={stage.tone}>{stage.defaultOwnerRole}</Badge></div><p>{stage.purpose}</p><div className="setup-chip-row"><span>{stage.timingRule}</span><span>{stage.nextRecommendedAction}</span>{stage.linkedTemplates.map((template) => <span key={template}>{template}</span>)}</div></div><div className="setup-card-actions"><button className="primary-btn" type="button" onClick={() => openEditStage(stage)}>Edit Stage</button><button className="secondary-btn" type="button" onClick={() => { setSelectedStageId(stage.id); setRuleForm({ tag: stage.stageName, action: stage.nextRecommendedAction, owner: stage.defaultOwnerRole, timing: stage.timingRule, template: stage.linkedTemplates[0] ?? "Template recommendation" }); setModal("createRule"); }}>Create Recovery Rule</button></div></article>)}</div>
       </section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Recovery Stages</h2>
-            <p>Stages that organize buyer, order, product, and recovery cases into the right next action.</p>
-          </div>
-          <Badge tone="cyan">Stage setup</Badge>
-        </div>
-        <div className="capture-card-list">
-          {setupRecoveryStages.map((stage) => (
-            <article className={`product-card ${stage.tone}`} key={stage.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{stage.stageName}</h3>
-                    <Badge tone={stage.tone}>{stage.defaultOwnerRole}</Badge>
-                  </div>
-                  <p>{stage.purpose}</p>
-                  <div className="recovery-meta">
-                    <span>{stage.timingRule}</span>
-                    <span>{stage.nextRecommendedAction}</span>
-                    <span>{stage.linkedTemplates.join(", ")}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Edit stage</button>
-                <button type="button" className="secondary-btn">Create recovery rule from tag</button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <section className="setup-three-grid"><article className="glass-card panel-card setup-mini-panel"><h3>Buyer Tags</h3><div className="setup-row-list">{buyerTagRows.slice(0, 10).map((tag) => <div className="setup-row" key={tag.id}><span>{tag.tagName}</span><strong>{tag.recordCount}</strong></div>)}</div></article><article className="glass-card panel-card setup-mini-panel"><h3>Product Tags</h3><div className="setup-row-list">{productTagRows.slice(0, 10).map((tag) => <div className="setup-row" key={tag.id}><span>{tag.tagName}</span><strong>{tag.productCount}</strong></div>)}</div></article><article className="glass-card panel-card setup-mini-panel"><h3>Source Tags</h3><div className="setup-row-list">{sourceTagRows.slice(0, 10).map((tag) => <div className="setup-row" key={tag.id}><span>{tag.tagName}</span><strong>{tag.recordCount}</strong></div>)}</div></article></section>
+      <div className="setup-button-row"><button className="primary-btn" type="button" onClick={() => { setStageForm({ stageName: "", purpose: "", owner: "Recovery Lead", timingRule: "", nextAction: "", linkedTemplates: "" }); setModal("addStage"); }}>Add Stage</button><button className="secondary-btn" type="button" onClick={() => setModal("addTag")}>Add Tag</button><button className="secondary-btn" type="button" onClick={() => setModal("mergeTags")}>Merge Duplicate Tags</button></div>
 
-      <section className="summary-breakdown-grid">
-        <article className="summary-breakdown-card">
-          <h3>Buyer Tags</h3>
-          {setupBuyerTags.map((tag) => (
-            <div key={tag.id}>
-              <span>{tag.tagName}</span>
-              <strong>{tag.recordCount}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Product Tags</h3>
-          {setupProductTags.map((tag) => (
-            <div key={tag.id}>
-              <span>{tag.tagName}</span>
-              <strong>{tag.productCount}</strong>
-            </div>
-          ))}
-        </article>
-        <article className="summary-breakdown-card">
-          <h3>Source Tags</h3>
-          {setupSourceTags.map((tag) => (
-            <div key={tag.id}>
-              <span>{tag.tagName}</span>
-              <strong>{tag.recordCount}</strong>
-            </div>
-          ))}
-        </article>
-      </section>
+      <section className="glass-card panel-card setup-panel"><div className="panel-header setup-panel-header"><div><h2>Smart Tag Suggestions</h2><p>Suggested labels based on product names, sources, buyer activity, delivery notes, and field validation.</p></div><Badge tone="amber">Suggested cleanup</Badge></div><div className="setup-card-list">{suggestions.map((suggestion) => <article className="setup-card" key={suggestion.id}><div><div className="setup-title-row"><h3>{suggestion.condition}</h3><Badge tone={suggestion.tone}>{suggestion.affectedRecords} records</Badge><Badge tone={suggestion.status === "Applied" ? "emerald" : suggestion.status === "Reviewed" ? "cyan" : "amber"}>{suggestion.status}</Badge></div><p>{suggestion.reason}</p><div className="setup-chip-row">{suggestion.suggestedTags.map((tag) => <span key={tag}>{tag}</span>)}</div></div><div className="setup-card-actions"><button className="primary-btn" type="button" onClick={() => applySuggestion(suggestion)}>Apply Suggested Tags</button><button className="secondary-btn" type="button" onClick={() => reviewSuggestion(suggestion.id)}>Mark Records Reviewed</button></div></article>)}</div></section>
 
-      <div className="capture-actions">
-        <button type="button" className="primary-btn">Add stage</button>
-        <button type="button" className="secondary-btn">Add tag</button>
-        <button type="button" className="secondary-btn">Merge duplicate tags</button>
-      </div>
-
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Smart Tag Suggestions</h2>
-            <p>Suggested labels based on product names, sources, buyer activity, delivery notes, and field validation.</p>
-          </div>
-          <Badge tone="amber">Suggested cleanup</Badge>
-        </div>
-        <div className="capture-card-list">
-          {setupSmartTagSuggestions.map((suggestion) => (
-            <article className={`product-card ${suggestion.tone}`} key={suggestion.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{suggestion.condition}</h3>
-                    <Badge tone={suggestion.tone}>{suggestion.affectedRecords} records</Badge>
-                  </div>
-                  <p>{suggestion.reason}</p>
-                  <div className="product-tag-list">
-                    {suggestion.suggestedTags.map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Apply suggested tags</button>
-                <button type="button" className="secondary-btn">Mark records reviewed</button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      {(modal === "editStage" || modal === "addStage") ? <ModalShell title={modal === "editStage" ? "Edit recovery stage" : "Add recovery stage"} onClose={() => setModal(null)} wide><div className="setup-form-grid"><label className="setup-field">Stage Name<input value={stageForm.stageName} onChange={(event) => setStageForm((current) => ({ ...current, stageName: event.target.value }))} /></label><label className="setup-field">Default Owner<input value={stageForm.owner} onChange={(event) => setStageForm((current) => ({ ...current, owner: event.target.value }))} /></label><label className="setup-field">Timing Rule<input value={stageForm.timingRule} onChange={(event) => setStageForm((current) => ({ ...current, timingRule: event.target.value }))} /></label><label className="setup-field">Linked Templates<input value={stageForm.linkedTemplates} onChange={(event) => setStageForm((current) => ({ ...current, linkedTemplates: event.target.value }))} /></label></div><label className="setup-field">Purpose<textarea rows={3} value={stageForm.purpose} onChange={(event) => setStageForm((current) => ({ ...current, purpose: event.target.value }))} /></label><label className="setup-field">Recommended Next Action<textarea rows={3} value={stageForm.nextAction} onChange={(event) => setStageForm((current) => ({ ...current, nextAction: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={modal === "editStage" ? saveStage : addStage}>{modal === "editStage" ? "Save Stage" : "Add Stage"}</button></div></ModalShell> : null}
+      {modal === "createRule" ? <ModalShell title="Create recovery rule" onClose={() => setModal(null)}><label className="setup-field">Tag / Stage<input value={ruleForm.tag} onChange={(event) => setRuleForm((current) => ({ ...current, tag: event.target.value }))} /></label><label className="setup-field">Default Action<input value={ruleForm.action} onChange={(event) => setRuleForm((current) => ({ ...current, action: event.target.value }))} /></label><label className="setup-field">Default Owner<input value={ruleForm.owner} onChange={(event) => setRuleForm((current) => ({ ...current, owner: event.target.value }))} /></label><label className="setup-field">Due Timing<input value={ruleForm.timing} onChange={(event) => setRuleForm((current) => ({ ...current, timing: event.target.value }))} /></label><label className="setup-field">Template Recommendation<input value={ruleForm.template} onChange={(event) => setRuleForm((current) => ({ ...current, template: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={createRule}>Save Rule</button></div></ModalShell> : null}
+      {modal === "addTag" ? <ModalShell title="Add tag" onClose={() => setModal(null)}><label className="setup-field">Tag Name<input value={tagForm.tagName} onChange={(event) => setTagForm((current) => ({ ...current, tagName: event.target.value }))} /></label><label className="setup-field">Tag Type<select value={tagForm.tagType} onChange={(event) => setTagForm((current) => ({ ...current, tagType: event.target.value }))}>{["Buyer", "Product", "Source"].map((type) => <option key={type}>{type}</option>)}</select></label><label className="setup-field">Recovery Use<textarea rows={3} value={tagForm.recoveryUse} onChange={(event) => setTagForm((current) => ({ ...current, recoveryUse: event.target.value }))} /></label><label className="setup-field">Owner Rule<input value={tagForm.ownerRule} onChange={(event) => setTagForm((current) => ({ ...current, ownerRule: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={addTag}>Add Tag</button></div></ModalShell> : null}
+      {modal === "mergeTags" ? <ModalShell title="Merge duplicate tags" onClose={() => setModal(null)}><label className="setup-field">Duplicate Tags<input value={mergeForm.duplicateTags} onChange={(event) => setMergeForm((current) => ({ ...current, duplicateTags: event.target.value }))} /></label><label className="setup-field">Primary Tag<input value={mergeForm.primaryTag} onChange={(event) => setMergeForm((current) => ({ ...current, primaryTag: event.target.value }))} /></label><label className="setup-field">Review Note<textarea rows={3} value={mergeForm.note} onChange={(event) => setMergeForm((current) => ({ ...current, note: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={mergeTags}>Merge Tags</button></div></ModalShell> : null}
     </div>
   );
 }
 
-function TemplatesSetup() {
+
+
+function TemplatesSetup({ templates = messageTemplates, onCreateTemplate }: { templates?: MessageTemplate[]; onCreateTemplate?: (template: MessageTemplate) => void }) {
   const [activeTemplateFilter, setActiveTemplateFilter] = useState<TemplateFilter>("All");
-  const filteredTemplates = messageTemplates.filter((template) =>
-    matchesTemplateFilter(template, activeTemplateFilter),
-  );
+  const [templateRows, setTemplateRows] = useState<MessageTemplate[]>(templates);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [modal, setModal] = useState<"create" | "edit" | "duplicate" | "link" | "review" | null>(null);
+  const [selectedId, setSelectedId] = useState(templates[0]?.id ?? "");
+  const [notice, setNotice] = useState({ title: "Template library ready", description: "Approved templates are available on recovery pages by stage, tag, channel, and use case." });
+  const [undo, setUndo] = useState<MessageTemplate[] | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [templateForm, setTemplateForm] = useState({ templateName: "", recoveryType: "Follow-up", industryFit: "Hybrid" as MessageTemplate["industryFit"], channel: "Manual Copy" as MessageTemplate["channel"], owner: "Amara Shah", approvalStatus: "Draft" as MessageTemplate["approvalStatus"], linkedStageTag: "Follow-up Needed", previewText: "" });
+  const [linkForm, setLinkForm] = useState({ linkedStageTag: "Follow-up Needed", note: "Make this template available for the selected stage or tag." });
+  const [reviewForm, setReviewForm] = useState({ reason: "Review copy before team use." });
+  const templatesPerPage = 25;
+
+  useEffect(() => { setTemplateRows(templates); }, [templates]);
+  useEffect(() => { setPageIndex(0); }, [activeTemplateFilter]);
+  useEffect(() => {
+    function openCreate() { setModal("create"); }
+    window.addEventListener("altynx-templates-create-template", openCreate);
+    return () => window.removeEventListener("altynx-templates-create-template", openCreate);
+  }, []);
+
+  const filteredTemplates = templateRows.filter((template) => matchesTemplateFilter(template, activeTemplateFilter));
+  const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / templatesPerPage));
+  const visibleTemplates = filteredTemplates.slice(pageIndex * templatesPerPage, pageIndex * templatesPerPage + templatesPerPage);
+  const selectedTemplate = templateRows.find((template) => template.id === selectedId) ?? templateRows[0];
+
+  function cleanChannel(channel: MessageTemplate["channel"]) { return String(channel).replace(" placeholder", ""); }
+  function saveSnapshot() { setUndo(templateRows); }
+  function restoreUndo() { if (!undo) return; setTemplateRows(undo); setUndo(null); setNotice({ title: "Template change reverted", description: "The previous template library state was restored." }); }
+  function openEdit(template: MessageTemplate, type: "edit" | "duplicate" | "link" | "review") {
+    setSelectedId(template.id);
+    setTemplateForm({ templateName: type === "duplicate" ? `${template.templateName} Copy` : template.templateName, recoveryType: template.recoveryType, industryFit: template.industryFit, channel: template.channel, owner: template.owner, approvalStatus: type === "duplicate" ? "Draft" : template.approvalStatus, linkedStageTag: template.linkedStageTag, previewText: template.previewText });
+    setLinkForm({ linkedStageTag: template.linkedStageTag, note: "Make this template available for the selected stage or tag." });
+    setModal(type);
+  }
+
+  function createTemplate() {
+    saveSnapshot();
+    const template: MessageTemplate = { id: `TPL-${Date.now()}`, templateName: templateForm.templateName || "New recovery template", recoveryType: templateForm.recoveryType, industryFit: templateForm.industryFit, channel: templateForm.channel, owner: templateForm.owner, approvalStatus: templateForm.approvalStatus, lastUpdated: "Just now", usageCount: 0, linkedStageTag: templateForm.linkedStageTag, previewText: templateForm.previewText || "Write the approved message text here.", tone: templateForm.approvalStatus === "Approved" ? "emerald" : templateForm.approvalStatus === "Needs Review" ? "rose" : "amber" };
+    setTemplateRows((items) => [template, ...items]);
+    onCreateTemplate?.(template);
+    setSelectedId(template.id);
+    setModal(null);
+    setNotice({ title: "Template created", description: `${template.templateName} is now available in the template library.` });
+  }
+
+  function saveTemplate() {
+    saveSnapshot();
+    setTemplateRows((items) => items.map((item) => item.id === selectedTemplate.id ? { ...item, templateName: templateForm.templateName, recoveryType: templateForm.recoveryType, industryFit: templateForm.industryFit, channel: templateForm.channel, owner: templateForm.owner, approvalStatus: templateForm.approvalStatus, linkedStageTag: templateForm.linkedStageTag, previewText: templateForm.previewText, lastUpdated: "Just now" } : item));
+    setModal(null);
+    setNotice({ title: "Template saved", description: `${templateForm.templateName} has updated copy, channel, and stage/tag link.` });
+  }
+
+  function duplicateTemplate() { createTemplate(); }
+  function approveTemplate(template: MessageTemplate) { saveSnapshot(); setTemplateRows((items) => items.map((item) => item.id === template.id ? { ...item, approvalStatus: "Approved", lastUpdated: "Just now", tone: "emerald" } : item)); setNotice({ title: "Template approved", description: `${template.templateName} is ready for team use.` }); }
+  function markNeedsReview(template: MessageTemplate) { saveSnapshot(); setSelectedId(template.id); setTemplateForm({ templateName: template.templateName, recoveryType: template.recoveryType, industryFit: template.industryFit, channel: template.channel, owner: template.owner, approvalStatus: "Needs Review", linkedStageTag: template.linkedStageTag, previewText: template.previewText }); setModal("review"); }
+  function saveReview() { saveSnapshot(); setTemplateRows((items) => items.map((item) => item.id === selectedTemplate.id ? { ...item, approvalStatus: "Needs Review", tone: "rose", lastUpdated: "Just now" } : item)); setModal(null); setNotice({ title: "Template marked for review", description: reviewForm.reason }); }
+  function linkTemplate() { saveSnapshot(); setTemplateRows((items) => items.map((item) => item.id === selectedTemplate.id ? { ...item, linkedStageTag: linkForm.linkedStageTag, lastUpdated: "Just now" } : item)); setModal(null); setNotice({ title: "Template linked", description: `${selectedTemplate.templateName} is now available for ${linkForm.linkedStageTag}.` }); }
+  async function copyTemplate(template: MessageTemplate) { try { await navigator.clipboard.writeText(template.previewText); } catch {} setCopiedId(template.id); setTemplateRows((items) => items.map((item) => item.id === template.id ? { ...item, usageCount: item.usageCount + 1 } : item)); setNotice({ title: "Template copied", description: `${template.templateName} was copied and usage count updated.` }); }
 
   const templateKpis: KPI[] = [
-    { label: "Active Templates", value: `${messageTemplates.length}`, caption: "Recovery message library", tone: "cyan" },
-    { label: "Recovery Types Covered", value: `${new Set(messageTemplates.map((template) => template.recoveryType)).size}`, caption: "Use cases covered", tone: "emerald" },
-    { label: "Templates Needing Review", value: `${messageTemplates.filter((template) => template.approvalStatus === "Needs Review").length}`, caption: "Needs approval", tone: "rose" },
+    { label: "Active Templates", value: `${templateRows.length}`, caption: "Recovery message library", tone: "cyan" },
+    { label: "Recovery Types Covered", value: `${new Set(templateRows.map((template) => template.recoveryType)).size}`, caption: "Use cases covered", tone: "emerald" },
+    { label: "Templates Needing Review", value: `${templateRows.filter((template) => template.approvalStatus === "Needs Review").length}`, caption: "Needs approval", tone: "rose" },
     { label: "Most Used Template", value: "Payment", caption: "Payment reminder", tone: "amber" },
-    { label: "Approved Templates", value: `${messageTemplates.filter((template) => template.approvalStatus === "Approved").length}`, caption: "Ready for team use", tone: "emerald" },
-    { label: "Missing Template Gaps", value: "3", caption: "Needs copy coverage", tone: "rose" },
+    { label: "Approved Templates", value: `${templateRows.filter((template) => template.approvalStatus === "Approved").length}`, caption: "Ready for team use", tone: "emerald" },
+    { label: "Template Gaps", value: "3", caption: "Needs copy coverage", tone: "rose" },
   ];
 
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {templateKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
-      </section>
-
-      <section className="queue-toolbar">
-        <div className="queue-tabs" aria-label="Template filters">
-          {templateFilters.map((filter) => (
-            <button
-              className={`queue-tab ${activeTemplateFilter === filter ? "active" : ""}`}
-              key={filter}
-              onClick={() => setActiveTemplateFilter(filter)}
-              type="button"
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-        <Badge tone="cyan">{filteredTemplates.length} templates</Badge>
-      </section>
-
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Templates</h2>
-            <p>Approved message templates for each recovery situation and channel.</p>
-          </div>
-          <Badge tone="emerald">Message template library</Badge>
-        </div>
-        <div className="capture-card-list">
-          {filteredTemplates.map((template) => (
-            <article className={`product-card ${template.tone}`} key={template.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{template.templateName}</h3>
-                    <Badge tone={template.tone}>{template.approvalStatus}</Badge>
-                  </div>
-                  <p>{template.previewText}</p>
-                  <div className="recovery-meta">
-                    <span>{template.recoveryType}</span>
-                    <span>{template.industryFit}</span>
-                    <span>{template.channel}</span>
-                    <span>{template.owner}</span>
-                    <span>{template.usageCount} uses</span>
-                    <span>{template.linkedStageTag}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Copy template</button>
-                <button type="button" className="secondary-btn">Edit template</button>
-                <button type="button" className="secondary-btn">Duplicate template</button>
-                <button type="button" className="secondary-btn">Approve template</button>
-                <button type="button" className="secondary-btn">Link to stage/tag</button>
-                <button type="button" className="secondary-btn">Mark needs review</button>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="capture-actions">
-          <button type="button" className="primary-btn">Create template</button>
-        </div>
-      </section>
+    <div className="setup-control-page setup-template-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid setup-kpi-grid">{templateKpis.map((item) => <KpiCard key={item.label} item={item} />)}</section>
+      <section className="queue-toolbar setup-toolbar"><div className="queue-tabs" aria-label="Template filters">{templateFilters.map((filter) => <button className={`queue-tab ${activeTemplateFilter === filter ? "active" : ""}`} key={filter} onClick={() => setActiveTemplateFilter(filter)} type="button">{filter}</button>)}</div><Badge tone="cyan">{filteredTemplates.length} templates · 25 per page</Badge></section>
+      <section className="setup-action-card"><div><span>Template status</span><h3>{notice.title}</h3><p>{notice.description}</p></div><div className="setup-action-row">{undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}<button className="primary-btn" type="button" onClick={() => { setTemplateForm({ templateName: "", recoveryType: "Follow-up", industryFit: "Hybrid", channel: "Manual Copy", owner: "Amara Shah", approvalStatus: "Draft", linkedStageTag: "Follow-up Needed", previewText: "" }); setModal("create"); }}>Create Template</button></div></section>
+      <section className="glass-card panel-card setup-panel"><div className="panel-header setup-panel-header"><div><h2>Templates</h2><p>Approved message templates for each recovery situation and channel.</p></div><Badge tone="emerald">Message template library</Badge></div><div className="setup-card-list">{visibleTemplates.map((template) => <article className="setup-card" key={template.id}><div><div className="setup-title-row"><h3>{template.templateName}</h3><Badge tone={template.tone}>{template.approvalStatus}</Badge></div><p>{template.previewText}</p><div className="setup-chip-row"><span>{template.recoveryType}</span><span>{template.industryFit}</span><span>{cleanChannel(template.channel)}</span><span>{template.owner}</span><span>{template.usageCount} uses</span><span>{template.linkedStageTag}</span></div></div><div className="setup-card-actions"><button type="button" className="primary-btn" onClick={() => copyTemplate(template)}>{copiedId === template.id ? "Copied" : "Copy Template"}</button><button type="button" className="secondary-btn" onClick={() => openEdit(template, "edit")}>Edit Template</button><button type="button" className="secondary-btn" onClick={() => openEdit(template, "duplicate")}>Duplicate</button><button type="button" className="secondary-btn" onClick={() => approveTemplate(template)}>Approve</button><button type="button" className="secondary-btn" onClick={() => openEdit(template, "link")}>Link Stage/Tag</button><button type="button" className="secondary-btn" onClick={() => markNeedsReview(template)}>Needs Review</button></div></article>)}</div><div className="setup-pagination"><span>Page {pageIndex + 1} of {totalPages}</span><div><button className="secondary-btn" type="button" disabled={pageIndex === 0} onClick={() => setPageIndex((page) => Math.max(0, page - 1))}>Previous</button><button className="secondary-btn" type="button" disabled={pageIndex >= totalPages - 1} onClick={() => setPageIndex((page) => Math.min(totalPages - 1, page + 1))}>Next</button></div></div></section>
+      {(modal === "create" || modal === "edit" || modal === "duplicate") ? <ModalShell title={modal === "create" ? "Create template" : modal === "edit" ? "Edit template" : "Duplicate template"} onClose={() => setModal(null)} wide><div className="setup-form-grid"><label className="setup-field">Template Name<input value={templateForm.templateName} onChange={(event) => setTemplateForm((current) => ({ ...current, templateName: event.target.value }))} /></label><label className="setup-field">Recovery Type<input value={templateForm.recoveryType} onChange={(event) => setTemplateForm((current) => ({ ...current, recoveryType: event.target.value }))} /></label><label className="setup-field">Industry Fit<select value={templateForm.industryFit} onChange={(event) => setTemplateForm((current) => ({ ...current, industryFit: event.target.value as MessageTemplate["industryFit"] }))}>{["Fashion / Apparel", "Beauty / Skincare", "Hybrid"].map((item) => <option key={item}>{item}</option>)}</select></label><label className="setup-field">Channel<select value={templateForm.channel} onChange={(event) => setTemplateForm((current) => ({ ...current, channel: event.target.value as MessageTemplate["channel"] }))}>{["Manual Copy", "WhatsApp", "Instagram DM", "Email", "SMS"].map((channel) => <option key={channel}>{channel}</option>)}</select></label><label className="setup-field">Owner<input value={templateForm.owner} onChange={(event) => setTemplateForm((current) => ({ ...current, owner: event.target.value }))} /></label><label className="setup-field">Approval Status<select value={templateForm.approvalStatus} onChange={(event) => setTemplateForm((current) => ({ ...current, approvalStatus: event.target.value as MessageTemplate["approvalStatus"] }))}>{["Approved", "Needs Review", "Draft"].map((status) => <option key={status}>{status}</option>)}</select></label><label className="setup-field wide-field">Stage / Tag Link<input value={templateForm.linkedStageTag} onChange={(event) => setTemplateForm((current) => ({ ...current, linkedStageTag: event.target.value }))} /></label></div><label className="setup-field">Template Text<textarea rows={5} value={templateForm.previewText} onChange={(event) => setTemplateForm((current) => ({ ...current, previewText: event.target.value }))} /></label><div className="setup-note-box"><span>Common variables</span><p>{"{{buyer_name}}, {{product_name}}, {{order_number}}, {{refill_window}}, {{restock_item}}, {{owner_name}}"}</p></div><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={modal === "edit" ? saveTemplate : modal === "duplicate" ? duplicateTemplate : createTemplate}>{modal === "edit" ? "Save Template" : modal === "duplicate" ? "Create Duplicate" : "Create Template"}</button></div></ModalShell> : null}
+      {modal === "link" ? <ModalShell title="Link template to stage or tag" onClose={() => setModal(null)}><label className="setup-field">Stage / Tag<input value={linkForm.linkedStageTag} onChange={(event) => setLinkForm((current) => ({ ...current, linkedStageTag: event.target.value }))} /></label><label className="setup-field">Note<textarea rows={3} value={linkForm.note} onChange={(event) => setLinkForm((current) => ({ ...current, note: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={linkTemplate}>Save Link</button></div></ModalShell> : null}
+      {modal === "review" ? <ModalShell title="Mark template needs review" onClose={() => setModal(null)}><label className="setup-field">Review reason<textarea rows={4} value={reviewForm.reason} onChange={(event) => setReviewForm((current) => ({ ...current, reason: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={saveReview}>Mark Needs Review</button></div></ModalShell> : null}
     </div>
   );
 }
 
-function SetupImportExport() {
-  const cleanRecords = setupImportJobs.reduce((total, job) => total + (job.rowsProcessed - job.issuesFound), 0);
-  const issues = setupImportJobs.reduce((total, job) => total + job.issuesFound, 0);
-  const duplicateRecords = importValidationIssues.find((issue) => issue.issueType === "Duplicate buyer")?.affectedRows ?? 0;
-  const missingFields = importValidationIssues
-    .filter((issue) => issue.issueType.toLowerCase().includes("missing"))
-    .reduce((total, issue) => total + issue.affectedRows, 0);
 
-  const importExportKpis: KPI[] = [
+function SetupImportExport() {
+  const [jobs, setJobs] = useState<ImportJob[]>(setupImportJobs);
+  const [issues, setIssues] = useState<ImportValidationIssue[]>(importValidationIssues);
+  const [modal, setModal] = useState<"upload" | "map" | "validate" | "confirm" | "reviewIssues" | "export" | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState(jobs[0]?.id ?? "");
+  const [notice, setNotice] = useState({ title: "Data movement ready", description: "Imports, exports, validation issues, and recent jobs are ready for review." });
+  const [undo, setUndo] = useState<{ jobs: ImportJob[]; issues: ImportValidationIssue[] } | null>(null);
+  const [importForm, setImportForm] = useState({ fileName: "No file selected", importType: "Buyer/customer list", owner: "Operations" });
+  const [mappingForm, setMappingForm] = useState({ buyer: "buyer_name", source: "source", owner: "owner", product: "product_name", stage: "recovery_stage" });
+  const [exportForm, setExportForm] = useState({ dataset: setupExportDatasets[0]?.datasetName ?? "Buyers", format: "CSV" });
+
+  const cleanRecords = jobs.reduce((total, job) => total + Math.max(0, job.rowsProcessed - job.issuesFound), 0);
+  const issueCount = jobs.reduce((total, job) => total + job.issuesFound, 0);
+  const duplicateRecords = issues.find((issue) => issue.issueType === "Duplicate buyer")?.affectedRows ?? 0;
+  const missingFields = issues.filter((issue) => issue.issueType.toLowerCase().includes("missing")).reduce((total, issue) => total + issue.affectedRows, 0);
+  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? jobs[0];
+
+  useEffect(() => {
+    function openUpload() { setModal("upload"); }
+    window.addEventListener("altynx-setup-import-upload", openUpload);
+    return () => window.removeEventListener("altynx-setup-import-upload", openUpload);
+  }, []);
+
+  function saveSnapshot() { setUndo({ jobs, issues }); }
+  function restoreUndo() { if (!undo) return; setJobs(undo.jobs); setIssues(undo.issues); setUndo(null); setNotice({ title: "Previous import/export state restored", description: "The last data movement change was reverted." }); }
+
+  function uploadFile() {
+    saveSnapshot();
+    const job: ImportJob = { id: `JOB-${Date.now()}`, activityType: "Import", dataSet: importForm.importType, rowsProcessed: 0, issuesFound: 0, status: "Ready", owner: importForm.owner, timestamp: "Just now", nextAction: "Map columns and validate required recovery fields.", tone: "cyan" };
+    setJobs((items) => [job, ...items]);
+    setSelectedJobId(job.id);
+    setModal(null);
+    setNotice({ title: "File staged for import", description: `${importForm.importType} is ready for column mapping and validation.` });
+  }
+
+  function mapColumns() {
+    saveSnapshot();
+    setJobs((items) => items.map((job) => job.id === selectedJob.id ? { ...job, status: "Needs Review", nextAction: "Validate mapped fields before confirming import." } : job));
+    setModal(null);
+    setNotice({ title: "Columns mapped", description: "Buyer, source, owner, product, and stage fields are ready for validation." });
+  }
+
+  function validateImport() {
+    saveSnapshot();
+    setJobs((items) => items.map((job) => job.id === selectedJob.id ? { ...job, issuesFound: Math.max(job.issuesFound, 3), status: "Needs Review", nextAction: "Review missing owner, source, product, or stage issues." } : job));
+    setModal(null);
+    setNotice({ title: "Import validated", description: "Validation results are ready. Review any required fixes before confirming import." });
+  }
+
+  function confirmImport() {
+    saveSnapshot();
+    setJobs((items) => items.map((job) => job.id === selectedJob.id ? { ...job, status: "Completed", issuesFound: 0, nextAction: "Records are available for recovery work and reporting.", tone: "emerald" } : job));
+    setModal(null);
+    setNotice({ title: "Import confirmed", description: `${selectedJob.dataSet} records are now ready for recovery use.` });
+  }
+
+  function markIssueReviewed(issue: ImportValidationIssue) {
+    saveSnapshot();
+    setIssues((items) => items.filter((item) => item.id !== issue.id));
+    setNotice({ title: "Issue reviewed", description: `${issue.issueType} was marked reviewed.` });
+  }
+
+  function exportDataset(datasetName = exportForm.dataset) {
+    const dataset = setupExportDatasets.find((item) => item.datasetName === datasetName) ?? setupExportDatasets[0];
+    downloadRowsAsCsv(`${dataset.datasetName.toLowerCase().replace(/\s+/g, "-")}.csv`, [["Dataset", "Records", "Use"], [dataset.datasetName, String(dataset.records), dataset.recoveryUse]]);
+    setModal(null);
+    setNotice({ title: "Export downloaded", description: `${dataset.datasetName} CSV is ready.` });
+  }
+
+  function downloadIssueReport() {
+    downloadRowsAsCsv("import-validation-issues.csv", [["Issue", "Affected Rows", "Severity", "Recommended Fix"], ...issues.map((issue) => [issue.issueType, String(issue.affectedRows), issue.severity, issue.recommendedFix])]);
+    setNotice({ title: "Issue report downloaded", description: "Import validation issues were exported as CSV." });
+  }
+
+  const kpis: KPI[] = [
     { label: "Last Import Rows", value: "482", caption: "Latest buyer/customer list", tone: "cyan" },
     { label: "Clean Records", value: `${cleanRecords}`, caption: "Validated rows", tone: "emerald" },
-    { label: "Import Issues", value: `${issues}`, caption: "Needs review", tone: "rose" },
+    { label: "Import Issues", value: `${issueCount}`, caption: "Needs review", tone: "rose" },
     { label: "Duplicate Records", value: `${duplicateRecords}`, caption: "Merge review needed", tone: "amber" },
     { label: "Missing Required Fields", value: `${missingFields}`, caption: "Field validation issues", tone: "rose" },
     { label: "Exportable Data Sets", value: `${setupExportDatasets.length}`, caption: "Ready for movement", tone: "emerald" },
   ];
 
+  const importTypes = ["Buyer/customer list", "Inquiry list", "Order list", "Product/SKU list", "Recovery cases", "Tags/stages", "Templates", "Sources", "Team users"];
+
   return (
-    <div className="recovery-page">
-      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid">
-        {importExportKpis.map((item) => (
-          <KpiCard key={item.label} item={item} />
-        ))}
-      </section>
+    <div className="setup-control-page setup-import-page">
+      <section className="recovery-kpi-grid capture-kpi-grid revenue-kpi-grid setup-kpi-grid">{kpis.map((item) => <KpiCard key={item.label} item={item} />)}</section>
+      <section className="setup-action-card"><div><span>Import / export status</span><h3>{notice.title}</h3><p>{notice.description}</p></div><div className="setup-action-row">{undo ? <button className="secondary-btn" type="button" onClick={restoreUndo}>Undo</button> : null}<button className="primary-btn" type="button" onClick={() => setModal("upload")}>Upload File</button><button className="secondary-btn" type="button" onClick={() => setModal("export")}>Export Dataset</button></div></section>
 
-      <section className="two-column-grid import-export-grid">
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Import Center</h2>
-              <p>System-wide onboarding and field validation for buyers, orders, products, tags, templates, and recovery cases.</p>
-            </div>
-            <Badge tone="amber">Import mapping</Badge>
-          </div>
-          <div className="import-step-grid">
-            <div><span>Upload file</span><strong>CSV / XLSX placeholder / JSON placeholder</strong></div>
-            <div><span>Choose import type</span><strong>Buyer, inquiry, order, product, case, tag, template, source, team</strong></div>
-            <div><span>Map columns</span><strong>Buyer, source, owner, product/SKU, recovery stage</strong></div>
-            <div><span>Validate data</span><strong>Missing fields, duplicates, contact format, unmapped columns</strong></div>
-          </div>
-          <div className="capture-actions">
-            <button type="button" className="primary-btn">Upload file</button>
-            <button type="button" className="secondary-btn">Map columns</button>
-            <button type="button" className="secondary-btn">Validate import</button>
-            <button type="button" className="secondary-btn">Confirm import</button>
-          </div>
-          <div className="capture-card-list source-fix-callout">
-            {importValidationIssues.map((issue) => (
-              <article className={`product-card ${issue.tone}`} key={issue.id}>
-                <div className="capture-card-main">
-                  <div>
-                    <div className="recovery-row-title">
-                      <h3>{issue.issueType}</h3>
-                      <Badge tone={issue.tone}>{issue.severity}</Badge>
-                    </div>
-                    <p>{issue.recommendedFix}</p>
-                    <div className="recovery-meta">
-                      <span>{issue.affectedRows} affected rows</span>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </article>
+      <section className="glass-card panel-card setup-panel"><div className="panel-header setup-panel-header"><div><h2>Import Center</h2><p>Upload, map, validate, and confirm system-wide data for buyers, orders, products, cases, tags, templates, sources, and teams.</p></div><Badge tone="amber">Import mapping</Badge></div><div className="setup-detail-grid"><DetailField label="Selected File" value={importForm.fileName} /><DetailField label="Import Type" value={importForm.importType} /><DetailField label="Map Columns" value="Buyer, source, owner, product/SKU, recovery stage" /><DetailField label="Validate Data" value="Missing fields, duplicates, contact format, unmapped columns" /></div><div className="setup-button-row"><button className="primary-btn" type="button" onClick={() => setModal("upload")}>Upload File</button><button className="secondary-btn" type="button" onClick={() => setModal("map")}>Map Columns</button><button className="secondary-btn" type="button" onClick={() => setModal("validate")}>Validate Import</button><button className="secondary-btn" type="button" onClick={() => setModal("confirm")}>Confirm Import</button></div></section>
 
-        <article className="glass-card panel-card">
-          <div className="panel-header">
-            <div>
-              <h2>Export Center</h2>
-              <p>Export datasets for buyers, recovery cases, product data, reports, templates, team workload, and sync logs.</p>
-            </div>
-            <Badge tone="emerald">Export dataset</Badge>
-          </div>
-          <div className="export-option-list">
-            {setupExportDatasets.map((dataset) => (
-              <article className={`export-option-card ${dataset.tone}`} key={dataset.id}>
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{dataset.datasetName}</h3>
-                    <Badge tone={dataset.tone}>{dataset.records} records</Badge>
-                  </div>
-                  <p>{dataset.recoveryUse}</p>
-                  <div className="recovery-meta">
-                    {dataset.formats.map((format) => (
-                      <span key={format}>{format}</span>
-                    ))}
-                  </div>
-                </div>
-                <button type="button" className="secondary-btn">Export</button>
-              </article>
-            ))}
-          </div>
-          <div className="capture-actions">
-            <button type="button" className="primary-btn">Export CSV</button>
-            <button type="button" className="secondary-btn">Export XLSX</button>
-            <button type="button" className="secondary-btn">Export JSON</button>
-            <button type="button" className="secondary-btn">Export PDF</button>
-          </div>
-        </article>
-      </section>
+      <section className="glass-card panel-card setup-panel"><div className="panel-header setup-panel-header"><div><h2>Import Validation Issues</h2><p>Review missing fields, duplicates, owner gaps, and product/SKU issues before records enter recovery work.</p></div><button className="secondary-btn" type="button" onClick={downloadIssueReport}>Download Issue Report</button></div><div className="setup-card-list">{issues.map((issue) => <article className="setup-card" key={issue.id}><div><div className="setup-title-row"><h3>{issue.issueType}</h3><Badge tone={issue.tone}>{issue.severity}</Badge></div><p>{issue.recommendedFix}</p><div className="setup-chip-row"><span>{issue.affectedRows} affected rows</span></div></div><div className="setup-card-actions"><button className="primary-btn" type="button" onClick={() => markIssueReviewed(issue)}>Mark Fixed / Reviewed</button></div></article>)}</div></section>
 
-      <section className="glass-card panel-card">
-        <div className="panel-header">
-          <div>
-            <h2>Recent Import / Export Activity</h2>
-            <p>Recent system-wide data movement, validation issues, status, owner, and next action.</p>
-          </div>
-          <Badge tone="cyan">Activity log</Badge>
-        </div>
-        <div className="capture-card-list">
-          {setupImportJobs.map((job) => (
-            <article className={`product-card ${job.tone}`} key={job.id}>
-              <div className="capture-card-main">
-                <div>
-                  <div className="recovery-row-title">
-                    <h3>{job.activityType}: {job.dataSet}</h3>
-                    <Badge tone={job.tone}>{job.status}</Badge>
-                  </div>
-                  <p>{job.nextAction}</p>
-                  <div className="recovery-meta">
-                    <span>{job.rowsProcessed} rows processed</span>
-                    <span>{job.issuesFound} issues found</span>
-                    <span>{job.owner}</span>
-                    <span>{job.timestamp}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="capture-actions">
-                <button type="button" className="primary-btn">Download issue report</button>
-                <button type="button" className="secondary-btn">Review issues</button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <section className="glass-card panel-card setup-panel"><div className="panel-header setup-panel-header"><div><h2>Export Center</h2><p>Export recovery datasets for buyers, cases, products, reports, templates, team workload, and sync logs.</p></div><Badge tone="emerald">Export dataset</Badge></div><div className="setup-card-list">{setupExportDatasets.map((dataset) => <article className="setup-card" key={dataset.id}><div><div className="setup-title-row"><h3>{dataset.datasetName}</h3><Badge tone={dataset.tone}>{dataset.records} records</Badge></div><p>{dataset.recoveryUse}</p><div className="setup-chip-row"><span>CSV ready</span>{dataset.formats.some((format) => format.includes("PDF")) ? <span>PDF available in reports</span> : null}</div></div><div className="setup-card-actions"><button className="secondary-btn" type="button" onClick={() => exportDataset(dataset.datasetName)}>Export CSV</button></div></article>)}</div></section>
+
+      <section className="glass-card panel-card setup-panel"><div className="panel-header setup-panel-header"><div><h2>Recent Import / Export Activity</h2><p>Recent data movement, validation status, owner, and next action.</p></div><Badge tone="cyan">Activity log</Badge></div><div className="setup-card-list">{jobs.map((job) => <article className="setup-card" key={job.id}><div><div className="setup-title-row"><h3>{job.activityType}: {job.dataSet}</h3><Badge tone={job.tone}>{job.status}</Badge></div><p>{job.nextAction}</p><div className="setup-chip-row"><span>{job.rowsProcessed} rows processed</span><span>{job.issuesFound} issues found</span><span>{job.owner}</span><span>{job.timestamp}</span></div></div><div className="setup-card-actions"><button className="primary-btn" type="button" onClick={() => { setSelectedJobId(job.id); downloadIssueReport(); }}>Download Issue Report</button><button className="secondary-btn" type="button" onClick={() => { setSelectedJobId(job.id); setModal("reviewIssues"); }}>Review Issues</button></div></article>)}</div></section>
+
+      {modal === "upload" ? <ModalShell title="Upload file" onClose={() => setModal(null)}><label className="setup-field">File Name<input value={importForm.fileName} onChange={(event) => setImportForm((current) => ({ ...current, fileName: event.target.value }))} /></label><label className="setup-field">Import Type<select value={importForm.importType} onChange={(event) => setImportForm((current) => ({ ...current, importType: event.target.value }))}>{importTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label className="setup-field">Review Owner<input value={importForm.owner} onChange={(event) => setImportForm((current) => ({ ...current, owner: event.target.value }))} /></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={uploadFile}>Stage File</button></div></ModalShell> : null}
+      {modal === "map" ? <ModalShell title="Map columns" onClose={() => setModal(null)}><div className="setup-form-grid">{Object.entries(mappingForm).map(([key, value]) => <label className="setup-field" key={key}>{key.replace(/^./, (s) => s.toUpperCase())}<input value={value} onChange={(event) => setMappingForm((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={mapColumns}>Save Mapping</button></div></ModalShell> : null}
+      {modal === "validate" ? <ModalShell title="Validate import" onClose={() => setModal(null)}><p>Check required buyer, source, owner, product/SKU, contact, and recovery stage fields.</p><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={validateImport}>Run Validation</button></div></ModalShell> : null}
+      {modal === "confirm" ? <ModalShell title="Confirm import" onClose={() => setModal(null)}><p>Confirm import after reviewing required issues. Clean records will become available for recovery work and reporting.</p><div className="setup-modal-actions"><button className="secondary-btn" type="button" onClick={() => setModal(null)}>Cancel</button><button className="primary-btn" type="button" onClick={confirmImport}>Confirm Import</button></div></ModalShell> : null}
+      {modal === "reviewIssues" ? <ModalShell title="Review import issues" onClose={() => setModal(null)} wide><div className="setup-card-list compact">{issues.map((issue) => <article className="setup-card" key={issue.id}><div><div className="setup-title-row"><h3>{issue.issueType}</h3><Badge tone={issue.tone}>{issue.severity}</Badge></div><p>{issue.recommendedFix}</p><div className="setup-chip-row"><span>{issue.affectedRows} rows</span></div></div><button className="secondary-btn" type="button" onClick={() => markIssueReviewed(issue)}>Mark Reviewed</button></article>)}</div></ModalShell> : null}
+      {modal === "export" ? <ModalShell title="Export dataset" onClose={() => setModal(null)}><label className="setup-field">Dataset<select value={exportForm.dataset} onChange={(event) => setExportForm((current) => ({ ...current, dataset: event.target.value }))}>{setupExportDatasets.map((dataset) => <option key={dataset.id}>{dataset.datasetName}</option>)}</select></label><label className="setup-field">Format<select value={exportForm.format} onChange={(event) => setExportForm((current) => ({ ...current, format: event.target.value }))}><option>CSV</option></select></label><div className="setup-modal-actions"><button className="primary-btn" type="button" onClick={() => exportDataset()}>Export CSV</button></div></ModalShell> : null}
     </div>
   );
 }
+
+
 
 function RecoveryActivityPage({ activities }: { activities: RecoveryActivity[] }) {
   const [activeActivityFilter, setActiveActivityFilter] = useState<ActivityFilter>("All");
@@ -18170,6 +30022,350 @@ function RecoveryActivityPage({ activities }: { activities: RecoveryActivity[] }
   );
 }
 
+
+type WorkflowChannel =
+  | "Manual Copy"
+  | "WhatsApp"
+  | "Instagram DM"
+  | "Email"
+  | "SMS"
+  | "Internal Note"
+  | "Action Status Update";
+
+type WorkflowEventKind =
+  | "message_update"
+  | "template_created"
+  | "template_copied"
+  | "note_added"
+  | "teammate_notified"
+  | "workflow_update_requested"
+  | "status_marked"
+  | "recovery_action_created"
+  | "manual_record_added"
+  | "queue_movement"
+  | "owner_update"
+  | "snoozed"
+  | "thread_closed"
+  | "record_reopened"
+  | "related_case_opened";
+
+type WorkflowEventStatus =
+  | "Pending action sync"
+  | "Ready for action sync"
+  | "Internal notification queued"
+  | "Manual copy logged";
+
+type WorkflowEventRecord = {
+  id: string;
+  eventType: WorkflowEventKind;
+  actionLabel: string;
+  sourcePage: string;
+  relatedRecord: string;
+  channel: WorkflowChannel;
+  status: WorkflowEventStatus;
+  note: string;
+  createdAt: string;
+};
+
+type PendingWorkflowPrompt = {
+  eventType: WorkflowEventKind;
+  actionLabel: string;
+  sourcePage: string;
+  relatedRecord: string;
+  defaultChannel: WorkflowChannel;
+  needsChannel: boolean;
+};
+
+const workflowChannels: WorkflowChannel[] = [
+  "Manual Copy",
+  "WhatsApp",
+  "Instagram DM",
+  "Email",
+  "SMS",
+  "Internal Note",
+  "Action Status Update",
+];
+
+const workflowEventStorageKey = "altynx_workflow_events";
+
+function normalizeWorkflowText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function getWorkflowEventKind(actionText: string): WorkflowEventKind | null {
+  const text = actionText.toLowerCase();
+
+  if (!text || ["close", "cancel", "done", "previous", "next", "stay here"].includes(text)) {
+    return null;
+  }
+
+  if (text.startsWith("view ") || text === "view more" || text === "view details") {
+    return null;
+  }
+
+  if (text.includes("open recovery queue") || text.includes("open queue")) {
+    return null;
+  }
+
+  if (text.includes("copy template")) return "template_copied";
+  if (text.includes("create new template") || text.includes("create template")) return "template_created";
+  if (text.includes("mention teammate") || text.includes("notify teammate")) return "teammate_notified";
+  if (text.includes("internal note") || text.includes("management note") || text.includes("save note")) return "note_added";
+  if (text.includes("request re-sync") || text.includes("request resync") || text.includes("send update to workflow") || text.includes("sync action") || text.includes("sync manual")) return "workflow_update_requested";
+  if (text.includes("open related")) return "related_case_opened";
+  if (text.includes("add to recovery queue") || text.includes("move to") || text.includes("send high-intent buyers to queue") || text.includes("queue")) return "queue_movement";
+  if (text.includes("assign") || text.includes("reassign")) return "owner_update";
+  if (text.includes("snooze")) return "snoozed";
+  if (text.includes("close thread")) return "thread_closed";
+  if (text.includes("reopen")) return "record_reopened";
+  if (text.includes("create assigned action") || text.includes("create recovery action") || text.includes("create recovery case") || text.includes("create case") || text.includes("create payment recovery")) return "recovery_action_created";
+  if (text.includes("add manual") || text.includes("add buyer") || text.includes("add waitlist") || text.includes("add refill") || text.includes("add inactive") || text.includes("capture inquiry") || text.includes("add opportunity") || text.includes("add record")) return "manual_record_added";
+  if (text.includes("mark ") || text.includes("resolve") || text.includes("recover") || text.includes("reviewed") || text.includes("sent")) return "status_marked";
+  if (text.includes("send") || text.includes("email") || text.includes("whatsapp") || text.includes("instagram") || text.includes("dm") || text.includes("message") || text.includes("notify")) return "message_update";
+
+  return null;
+}
+
+function getDefaultWorkflowChannel(actionText: string): WorkflowChannel {
+  const text = actionText.toLowerCase();
+
+  if (text.includes("whatsapp")) return "WhatsApp";
+  if (text.includes("instagram") || text.includes(" dm")) return "Instagram DM";
+  if (text.includes("email")) return "Email";
+  if (text.includes("sms")) return "SMS";
+  if (text.includes("note") || text.includes("teammate") || text.includes("mention")) return "Internal Note";
+  if (text.includes("workflow") || text.includes("sync") || text.includes("re-sync")) return "Action Status Update";
+
+  return "Manual Copy";
+}
+
+function workflowActionNeedsChannel(actionText: string, eventType: WorkflowEventKind) {
+  const text = actionText.toLowerCase();
+
+  if (["message_update", "teammate_notified"].includes(eventType)) return true;
+
+  if (
+    eventType === "status_marked" &&
+    (text.includes("sent") || text.includes("reminder") || text.includes("notice") || text.includes("follow-up") || text.includes("winback"))
+  ) {
+    return true;
+  }
+
+  if (eventType === "template_copied") return true;
+
+  return false;
+}
+
+function getWorkflowStatusForChannel(channel: WorkflowChannel): WorkflowEventStatus {
+  if (channel === "Manual Copy") return "Manual copy logged";
+  if (channel === "Internal Note") return "Internal notification queued";
+  return "Pending action sync";
+}
+
+function getWorkflowContextFromElement(element: HTMLElement, sourcePage: string) {
+  const container = element.closest("article, .panel-card, .glass-card, .recovery-row, .product-card, .rt-card, .tl-card, .ra-card, .rw-card, .ib-card, .rr-card");
+  const heading = container?.querySelector("h1, h2, h3, strong");
+  const text = normalizeWorkflowText(heading?.textContent ?? "");
+
+  return text || sourcePage;
+}
+
+function saveWorkflowEventToStorage(event: WorkflowEventRecord) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const existing = JSON.parse(window.localStorage.getItem(workflowEventStorageKey) ?? "[]") as WorkflowEventRecord[];
+    const nextEvents = [event, ...existing].slice(0, 100);
+    window.localStorage.setItem(workflowEventStorageKey, JSON.stringify(nextEvents));
+    window.dispatchEvent(new CustomEvent("altynx-workflow-event", { detail: event }));
+  } catch {
+    window.localStorage.setItem(workflowEventStorageKey, JSON.stringify([event]));
+  }
+}
+
+function UniversalWorkflowSyncLayer({ activePage }: { activePage: string }) {
+  const [pendingPrompt, setPendingPrompt] = useState<PendingWorkflowPrompt | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<WorkflowChannel>("Manual Copy");
+  const [workflowNote, setWorkflowNote] = useState("");
+  const [recipientHint, setRecipientHint] = useState("");
+  const [toast, setToast] = useState<WorkflowEventRecord | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  function clearToastLater() {
+    if (typeof window === "undefined") return;
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 4200);
+  }
+
+  function recordWorkflowEvent(
+    prompt: PendingWorkflowPrompt,
+    channel: WorkflowChannel,
+    note: string,
+  ) {
+    const event: WorkflowEventRecord = {
+      id: `WF-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      eventType: prompt.eventType,
+      actionLabel: prompt.actionLabel,
+      sourcePage: prompt.sourcePage,
+      relatedRecord: prompt.relatedRecord,
+      channel,
+      status: getWorkflowStatusForChannel(channel),
+      note:
+        note.trim() ||
+        `${prompt.actionLabel} from ${prompt.sourcePage} is ready for action sync.`,
+      createdAt: "Just now",
+    };
+
+    saveWorkflowEventToStorage(event);
+    setToast(event);
+    clearToastLater();
+  }
+
+  useEffect(() => {
+    function handleDocumentClick(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest("button") as HTMLButtonElement | null;
+
+      if (!button || button.disabled) return;
+      if (button.closest(".workflow-sync-layer")) return;
+      if (button.closest(".sidebar") || button.closest(".mobile-topbar")) return;
+
+      const actionLabel = normalizeWorkflowText(button.textContent ?? "");
+      const eventType = getWorkflowEventKind(actionLabel);
+
+      if (!eventType) return;
+
+      const prompt: PendingWorkflowPrompt = {
+        eventType,
+        actionLabel,
+        sourcePage: activePage,
+        relatedRecord: getWorkflowContextFromElement(button, activePage),
+        defaultChannel: getDefaultWorkflowChannel(actionLabel),
+        needsChannel: workflowActionNeedsChannel(actionLabel, eventType),
+      };
+
+      if (prompt.needsChannel) {
+        setPendingPrompt(prompt);
+        setSelectedChannel(prompt.defaultChannel);
+        setWorkflowNote("");
+        setRecipientHint("");
+        return;
+      }
+
+      recordWorkflowEvent(prompt, prompt.defaultChannel, "");
+    }
+
+    document.addEventListener("click", handleDocumentClick, true);
+
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+      if (toastTimerRef.current && typeof window !== "undefined") {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, [activePage]);
+
+  function confirmWorkflowPrompt() {
+    if (!pendingPrompt) return;
+
+    const noteParts = [workflowNote.trim()];
+
+    if (recipientHint.trim()) {
+      noteParts.push(`Recipient/context: ${recipientHint.trim()}`);
+    }
+
+    recordWorkflowEvent(pendingPrompt, selectedChannel, noteParts.filter(Boolean).join(" | "));
+    setPendingPrompt(null);
+    setWorkflowNote("");
+    setRecipientHint("");
+  }
+
+  return (
+    <div className="workflow-sync-layer" aria-live="polite">
+      {toast ? (
+        <div className="workflow-sync-toast" role="status">
+          <span>{toast.status}</span>
+          <strong>{toast.actionLabel}</strong>
+          <p>
+            {toast.channel} update logged for {toast.relatedRecord}. The action status is ready for follow-up.
+          </p>
+        </div>
+      ) : null}
+
+      {pendingPrompt ? (
+        <div className="workflow-sync-backdrop" role="presentation">
+          <section className="workflow-sync-modal" aria-modal="true" role="dialog">
+            <div className="workflow-sync-modal-header">
+              <div>
+                <span>Action sync update</span>
+                <h2>{pendingPrompt.actionLabel}</h2>
+                <p>
+                  Choose how this recovery action should be prepared. Altynx records the decision and the selected channel or status update.
+                </p>
+              </div>
+              <button className="secondary-btn" type="button" onClick={() => setPendingPrompt(null)}>
+                Close
+              </button>
+            </div>
+
+            <div className="workflow-sync-grid">
+              <label>
+                Channel / action target
+                <select value={selectedChannel} onChange={(event) => setSelectedChannel(event.target.value as WorkflowChannel)}>
+                  {workflowChannels.map((channel) => (
+                    <option key={channel} value={channel}>
+                      {channel}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Recipient or context
+                <input
+                  value={recipientHint}
+                  onChange={(event) => setRecipientHint(event.target.value)}
+                  placeholder="Buyer, teammate, source, or action note"
+                />
+              </label>
+            </div>
+
+            <label className="workflow-sync-note-field">
+              Optional action note
+              <textarea
+                rows={4}
+                value={workflowNote}
+                onChange={(event) => setWorkflowNote(event.target.value)}
+                placeholder="Add context for the message channel, internal note, or manual copy action."
+              />
+            </label>
+
+            <div className="workflow-sync-callout">
+              <span>What happens next</span>
+              <p>
+                The page action stays recorded in Altynx, and the selected channel or status update stays ready for the next follow-up step.
+              </p>
+            </div>
+
+            <div className="workflow-sync-modal-actions">
+              <button className="secondary-btn" type="button" onClick={() => setPendingPrompt(null)}>
+                Keep local only
+              </button>
+              <button className="primary-btn" type="button" onClick={confirmWorkflowPrompt}>
+                Save Action Sync
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PlaceholderPage({ title }: { title: string }) {
   const relatedTasks = recoveryTasks.slice(0, 3);
 
@@ -18201,10 +30397,730 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
+
+type WorkspaceBusinessType =
+  | "fashion-apparel"
+  | "beauty-products"
+  | "beauty-services"
+  | "retail-products"
+  | "hybrid";
+
+type WorkspaceOnboardingProfile = {
+  workspaceName: string;
+  contactName: string;
+  email: string;
+  password: string;
+  businessType: WorkspaceBusinessType;
+  businessFocus: string[];
+  salesChannels: string[];
+  recoveryGoals: string[];
+  teamRoles: string[];
+};
+
+type WorkspaceConfig = {
+  businessType: WorkspaceBusinessType;
+  eyebrow: string;
+  dashboardTitle: string;
+  dashboardSubtitle: string;
+  language: {
+    buyer: string;
+    buyers: string;
+    product: string;
+    products: string;
+    order: string;
+    orders: string;
+    payment: string;
+    recoveryAction: string;
+    repeatOpportunity: string;
+    postPurchase: string;
+  };
+  hiddenPages: string[];
+  pageLabels: Record<string, string>;
+  pageSubtitles: Record<string, string>;
+};
+
+const businessTypeCards: Array<{
+  id: WorkspaceBusinessType;
+  title: string;
+  description: string;
+  examples: string;
+}> = [
+  {
+    id: "fashion-apparel",
+    title: "Fashion / Apparel",
+    description: "For clothing, accessories, bridalwear, streetwear, drops, custom orders, size and fit enquiries.",
+    examples: "Size help, restock demand, new drop follow-up, payment recovery, reviews and UGC.",
+  },
+  {
+    id: "beauty-products",
+    title: "Beauty / Cosmetics Products",
+    description: "For skincare, makeup, fragrance, haircare, routine bundles, shades, refills and restocks.",
+    examples: "Shade match, refill timing, routine reorder, restock alerts, reviews and repeat purchase.",
+  },
+  {
+    id: "beauty-services",
+    title: "Beauty Services",
+    description: "For bridal makeup, salons, facials, skincare consultations, nails, lashes, hair and spa packages.",
+    examples: "Booking follow-up, deposit recovery, no-show recovery, rebooking, package renewal and referrals.",
+  },
+  {
+    id: "retail-products",
+    title: "Retail / Multi-Channel Products",
+    description: "For stores selling through website, social, marketplace, WhatsApp, pop-up or retail channels.",
+    examples: "Order risk, stock demand, channel leakage, pending payments, returns and customer follow-up.",
+  },
+  {
+    id: "hybrid",
+    title: "Hybrid Products + Services",
+    description: "For businesses that sell beauty/fashion products and also manage appointments, deposits or packages.",
+    examples: "Products, bookings, deposits, refills, rebooking, reviews, referrals and inactive client recovery.",
+  },
+];
+
+const onboardingFocusOptions = [
+  "Products",
+  "Services",
+  "Appointments",
+  "Deposits",
+  "Packages",
+  "Refills",
+  "Restocks",
+  "Custom orders",
+  "Reviews / referrals",
+  "Repeat buyers / clients",
+];
+
+const onboardingChannelOptions = [
+  "Website form",
+  "Instagram DM",
+  "WhatsApp",
+  "Online store",
+  "Email",
+  "Pop-up / event",
+  "Manual entry",
+  "CSV import",
+];
+
+const onboardingGoalOptions = [
+  "Missed inquiries",
+  "No replies",
+  "Pending payments / deposits",
+  "Restock demand",
+  "Refill / reorder timing",
+  "Cancelled / no-show bookings",
+  "Post-purchase reviews",
+  "Inactive buyers / clients",
+  "Team ownership gaps",
+  "Source leakage",
+];
+
+const onboardingTeamRoleOptions = [
+  "Owner",
+  "Sales",
+  "Support",
+  "Operations",
+  "Beauty specialist",
+  "Booking coordinator",
+  "Post-purchase team",
+  "Unassigned queue",
+];
+
+function toggleStringValue(values: string[], value: string) {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
+
+function getWorkspaceConfig(profile: WorkspaceOnboardingProfile): WorkspaceConfig {
+  const baseHidden: string[] = [];
+  const type = profile.businessType;
+
+  if (type === "fashion-apparel") {
+    return {
+      businessType: type,
+      eyebrow: "Fashion recovery workspace",
+      dashboardTitle: "Fashion Revenue Recovery",
+      dashboardSubtitle: "Track size, fit, restock, custom order, payment, delivery and post-purchase revenue opportunities.",
+      language: { buyer: "Buyer", buyers: "Buyers", product: "Product", products: "Products", order: "Order", orders: "Orders", payment: "Payment", recoveryAction: "Recovery action", repeatOpportunity: "Repeat buyer opportunity", postPurchase: "Post-purchase" },
+      hiddenPages: [...baseHidden, "Refill Opportunities"],
+      pageLabels: { "Product Demand": "Product & Drop Demand", "SKU / Variant Sheet": "Size / Color Sheet", "Restock Waitlist": "Restock & Drop Waitlist", "Order Risk Monitor": "Order & Exchange Risk", "Inactive Buyer Recovery": "Inactive Buyer Winback" },
+      pageSubtitles: { "Recovery Overview": "See missed inquiries, restock demand, pending payments, order risks and repeat buyer opportunities for your fashion brand.", "Product Demand": "Track size, fit, color, variant and new drop demand before it turns into missed revenue.", "Restock Waitlist": "See which buyers are waiting for sizes, variants, colors or limited drops to come back.", "Order Risk Monitor": "Protect orders affected by address issues, delivery delays, payment problems, returns or exchange risk." },
+    };
+  }
+
+  if (type === "beauty-services") {
+    return {
+      businessType: type,
+      eyebrow: "Beauty services recovery workspace",
+      dashboardTitle: "Service Revenue Recovery",
+      dashboardSubtitle: "Recover missed bookings, deposits, no-shows, rebookings, packages, referrals and post-service reviews.",
+      language: { buyer: "Client", buyers: "Clients", product: "Service", products: "Services", order: "Booking", orders: "Bookings", payment: "Deposit", recoveryAction: "Booking recovery action", repeatOpportunity: "Rebooking opportunity", postPurchase: "Post-service" },
+      hiddenPages: [...baseHidden, "Product Catalog", "SKU / Variant Sheet", "Restock Waitlist", "Delivery Follow-up", "Product Demand"],
+      pageLabels: { "Buyer Profiles": "Client Profiles", "Buyer Value": "Client Value", "Payment Recovery": "Deposit Recovery", "Order Risk Monitor": "Booking Risk Monitor", "Delivery Follow-up": "Post-Service Follow-up", "Refill Opportunities": "Rebooking Opportunities", "Inactive Buyer Recovery": "Inactive Client Recovery", "Reviews / Referrals / UGC": "Reviews / Referrals", "Revenue Pipeline": "Booking Revenue Pipeline", "Follow-up Recovery": "Client Follow-up Recovery" },
+      pageSubtitles: { "Recovery Overview": "See missed bookings, pending deposits, follow-ups, reviews, referrals, package renewals and inactive client recovery.", "Payment Recovery": "Follow up on deposits, partial payments and booking confirmations that need action.", "Refill Opportunities": "Find clients ready for rebooking, package renewal, trial follow-up or recurring services.", "Order Risk Monitor": "Protect bookings affected by no-shows, cancellations, deposit delays, staff handoff or rescheduling risk." },
+    };
+  }
+
+  if (type === "retail-products") {
+    return {
+      businessType: type,
+      eyebrow: "Retail recovery workspace",
+      dashboardTitle: "Retail Revenue Recovery",
+      dashboardSubtitle: "Track multi-channel orders, stock demand, payment recovery, source leakage and repeat customers.",
+      language: { buyer: "Customer", buyers: "Customers", product: "Product", products: "Products", order: "Order", orders: "Orders", payment: "Payment", recoveryAction: "Recovery action", repeatOpportunity: "Repeat customer opportunity", postPurchase: "Post-purchase" },
+      hiddenPages: [...baseHidden, "Refill Opportunities"],
+      pageLabels: { "Buyer Profiles": "Customer Profiles", "Buyer Value": "Customer Value", "Source Leak Tracking": "Channel Leak Tracking", "Restock Waitlist": "Back-in-Stock Demand", "Inactive Buyer Recovery": "Inactive Customer Recovery" },
+      pageSubtitles: { "Recovery Overview": "See product demand, pending payments, channel leakage, order risk and repeat customer opportunities across retail channels.", "Source Leak Tracking": "Find which customer channels are creating missed replies, missing records, owner gaps or overdue follow-ups.", "Restock Waitlist": "Track customers waiting for back-in-stock products, colors, sizes or variants." },
+    };
+  }
+
+  if (type === "hybrid") {
+    return {
+      businessType: type,
+      eyebrow: "Hybrid recovery workspace",
+      dashboardTitle: "Product + Service Recovery",
+      dashboardSubtitle: "Recover revenue across product sales, service bookings, deposits, refills, rebooking and referrals.",
+      language: { buyer: "Client", buyers: "Clients", product: "Product / Service", products: "Products / Services", order: "Order / Booking", orders: "Orders / Bookings", payment: "Payment / Deposit", recoveryAction: "Recovery action", repeatOpportunity: "Repeat / rebooking opportunity", postPurchase: "Post-purchase / post-service" },
+      hiddenPages: baseHidden,
+      pageLabels: { "Product Catalog": "Product & Service Catalog", "SKU / Variant Sheet": "Product / Package Sheet", "Buyer Profiles": "Client Profiles", "Buyer Value": "Client Value", "Payment Recovery": "Payment / Deposit Recovery", "Order Risk Monitor": "Order / Booking Risk", "Delivery Follow-up": "Post-Order / Post-Service Follow-up", "Refill Opportunities": "Refill / Rebooking Opportunities", "Inactive Buyer Recovery": "Inactive Client Recovery" },
+      pageSubtitles: { "Recovery Overview": "See revenue recovery across products, bookings, deposits, refills, restocks, reviews, referrals and inactive clients.", "Refill Opportunities": "Track product refills, service rebookings, package renewals and follow-up timing." },
+    };
+  }
+
+  return {
+    businessType: type,
+    eyebrow: "Beauty product recovery workspace",
+    dashboardTitle: "Beauty Revenue Recovery",
+    dashboardSubtitle: "Recover missed shade/routine enquiries, refills, restocks, payments, reviews, UGC and repeat purchase revenue.",
+    language: { buyer: "Buyer", buyers: "Buyers", product: "Product", products: "Products", order: "Order", orders: "Orders", payment: "Payment", recoveryAction: "Recovery action", repeatOpportunity: "Refill / repeat purchase opportunity", postPurchase: "Post-purchase" },
+    hiddenPages: baseHidden,
+    pageLabels: { "Product Demand": "Shade / Routine Demand", "SKU / Variant Sheet": "SKU / Shade Sheet", "Restock Waitlist": "Restock / Shade Waitlist" },
+    pageSubtitles: { "Recovery Overview": "See missed shade questions, routine follow-ups, refill windows, restocks, payments and repeat purchase opportunities.", "Product Demand": "Track shade, routine, bundle and product demand signals before they become missed revenue.", "Refill Opportunities": "Find buyers who are due for refill, reorder or routine bundle follow-up.", "Restock Waitlist": "Track buyers waiting for shades, products, bundles and limited drops to return." },
+  };
+}
+
+function getWorkspacePageLabel(page: string, config: WorkspaceConfig) { return config.pageLabels[page] ?? page; }
+function getWorkspacePageSubtitle(page: string, config: WorkspaceConfig, fallback: string) { return config.pageSubtitles[page] ?? fallback; }
+function getWorkspaceHeaderPrimaryLabel(page: string, openGroup: string, config: WorkspaceConfig) {
+  if (page === "Payment Recovery" && config.businessType === "beauty-services") return "Add Deposit Case";
+  if (page === "Order Risk Monitor" && config.businessType === "beauty-services") return "Add Booking Risk";
+  if (page === "Refill Opportunities" && config.businessType === "beauty-services") return "Add Rebooking Opportunity";
+  if (page === "Buyer Profiles" && ["beauty-services", "hybrid", "retail-products"].includes(config.businessType)) return `Add ${config.language.buyer}`;
+  if (page === "Brand Settings") return "Save Settings";
+  if (page === "Team Users") return "Add User";
+  if (page === "Tags & Stages") return "Add Tag";
+  if (page === "Templates") return "Create Template";
+  if (page === "Import / Export" && openGroup === "Setup") return "Upload File";
+  if (page === "Automation Health") return "Review Sync Issues";
+  if (page === "Revenue Leak Reports") return "Create Report Action";
+  if (page === "Monthly Summary") return "Mark Monthly Review Complete";
+  if (page === "Team Load") return "Review Unassigned Work";
+  if (page === "Assigned Recovery Actions") return "Add Assigned Action";
+  if (page === "Inactive Buyer Recovery") return config.businessType === "beauty-services" ? "Add Inactive Client" : "Add Inactive Buyer";
+  if (page === "Restock Waitlist") return "Add Waitlist Record";
+  if (page === "Refill Opportunities") return config.businessType === "beauty-services" ? "Add Rebooking Opportunity" : "Add Refill Opportunity";
+  return "Capture Opportunity";
+}
+function getPersonalizedSidebarGroups(config: WorkspaceConfig) {
+  return sidebarGroups.map((group) => ({ ...group, items: group.items.filter((item) => !config.hiddenPages.includes(item)) })).filter((group) => group.items.length > 0);
+}
+
+function AltynxOnboardingPortal({
+  mode,
+  profile,
+  onProfileChange,
+  onLoginContinue,
+  onSetupComplete,
+  onSkipToSystem,
+}: {
+  mode: "login" | "setup" | "loading";
+  profile: WorkspaceOnboardingProfile;
+  onProfileChange: (profile: WorkspaceOnboardingProfile) => void;
+  onLoginContinue: () => void;
+  onSetupComplete: () => void;
+  onSkipToSystem: () => void;
+}) {
+  const [setupStep, setSetupStep] = useState(0);
+
+  const selectedBusiness =
+    businessTypeCards.find((card) => card.id === profile.businessType) ?? businessTypeCards[0];
+
+  const setupSteps = [
+    {
+      label: "Business",
+      title: "What kind of business are you setting up?",
+      description: "Choose the option that best matches how your business sells and serves customers.",
+    },
+    {
+      label: "Revenue focus",
+      title: "What do you want to recover revenue from?",
+      description: "Select the revenue moments Altynx should watch and organize inside your workspace.",
+    },
+    {
+      label: "Customer sources",
+      title: "Where do customers contact or buy?",
+      description: "Choose the places where customer interest, orders, payments, and follow-ups usually start.",
+    },
+    {
+      label: "Team ownership",
+      title: "Who handles recovery work?",
+      description: "Select the roles that should appear in ownership, routing, and follow-up views.",
+    },
+    {
+      label: "Priorities",
+      title: "Which revenue problems should Altynx prioritize?",
+      description: "Choose the missed revenue problems that matter most for your business.",
+    },
+    {
+      label: "Preview",
+      title: "Review your workspace setup",
+      description: "Confirm the selected business language, recovery focus, sources, owners, and priorities.",
+    },
+  ];
+
+  const currentStep = setupSteps[setupStep] ?? setupSteps[0];
+  const totalSteps = setupSteps.length;
+  const progressPercent = Math.round(((setupStep + 1) / totalSteps) * 100);
+
+  function updateField(field: keyof WorkspaceOnboardingProfile, value: string | string[]) {
+    onProfileChange({ ...profile, [field]: value });
+  }
+
+  function toggleArrayField(
+    field: "businessFocus" | "salesChannels" | "teamRoles" | "recoveryGoals",
+    value: string,
+  ) {
+    updateField(field, toggleStringValue(profile[field], value));
+  }
+
+  function goNext() {
+    if (setupStep >= totalSteps - 1) {
+      onSetupComplete();
+      return;
+    }
+
+    setSetupStep((current) => Math.min(current + 1, totalSteps - 1));
+  }
+
+  function goBack() {
+    setSetupStep((current) => Math.max(current - 1, 0));
+  }
+
+  function renderSelectedChips(items: string[]) {
+    if (!items.length) return <span className="survey-empty-chip">Not selected yet</span>;
+
+    return (
+      <div className="survey-selected-chip-row">
+        {items.map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </div>
+    );
+  }
+
+  const canContinue =
+    setupStep === 0
+      ? Boolean(profile.businessType)
+      : setupStep === 1
+        ? profile.businessFocus.length > 0
+        : setupStep === 2
+          ? profile.salesChannels.length > 0
+          : setupStep === 3
+            ? profile.teamRoles.length > 0
+            : setupStep === 4
+              ? profile.recoveryGoals.length > 0
+              : true;
+
+  const nextButtonLabel = setupStep === totalSteps - 1 ? "Set up my Recovery System" : "Continue";
+
+  if (mode === "loading") {
+    const steps = [
+      "Preparing your recovery workspace",
+      "Loading the right business language",
+      "Setting up recovery pages",
+      "Preparing message templates",
+      "Mapping owners and channels",
+      "Opening your dashboard",
+    ];
+
+    return (
+      <main className="onboarding-shell onboarding-loading-shell">
+        <section className="onboarding-loading-card">
+          <div className="onboarding-logo-wrap">
+            <img
+              src="https://res.cloudinary.com/dojm1aiw2/image/upload/v1777510190/LOGO_Altynx_for_Developers_Black_cwc31f.png"
+              alt="Altynx"
+            />
+          </div>
+          <span className="onboarding-eyebrow">Setting up your Recovery System</span>
+          <h1>{selectedBusiness.title}</h1>
+          <p>{selectedBusiness.description}</p>
+          <div className="onboarding-progress-bar">
+            <span />
+          </div>
+          <div className="onboarding-loading-steps">
+            {steps.map((step) => (
+              <div key={step}>
+                <span />
+                <p>{step}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (mode === "login") {
+    return (
+      <main className="onboarding-shell">
+        <section className="onboarding-card login-card">
+          <div className="onboarding-logo-wrap">
+            <img
+              src="https://res.cloudinary.com/dojm1aiw2/image/upload/v1777510190/LOGO_Altynx_for_Developers_Black_cwc31f.png"
+              alt="Altynx"
+            />
+          </div>
+          <span className="onboarding-eyebrow">Revenue Recovery Workspace</span>
+          <h1>Welcome to Altynx</h1>
+          <p>
+            Sign in and set up a workspace that matches your business, your customers, and the
+            revenue moments you want to recover.
+          </p>
+          <div className="onboarding-form-grid single">
+            <label>
+              Workspace or brand name
+              <input
+                value={profile.workspaceName}
+                onChange={(event) => updateField("workspaceName", event.target.value)}
+                placeholder="Example: Neroli Studio"
+              />
+            </label>
+            <label>
+              Your name
+              <input
+                value={profile.contactName}
+                onChange={(event) => updateField("contactName", event.target.value)}
+                placeholder="Example: Amina Khan"
+              />
+            </label>
+            <label>
+              Work email
+              <input
+                value={profile.email}
+                onChange={(event) => updateField("email", event.target.value)}
+                placeholder="you@brand.com"
+                type="email"
+              />
+            </label>
+            <label>
+              Password
+              <input
+                value={profile.password}
+                onChange={(event) => updateField("password", event.target.value)}
+                placeholder="Create a password"
+                type="password"
+              />
+            </label>
+          </div>
+          <div className="onboarding-login-actions">
+            <button className="onboarding-secondary" type="button" onClick={onSkipToSystem}>
+              See the Complete System
+            </button>
+            <button className="onboarding-primary" type="button" onClick={onLoginContinue}>
+              Continue to setup
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="onboarding-shell setup-shell survey-setup-shell">
+      <section className="onboarding-card setup-card survey-setup-card">
+        <div className="survey-top-row">
+          <div>
+            <span className="onboarding-eyebrow">Workspace setup</span>
+            <h1>{currentStep.title}</h1>
+            <p>{currentStep.description}</p>
+          </div>
+          <div className="setup-summary-pill">
+            <strong>{profile.workspaceName || "Your workspace"}</strong>
+            <span>{profile.contactName || "Workspace owner"}</span>
+          </div>
+        </div>
+
+        <div className="survey-progress-wrap" aria-label={`Step ${setupStep + 1} of ${totalSteps}`}>
+          <div className="survey-progress-meta">
+            <span>
+              Step {setupStep + 1} of {totalSteps}
+            </span>
+            <strong>{currentStep.label}</strong>
+          </div>
+          <div className="survey-progress-track">
+            <span style={{ width: `${progressPercent}%` }} />
+          </div>
+          <div className="survey-step-tabs">
+            {setupSteps.map((step, index) => (
+              <button
+                key={step.label}
+                type="button"
+                className={`${index === setupStep ? "active" : ""} ${index < setupStep ? "complete" : ""}`}
+                onClick={() => setSetupStep(index)}
+              >
+                <span>{index + 1}</span>
+                {step.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="survey-step-body">
+          {setupStep === 0 ? (
+            <div className="business-card-grid survey-business-grid">
+              {businessTypeCards.map((card) => (
+                <button
+                  key={card.id}
+                  type="button"
+                  className={`business-type-card ${profile.businessType === card.id ? "selected" : ""}`}
+                  onClick={() => updateField("businessType", card.id)}
+                >
+                  <span>{card.title}</span>
+                  <p>{card.description}</p>
+                  <small>{card.examples}</small>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {setupStep === 1 ? (
+            <div className="onboarding-setup-section survey-question-card">
+              <h2>Choose revenue areas</h2>
+              <p>Select one or more areas you want the workspace to track and organize.</p>
+              <div className="onboarding-choice-grid survey-choice-grid">
+                {onboardingFocusOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={profile.businessFocus.includes(option) ? "selected" : ""}
+                    onClick={() => toggleArrayField("businessFocus", option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {setupStep === 2 ? (
+            <div className="onboarding-setup-section survey-question-card">
+              <h2>Choose customer sources</h2>
+              <p>Select the places where customers ask questions, place orders, or need follow-up.</p>
+              <div className="onboarding-choice-grid compact survey-choice-grid">
+                {onboardingChannelOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={profile.salesChannels.includes(option) ? "selected" : ""}
+                    onClick={() => toggleArrayField("salesChannels", option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {setupStep === 3 ? (
+            <div className="onboarding-setup-section survey-question-card">
+              <h2>Choose recovery owners</h2>
+              <p>Select the roles that should appear in ownership, follow-up, and routing views.</p>
+              <div className="onboarding-choice-grid compact survey-choice-grid">
+                {onboardingTeamRoleOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={profile.teamRoles.includes(option) ? "selected" : ""}
+                    onClick={() => toggleArrayField("teamRoles", option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {setupStep === 4 ? (
+            <div className="onboarding-setup-section survey-question-card">
+              <h2>Choose priority problems</h2>
+              <p>Select the missed revenue problems Altynx should highlight first.</p>
+              <div className="onboarding-choice-grid survey-choice-grid">
+                {onboardingGoalOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={profile.recoveryGoals.includes(option) ? "selected" : ""}
+                    onClick={() => toggleArrayField("recoveryGoals", option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {setupStep === 5 ? (
+            <div className="setup-preview-card survey-preview-card">
+              <span>Workspace preview</span>
+              <h3>{selectedBusiness.title}</h3>
+              <p>{selectedBusiness.examples}</p>
+
+              <div className="survey-review-grid">
+                <div>
+                  <strong>Revenue focus</strong>
+                  {renderSelectedChips(profile.businessFocus)}
+                </div>
+                <div>
+                  <strong>Customer sources</strong>
+                  {renderSelectedChips(profile.salesChannels)}
+                </div>
+                <div>
+                  <strong>Recovery owners</strong>
+                  {renderSelectedChips(profile.teamRoles)}
+                </div>
+                <div>
+                  <strong>Priority problems</strong>
+                  {renderSelectedChips(profile.recoveryGoals)}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="onboarding-actions-row survey-actions-row">
+          <button className="onboarding-secondary" type="button" onClick={onSkipToSystem}>
+            See the Complete System
+          </button>
+          {setupStep > 0 ? (
+            <button className="onboarding-secondary" type="button" onClick={goBack}>
+              Back
+            </button>
+          ) : null}
+          <button
+            className="onboarding-primary survey-primary"
+            type="button"
+            onClick={goNext}
+            disabled={!canContinue}
+          >
+            {nextButtonLabel}
+          </button>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export default function Home() {
   const [openGroup, setOpenGroup] = useState<string>("Command Center");
   const [activePage, setActivePage] = useState<string>("Recovery Overview");
+  const [onboardingMode, setOnboardingMode] = useState<"login" | "setup" | "loading" | "app">("login");
+  const [workspaceProfile, setWorkspaceProfile] = useState<WorkspaceOnboardingProfile>({
+    workspaceName: "",
+    contactName: "",
+    email: "",
+    password: "",
+    businessType: "beauty-products",
+    businessFocus: ["Products", "Refills", "Restocks", "Reviews / referrals"],
+    salesChannels: ["Instagram DM", "WhatsApp", "Online store"],
+    recoveryGoals: ["Missed inquiries", "Pending payments / deposits", "Refill / reorder timing", "Post-purchase reviews"],
+    teamRoles: ["Owner", "Support", "Post-purchase team"],
+  });
+  const workspaceConfig = useMemo(() => getWorkspaceConfig(workspaceProfile), [workspaceProfile]);
+  const personalizedSidebarGroups = useMemo(() => getPersonalizedSidebarGroups(workspaceConfig), [workspaceConfig]);
+  const [refillManualOpenSignal, setRefillManualOpenSignal] = useState(0);
+  const [restockManualOpenSignal, setRestockManualOpenSignal] = useState(0);
+  const [inactiveManualOpenSignal, setInactiveManualOpenSignal] = useState(0);
+  const [assignedManualOpenSignal, setAssignedManualOpenSignal] = useState(0);
   const [activityFeed, setActivityFeed] = useState<RecoveryActivity[]>(activities);
+ const [pipelineCreatedFollowUps, setPipelineCreatedFollowUps] = useState<FollowUpRecoveryItem[]>([]);
+ const [orderRiskPostPurchaseItems, setOrderRiskPostPurchaseItems] = useState<DeliveryFollowUpItem[]>([]);
+const [followUpCreatedPaymentCases, setFollowUpCreatedPaymentCases] = useState<PaymentRecoveryItem[]>([]);
+const [customMessageTemplates, setCustomMessageTemplates] = useState<MessageTemplate[]>([]);
+
+const allMessageTemplates = useMemo(
+  () => [...customMessageTemplates, ...messageTemplates],
+  [customMessageTemplates],
+);
+
+function addPipelineCreatedFollowUp(item: FollowUpRecoveryItem) {
+  setPipelineCreatedFollowUps((currentItems) => {
+    if (currentItems.some((existingItem) => existingItem.id === item.id)) {
+      return currentItems;
+    }
+
+    return [item, ...currentItems];
+  });
+}
+
+function removePipelineCreatedFollowUp(itemId: string) {
+  setPipelineCreatedFollowUps((currentItems) => currentItems.filter((item) => item.id !== itemId));
+}
+
+
+function addFollowUpCreatedPaymentCase(item: PaymentRecoveryItem) {
+  setFollowUpCreatedPaymentCases((currentItems) => {
+    if (currentItems.some((existingItem) => existingItem.id === item.id)) {
+      return currentItems;
+    }
+
+    return [item, ...currentItems];
+  });
+}
+
+function addOrderRiskPostPurchaseItem(item: OrderRiskItem) {
+  const postPurchaseItem: DeliveryFollowUpItem = {
+    id: `DLV-ORDER-${Date.now()}`,
+    buyerName: item.buyerName,
+    image: item.image,
+    orderContext: item.orderContext,
+    deliveryStatus: item.deliveryStatus,
+    deliveryTiming: "Moved from Order Risk just now",
+    orderValue: item.orderValue,
+    owner: item.owner,
+    source: item.source,
+    postDeliveryStage: "Issue follow-up needed",
+    opportunityType: item.riskType,
+    nextAction: "Review the resolved order risk and continue post-purchase follow-up.",
+    messageTemplate: item.suggestedMessage,
+    notes: item.internalOrderNote,
+    tone: item.tone,
+  };
+
+  setOrderRiskPostPurchaseItems((currentItems) => {
+    const alreadyExists = currentItems.some(
+      (currentItem) => currentItem.orderContext === item.orderContext && currentItem.buyerName === item.buyerName,
+    );
+
+    if (alreadyExists) {
+      return currentItems;
+    }
+
+    return [postPurchaseItem, ...currentItems];
+  });
+
+  window.sessionStorage.setItem("altynx-open-delivery-id", postPurchaseItem.id);
+
+  return postPurchaseItem;
+}
+
+function addMessageTemplateFromAction(template: MessageTemplate) {
+  setCustomMessageTemplates((currentTemplates) => {
+    if (currentTemplates.some((existingTemplate) => existingTemplate.id === template.id)) {
+      return currentTemplates;
+    }
+
+    return [template, ...currentTemplates];
+  });
+}
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
   const [quickModal, setQuickModal] = useState<"export" | "capture" | null>(null);
@@ -18231,6 +31147,36 @@ useEffect(() => {
     document.body.classList.remove("sidebar-open");
   };
 }, [isSidebarOpen]);
+  function continueToWorkspaceSetup() {
+    setOnboardingMode((current) => (current === "setup" ? "login" : "setup"));
+  }
+
+  function completeWorkspaceSetup() {
+    setOnboardingMode("loading");
+    setOpenGroup("Command Center");
+    setActivePage("Recovery Overview");
+    window.setTimeout(() => {
+      setOnboardingMode("app");
+    }, 1600);
+  }
+
+  function openCompleteSystemNow() {
+    setOpenGroup("Command Center");
+    setActivePage("Recovery Overview");
+    setOnboardingMode("app");
+    setQuickToast("Complete Altynx system opened. You can still adjust business choices from Setup > Brand Settings.");
+  }
+
+  useEffect(() => {
+    const visiblePages = personalizedSidebarGroups.flatMap((group) => group.items);
+    if (visiblePages.length > 0 && !visiblePages.includes(activePage)) {
+      const nextPage = visiblePages[0];
+      setActivePage(nextPage);
+      const firstGroup = personalizedSidebarGroups.find((group) => group.items.includes(nextPage));
+      if (firstGroup) setOpenGroup(firstGroup.title);
+    }
+  }, [activePage, personalizedSidebarGroups]);
+
   const canManageTeamMembers = true;
   const initialCaptureAssigneeId = teamUsers[0]?.id ?? fallbackCaptureAssignees[0]?.id ?? "amara-shah";
 const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =>
@@ -18262,7 +31208,7 @@ const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =
     source: "",
   });
 
-  const pageSubtitle =
+  const basePageSubtitle =
     activePage === "Import / Export" && openGroup === "Setup"
       ? "System-wide import mapping, field validation, export datasets, and recent data movement."
       : activePage === "Import / Export" && openGroup === "Product Intelligence"
@@ -18271,12 +31217,14 @@ const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =
         : pageSubtitles[activePage] ??
           "A focused revenue recovery workspace for buyer lifecycle opportunities and reporting visibility.";
 
+  const pageSubtitle = getWorkspacePageSubtitle(activePage, workspaceConfig, basePageSubtitle);
+
   function toggleGroup(title: string) {
     setOpenGroup((current) => (current === title ? "" : title));
   }
 
   function getGroupForPage(page: string) {
-    const currentOpenGroup = sidebarGroups.find(
+    const currentOpenGroup = personalizedSidebarGroups.find(
       (group) => group.title === openGroup && group.items.includes(page),
     );
 
@@ -18284,7 +31232,7 @@ const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =
       return currentOpenGroup.title;
     }
 
-    const matchingGroup = sidebarGroups.find((group) => group.items.includes(page));
+    const matchingGroup = personalizedSidebarGroups.find((group) => group.items.includes(page));
     return matchingGroup?.title ?? openGroup;
   }
 
@@ -18297,6 +31245,42 @@ const [captureAssignees, setCaptureAssignees] = useState<CaptureAssignee[]>(() =
   }
 
   setIsSidebarOpen(false);
+}
+
+function syncCurrentPageToAutomations() {
+  window.dispatchEvent(new CustomEvent("altynx-sync-current-page-actions", { detail: { page: activePage } }));
+  setQuickToast(`${activePage} action status synced. Check Automation Health for any failed or missing updates.`);
+
+  addRecoveryActivity({
+    category: "Automation",
+    title: "Action status synced",
+    description: `Current ${activePage} recovery decisions, queue updates, and recommended actions were prepared for sync.`,
+    impactBadge: "Synced",
+    relatedRecord: activePage,
+    owner: "Operations",
+    status: "Synced",
+    nextAction: "Review Automation Health if any source update needs attention.",
+    tone: "cyan",
+  });
+}
+
+function runRecoveryQueueNow() {
+  window.dispatchEvent(new CustomEvent("altynx-run-recovery-queue", { detail: { page: activePage } }));
+  setQuickToast("Recovery queue run started. Recommended actions are ready for review in Today's Recovery Queue.");
+
+  addRecoveryActivity({
+    category: "Team Actions",
+    title: "Recovery queue run started",
+    description: `Recommended actions from ${activePage} were pushed into the active recovery queue review.`,
+    impactBadge: "Queue run",
+    relatedRecord: "Today's Recovery Queue",
+    owner: "Recovery Lead",
+    status: "Ready",
+    nextAction: "Review due, overdue, payment, follow-up, refill, restock, and post-purchase actions.",
+    tone: "emerald",
+  });
+
+  navigateToPage("Today's Recovery Queue");
 }
 
   function addRecoveryActivity(activity: NewRecoveryActivity) {
@@ -18882,8 +31866,21 @@ function closeExportReport() {
   setExportMessage("");
 }
 
+ if (onboardingMode !== "app") {
+  return (
+    <AltynxOnboardingPortal
+      mode={onboardingMode}
+      profile={workspaceProfile}
+      onProfileChange={setWorkspaceProfile}
+      onLoginContinue={continueToWorkspaceSetup}
+      onSetupComplete={completeWorkspaceSetup}
+      onSkipToSystem={openCompleteSystemNow}
+    />
+  );
+}
+
  return (
-  <main className={`app-shell ${isSidebarOpen ? "is-sidebar-open" : ""}`}>
+  <main className={`app-shell workspace-${workspaceConfig.businessType} ${isSidebarOpen ? "is-sidebar-open" : ""}`}>
     <aside className="sidebar" id="app-sidebar">
       <div className="sidebar-top">
         <div className="brand">
@@ -18905,7 +31902,7 @@ function closeExportReport() {
       </div>
 
         <nav className="sidebar-menu" aria-label="Altynx navigation">
-          {sidebarGroups.map((group) => {
+          {personalizedSidebarGroups.map((group) => {
             const isOpen = openGroup === group.title;
 
             return (
@@ -18943,7 +31940,7 @@ function closeExportReport() {
                         onClick={() => navigateToPage(item)}
                         className={`side-subitem ${activePage === item ? "is-active" : ""}`}
                       >
-                        {item}
+                        {getWorkspacePageLabel(item, workspaceConfig)}
                       </button>
                     ))}
                   </div>
@@ -18985,10 +31982,10 @@ function closeExportReport() {
         <header className="dashboard-header">
           <div className="header-copy">
             <div className="title-row">
-              <h1>{activePage}</h1>
+              <h1>{getWorkspacePageLabel(activePage, workspaceConfig)}</h1>
               <span className="status-chip">
                 <span className="status-dot" />
-                Sync visible
+                {workspaceConfig.eyebrow}
               </span>
             </div>
             <p>{pageSubtitle}</p>
@@ -19000,13 +31997,90 @@ function closeExportReport() {
             </button>
             <button
               className="secondary-btn"
-              onClick={() => navigateToPage("Today's Recovery Queue")}
+              onClick={() => navigateToPage(activePage === "Refill Opportunities" || activePage === "Restock Waitlist" || activePage === "Inactive Buyer Recovery" ? "Follow-up Recovery" : "Today's Recovery Queue")}
               type="button"
             >
               Open Recovery Queue
             </button>
-            <button className="primary-btn" onClick={() => setQuickModal("capture")} type="button">
-              Capture Missed Inquiry
+            <button className="secondary-btn workspace-sync-btn" onClick={syncCurrentPageToAutomations} type="button">
+              Sync to Automations
+            </button>
+            <button className="secondary-btn workspace-run-queue-btn" onClick={runRecoveryQueueNow} type="button">
+              Run the Queue
+            </button>
+            <button
+              className="primary-btn"
+              onClick={() => {
+                if (activePage === "Refill Opportunities") {
+                  setRefillManualOpenSignal((current) => current + 1);
+                  return;
+                }
+
+                if (activePage === "Restock Waitlist") {
+                  setRestockManualOpenSignal((current) => current + 1);
+                  return;
+                }
+
+                if (activePage === "Inactive Buyer Recovery") {
+                  setInactiveManualOpenSignal((current) => current + 1);
+                  return;
+                }
+
+                if (activePage === "Assigned Recovery Actions") {
+                  setAssignedManualOpenSignal((current) => current + 1);
+                  return;
+                }
+
+                if (activePage === "Team Load") {
+                  window.dispatchEvent(new Event("altynx-teamload-open-unassigned"));
+                  return;
+                }
+
+                if (activePage === "Automation Health") {
+                  window.dispatchEvent(new Event("altynx-automation-review-issues"));
+                  return;
+                }
+
+                if (activePage === "Revenue Leak Reports") {
+                  window.dispatchEvent(new Event("altynx-revenueleak-create-action"));
+                  return;
+                }
+
+                if (activePage === "Monthly Summary") {
+                  window.dispatchEvent(new Event("altynx-monthly-review-complete"));
+                  return;
+                }
+
+                if (activePage === "Brand Settings") {
+                  window.dispatchEvent(new Event("altynx-brand-save-settings"));
+                  return;
+                }
+
+                if (activePage === "Team Users") {
+                  window.dispatchEvent(new Event("altynx-teamusers-add-user"));
+                  return;
+                }
+
+                if (activePage === "Tags & Stages") {
+                  window.dispatchEvent(new Event("altynx-tags-add-tag"));
+                  return;
+                }
+
+                if (activePage === "Templates") {
+                  window.dispatchEvent(new Event("altynx-templates-create-template"));
+                  return;
+                }
+
+                if (activePage === "Import / Export" && openGroup === "Setup") {
+                  window.dispatchEvent(new Event("altynx-setup-import-upload"));
+                  return;
+                }
+
+                setQuickModal("capture");
+              }}
+              type="button"
+            >
+              {getWorkspaceHeaderPrimaryLabel(activePage, openGroup, workspaceConfig)}
             </button>
           </div>
         </header>
@@ -19038,13 +32112,13 @@ function closeExportReport() {
         ) : activePage === "Import / Export" && openGroup === "Product Intelligence" ? (
           <ProductImportExport />
         ) : activePage === "Brand Settings" ? (
-          <BrandSettingsPage />
+          <BrandSettingsPage workspaceProfile={workspaceProfile} onWorkspaceProfileChange={setWorkspaceProfile} />
         ) : activePage === "Team Users" ? (
-          <TeamUsersSetup />
+          <TeamUsersSetup onNavigate={navigateToPage} />
         ) : activePage === "Tags & Stages" ? (
           <TagsStagesSetup />
         ) : activePage === "Templates" ? (
-          <TemplatesSetup />
+          <TemplatesSetup templates={allMessageTemplates} onCreateTemplate={addMessageTemplateFromAction} />
         ) : activePage === "Import / Export" && openGroup === "Setup" ? (
           <SetupImportExport />
         ) : activePage === "Buyer Profiles" ? (
@@ -19054,75 +32128,138 @@ function closeExportReport() {
         ) : activePage === "Buyer Value" ? (
           <BuyerValue />
         ) : activePage === "Revenue Pipeline" ? (
-          <RevenuePipeline onActivity={addRecoveryActivity} />
-        ) : activePage === "Follow-up Recovery" ? (
-          <FollowUpRecovery onActivity={addRecoveryActivity} />
-        ) : activePage === "Payment Recovery" ? (
-          <PaymentRecovery onActivity={addRecoveryActivity} />
-        ) : activePage === "Recovered Revenue" ? (
-          <RecoveredRevenue />
-        ) : activePage === "Order Risk Monitor" ? (
-          <OrderRiskMonitor />
-        ) : activePage === "Delivery Follow-up" ? (
-          <DeliveryFollowUp />
-        ) : activePage === "Reviews / Referrals / UGC" ? (
-          <ReviewsReferralsUGC />
-        ) : activePage === "Refill Opportunities" ? (
-          <RefillOpportunities />
-        ) : activePage === "Restock Waitlist" ? (
-          <RestockWaitlist />
-        ) : activePage === "Inactive Buyer Recovery" ? (
-          <InactiveBuyerRecovery />
-        ) : activePage === "Assigned Recovery Actions" ? (
-          <AssignedRecoveryActions />
-        ) : activePage === "Recovery Threads" ? (
-          <RecoveryThreads />
-        ) : activePage === "Team Load" ? (
-          <TeamLoad />
-        ) : activePage === "Automation Health" ? (
-          <AutomationHealth />
-        ) : activePage === "Revenue Leak Reports" ? (
-          <RevenueLeakReports />
-        ) : activePage === "Monthly Summary" ? (
-          <MonthlySummary />
-        ) : activePage === "Recovery Activity" ? (
-          <RecoveryActivityPage activities={activityFeed} />
-        ) : (
-          <PlaceholderPage title={activePage} />
-        )}
+  <RevenuePipeline
+    onActivity={addRecoveryActivity}
+    onCreateFollowUp={addPipelineCreatedFollowUp}
+    onNavigate={navigateToPage}
+  />
+) : activePage === "Follow-up Recovery" ? (
+  <FollowUpRecovery
+    onActivity={addRecoveryActivity}
+    extraFollowUps={pipelineCreatedFollowUps}
+    templates={allMessageTemplates}
+    onCreateTemplate={addMessageTemplateFromAction}
+    onCreatePaymentCase={addFollowUpCreatedPaymentCase}
+    onNavigate={navigateToPage}
+  />
+) : activePage === "Payment Recovery" ? (
+  <PaymentRecovery
+  onActivity={addRecoveryActivity}
+  extraPayments={followUpCreatedPaymentCases}
+  templates={allMessageTemplates}
+  onCreateTemplate={addMessageTemplateFromAction}
+/>
+) : activePage === "Recovered Revenue" ? (
+  <RecoveredRevenue onNavigate={navigateToPage} />
+) : activePage === "Order Risk Monitor" ? (
+  <OrderRiskMonitor
+  templates={allMessageTemplates}
+  onCreateTemplate={addMessageTemplateFromAction}
+  onNavigate={navigateToPage}
+  onMoveToPostPurchase={addOrderRiskPostPurchaseItem}
+/>
+) : activePage === "Delivery Follow-up" ? (
+  <DeliveryFollowUp
+  extraDeliveryItems={orderRiskPostPurchaseItems}
+  templates={allMessageTemplates}
+  onCreateTemplate={addMessageTemplateFromAction}
+/>
+) : activePage === "Reviews / Referrals / UGC" ? (
+  <ReviewsReferralsUGC onCreateTemplate={addMessageTemplateFromAction} />
+) : activePage === "Refill Opportunities" ? (
+  <RefillOpportunities
+  onCreateTemplate={addMessageTemplateFromAction}
+  onCreateFollowUp={addPipelineCreatedFollowUp}
+  onRemoveFollowUp={removePipelineCreatedFollowUp}
+  onNavigate={navigateToPage}
+  openManualSignal={refillManualOpenSignal}
+/>
 
-        {quickModal === "export" ? (
-          <ModalShell
-            footer={
-              <>
-                <button className="primary-btn" onClick={downloadDetailedRecoveryReport} type="button">
-  Download detailed PDF report
-</button>
-                <button className="secondary-btn" onClick={() => setQuickModal(null)} type="button">
-                  Close
-                </button>
-              </>
-            }
-            onClose={() => setQuickModal(null)}
-            title="Export Recovery Overview Report"
-          >
-            <div style={modalGridStyle}>
-              <DetailField label="Report type" value="Recovery Overview" />
-              <DetailField label="Format" value="6-page PDF report" />
-            </div>
-            <div className="detail-callout">
-              <span>Included sections</span>
-              <div className="recovery-meta">
-  <span>Executive Summary</span>
-  <span>Revenue Leakage Breakdown</span>
-  <span>Source & Automation Visibility</span>
-  <span>Team Recovery Load</span>
-  <span>Next 7-Day Action Plan</span>
-  <span>Management Recommendations</span>
-</div>
-            </div>
-          </ModalShell>
-        ) : null}
+) : activePage === "Restock Waitlist" ? (
+  <RestockWaitlist
+    onCreateTemplate={addMessageTemplateFromAction}
+    onCreateFollowUp={addPipelineCreatedFollowUp}
+    onRemoveFollowUp={removePipelineCreatedFollowUp}
+    onNavigate={navigateToPage}
+    onActivity={addRecoveryActivity}
+    openManualSignal={restockManualOpenSignal}
+  />
+) : activePage === "Inactive Buyer Recovery" ? (
+  <InactiveBuyerRecovery
+    onCreateTemplate={addMessageTemplateFromAction}
+    onCreateFollowUp={addPipelineCreatedFollowUp}
+    onRemoveFollowUp={removePipelineCreatedFollowUp}
+    onNavigate={navigateToPage}
+    onActivity={addRecoveryActivity}
+    openManualSignal={inactiveManualOpenSignal}
+  />
+) : activePage === "Assigned Recovery Actions" ? (
+  <AssignedRecoveryActions
+    onCreateTemplate={addMessageTemplateFromAction}
+    onNavigate={navigateToPage}
+    onActivity={addRecoveryActivity}
+    openManualSignal={assignedManualOpenSignal}
+  />
+) : activePage === "Recovery Threads" ? (
+  <RecoveryThreads />
+) : activePage === "Team Load" ? (
+  <TeamLoad onNavigate={navigateToPage} />
+) : activePage === "Automation Health" ? (
+  <AutomationHealth onNavigate={navigateToPage} onActivity={addRecoveryActivity} onCreateTemplate={addMessageTemplateFromAction} />
+) : activePage === "Revenue Leak Reports" ? (
+  <RevenueLeakReports onNavigate={navigateToPage} onActivity={addRecoveryActivity} />
+) : activePage === "Monthly Summary" ? (
+  <MonthlySummary onNavigate={navigateToPage} onActivity={addRecoveryActivity} />
+) : activePage === "Recovery Activity" ? (
+  <RecoveryActivityPage activities={activityFeed} />
+) : (
+  <PlaceholderPage title={activePage} />
+)}
+
+<UniversalWorkflowSyncLayer activePage={activePage} />
+
+{quickModal === "export" ? (
+  <ModalShell
+    onClose={() => setQuickModal(null)}
+    title="Export Recovery Overview Report"
+    footer={
+      <>
+        <button
+          className="primary-btn"
+          type="button"
+          onClick={downloadDetailedRecoveryReport}
+        >
+          Download detailed PDF report
+        </button>
+
+        <button
+          className="secondary-btn"
+          type="button"
+          onClick={() => setQuickModal(null)}
+        >
+          Close
+        </button>
+      </>
+    }
+  >
+    <div style={modalGridStyle}>
+      <DetailField label="Report type" value="Recovery Overview" />
+      <DetailField label="Format" value="6-page PDF report" />
+    </div>
+
+    <div className="detail-callout">
+      <span>Included sections</span>
+      <div className="recovery-meta">
+        <span>Executive Summary</span>
+        <span>Revenue Leakage Breakdown</span>
+        <span>Source & Automation Visibility</span>
+        <span>Team Recovery Load</span>
+        <span>Next 7-Day Action Plan</span>
+        <span>Management Recommendations</span>
+      </div>
+    </div>
+  </ModalShell>
+) : null}
 
         {quickModal === "capture" ? (
           <div style={modalOverlayStyle} role="presentation">
