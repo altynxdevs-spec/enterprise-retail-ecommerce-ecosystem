@@ -4749,13 +4749,6 @@ function TemplateImagePreview({
   );
 }
 
-function TemplateIcon({ category }: { category: TemplateCategory }) {
-  if (category === "Neckline") return <ShieldCheck className="h-5 w-5 text-[#7d8ba1]" />;
-  if (category === "Sleeves") return <ClipboardList className="h-5 w-5 text-[#7d8ba1]" />;
-  if (category === "Fit & Length") return <LayoutGrid className="h-5 w-5 text-[#7d8ba1]" />;
-  return <Sparkles className="h-5 w-5 text-[#7d8ba1]" />;
-}
-
 function TemplateStatusPill({ status }: { status: TemplateStatus }) {
   const style: Record<TemplateStatus, string> = {
     Active: "bg-emerald-50 text-emerald-700 border-emerald-200",
