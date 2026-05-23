@@ -346,7 +346,9 @@ function warmImage(src?: string) {
 function warmImagesSmoothly(sources: Array<string | undefined>) {
   if (typeof window === "undefined") return;
 
-  const uniqueSources = sources.filter((src): src is string => Boolean(src) && !warmedImageCache.has(src));
+  const uniqueSources = sources
+    .filter((src): src is string => typeof src === "string" && src.length > 0)
+    .filter((src) => !warmedImageCache.has(src));
   if (!uniqueSources.length) return;
 
   let index = 0;
@@ -1062,10 +1064,6 @@ function AppPolishStyles() {
         fill: none !important;
       }
 
-      .app-ui .payment-method-visual {
-        isolation: isolate;
-      }
-
       @media (max-width: 390px) {
         .app-ui .payment-method-card {
           min-height: 88px;
@@ -1080,19 +1078,7 @@ function AppPolishStyles() {
       }
 
 
-      /* Payment icons: remove orange corner decoration */
-      .app-ui .payment-method-visual {
-        background-clip: padding-box !important;
-      }
-
-      .app-ui .payment-method-visual::before,
-      .app-ui .payment-method-visual::after {
-        content: none !important;
-        display: none !important;
-      }
-
-
-      /* Order placed card only: vector summary, no image placeholder */
+      /* Order placed card only: show Order ID with vector icon */
       .app-ui .order-summary-card svg,
       .app-ui .order-summary-card svg * {
         fill: none !important;
@@ -2415,8 +2401,8 @@ function getImageCandidates(src?: string, label?: string) {
 
   const cleanSrc = src.startsWith("/") ? src : `/${src}`;
   const parts = cleanSrc.split("/").filter(Boolean);
-  const fileName = parts.at(-1);
-  const parentFolder = parts.at(-2);
+  const fileName = parts[parts.length - 1];
+  const parentFolder = parts[parts.length - 2];
   const candidates: string[] = [];
 
   const addPath = (path?: string) => {
@@ -3785,48 +3771,7 @@ function CustomizationAppBar({ onBack }: { onBack: () => void }) {
   );
 }
 
-function DecorativeTitleLine() {
-  return (
-    <div className="mt-2 flex items-center gap-2">
-      <span className="h-px w-10 bg-[#15A9D6] text-white" />
-      <span className="text-[12px] text-[#15A9D6]">✧</span>
-      <span className="h-px w-10 bg-[#15A9D6] text-white" />
-    </div>
-  );
-}
 
-function LargeImagePlaceholder({
-  label = "Image Placeholder",
-  imageSrc,
-}: {
-  label?: string;
-  imageSrc?: string;
-}) {
-  return (
-    <div className="relative flex h-[158px] w-[132px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border border-[#DDEBF2] bg-[#F6FCFF] shadow-[0_10px_22px_rgba(6,27,58,0.06)]">
-      {imageSrc ? (
-        <SafeAssetImage
-          src={imageSrc}
-          alt={label}
-          fallbackLabel={label}
-          fallbackClassName="h-[158px]"
-          className="h-full w-full object-cover object-center"
-        />
-      ) : (
-        <>
-          <div className="absolute inset-3 rounded-[14px] border border-dashed border-[#15A9D6]/45 bg-white/70" />
-          <span className="absolute left-5 top-6 h-px w-20 rounded-full bg-[#14213D]/25" />
-          <span className="absolute left-[43px] top-10 h-20 w-px rotate-[8deg] rounded-full bg-[#14213D]/22" />
-          <span className="absolute right-[43px] top-10 h-20 w-px rotate-[-8deg] rounded-full bg-[#14213D]/22" />
-          <span className="absolute bottom-10 h-px w-16 rounded-full bg-[#15A9D6]/45 text-white" />
-          <p className="relative mt-20 px-4 text-center text-[7px] font-bold uppercase tracking-[0.13em] text-[#748596]">
-            {label}
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
 
 function SmallImagePlaceholder({ compact = false }: { compact?: boolean }) {
   return (
@@ -3965,9 +3910,6 @@ function CustomizationFlowScreen({
   onBack,
   onSave,
   buttonText,
-  hero = false,
-  heroImageSrc,
-  heroLabel = "Image Placeholder",
   infoText,
 }: {
   title: string;
@@ -5258,13 +5200,12 @@ function PaymentMethodVisual({ id, active }: { id: string; active: boolean }) {
   return (
     <div
       className={[
-        "payment-method-visual relative flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border shadow-[0_10px_22px_rgba(6,27,58,0.07)]",
+        "payment-method-visual flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-[18px] border shadow-[0_10px_22px_rgba(6,27,58,0.07)]",
         active
           ? "border-[#15A9D6] bg-[linear-gradient(135deg,#06365A,#0E7BC1,#10B6D9)]"
           : "border-[#DDEBF2] bg-[linear-gradient(180deg,#FFFFFF,#F6FCFF)]",
       ].join(" ")}
     >
-
       {id === "COD" && <Banknote className={iconClass} strokeWidth={1.9} />}
       {id === "Online" && <CreditCard className={iconClass} strokeWidth={1.9} />}
       {id === "Shopkeeper" && <Store className={iconClass} strokeWidth={1.9} />}
@@ -5275,131 +5216,60 @@ function PaymentMethodVisual({ id, active }: { id: string; active: boolean }) {
 function PaymentMethodScreen({ onBack, onConfirm }: { onBack: () => void; onConfirm: () => void }) {
   const [method, setMethod] = useState("COD");
   const methods = [
-    {
-      id: "COD",
-      title: "Cash on Delivery",
-      subtitle: "COD",
-      description: "Pay cash when the outfit is delivered.",
-      note: "Most common",
-    },
-    {
-      id: "Online",
-      title: "Online Payment",
-      subtitle: "Card / Wallet",
-      description: "Pay by card, bank transfer, or mobile wallet.",
-      note: "Secure",
-    },
-    {
-      id: "Shopkeeper",
-      title: "Paid to Shopkeeper",
-      subtitle: "In-store",
-      description: "Customer already paid the shopkeeper.",
-      note: "Verified",
-    },
+    ["COD", "Cash on Delivery (COD)", "Pay in cash when your order is delivered to you."],
+    ["Online", "Online Payment", "Pay securely using your card, bank transfer or mobile wallet."],
+    ["Shopkeeper", "Already Paid to Shopkeeper", "I have already paid the full amount to my shopkeeper."],
   ];
-
-  const selectedMethod = methods.find((item) => item.id === method) ?? methods[0];
 
   return (
     <PhoneFrame contentClassName="flex h-full flex-col px-6 pb-0 pt-12">
       <CustomizationAppBar onBack={onBack} />
       <section className="min-h-0 flex-1 overflow-y-auto pb-3 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
-        <div className="mt-6 text-center">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#15A9D6]">
-            Checkout
-          </p>
+        <div className="mt-7 text-center">
           <h1
-            className="mt-1 text-[24px] font-semibold leading-tight text-[#14213D]"
+            className="text-[24px] font-semibold leading-tight text-[#14213D]"
             style={{ fontFamily: '"DM Serif Display", serif' }}
           >
             Payment Method
           </h1>
           <div className="mx-auto mt-2 h-px w-12 bg-[#15A9D6] text-white" />
-          <p className="mx-auto mt-3 max-w-[295px] text-[12px] font-semibold leading-5 text-[#667889]">
-            Choose the customer&apos;s payment method to place this order.
-          </p>
+          <p className="mt-3 text-[13px] font-semibold leading-5 text-[#667889]">Choose how you would like to pay for this order.</p>
         </div>
 
-        <div className="mt-5 space-y-3">
-          {methods.map((paymentMethod) => {
-            const active = method === paymentMethod.id;
-
+        <div className="mt-7 space-y-3">
+          {methods.map(([id, title, description]) => {
+            const active = method === id;
             return (
               <button
-                key={paymentMethod.id}
+                key={id}
                 type="button"
-                onClick={() => setMethod(paymentMethod.id)}
+                onClick={() => setMethod(id)}
                 className={[
-                  "payment-method-card group flex w-full items-center gap-3 rounded-[20px] border bg-white px-3.5 py-3.5 text-left shadow-[0_10px_22px_rgba(6,27,58,0.055)] transition",
-                  active
-                    ? "border-[#15A9D6] bg-[#FCFEFF] ring-1 ring-[#15A9D6]/20"
-                    : "border-[#DDEBF2] hover:border-[#15A9D6]/55",
+                  "flex w-full items-center justify-between gap-4 rounded-[16px] border bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(6,27,58,0.05)] transition",
+                  active ? "border-[#15A9D6] bg-[#FCFEFF]" : "border-[#DDEBF2]",
                 ].join(" ")}
               >
-                <PaymentMethodVisual id={paymentMethod.id} active={active} />
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-[14px] font-extrabold leading-tight text-[#14213D]">
-                      {paymentMethod.title}
-                    </p>
-                    <span
-                      className={[
-                        "shrink-0 rounded-full px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.12em]",
-                        active ? "bg-[#EAF8FE] text-[#0E7BC1]" : "bg-[#F3F8FB] text-[#94A3AD]",
-                      ].join(" ")}
-                    >
-                      {paymentMethod.note}
-                    </span>
+                <div className="flex items-center gap-3">
+                  <PaymentMethodVisual id={id} active={active} />
+                  <div>
+                    <p className="text-[15px] font-bold text-[#14213D]">{title}</p>
+                    <p className="mt-1 max-w-[220px] text-[11px] font-semibold leading-5 text-[#667889]">{description}</p>
                   </div>
-
-                  <p className="mt-1 text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#94A3AD]">
-                    {paymentMethod.subtitle}
-                  </p>
-                  <p className="mt-1 text-[11px] font-semibold leading-4 text-[#667889]">
-                    {paymentMethod.description}
-                  </p>
                 </div>
-
-                <span
-                  className={[
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition",
-                    active ? "border-[#15A9D6] bg-[#15A9D6]" : "border-[#94A3AD] bg-white",
-                  ].join(" ")}
-                >
-                  {active && <Check className="h-3.5 w-3.5 text-white" strokeWidth={2.5} />}
-                </span>
+                <span className={active ? "h-5 w-5 rounded-full border-[5px] border-[#15A9D6]" : "h-5 w-5 rounded-full border border-[#94A3AD]"} />
               </button>
             );
           })}
         </div>
 
-        <div className="mt-5 overflow-hidden rounded-[20px] border border-[#15A9D6]/55 bg-white shadow-[0_10px_22px_rgba(6,27,58,0.055)]">
-          <div className="flex items-center justify-between gap-4 px-4 py-4">
-            <div className="min-w-0">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#15A9D6]">
-                Amount Payable
-              </p>
-              <p className="mt-1 text-[11px] font-semibold leading-4 text-[#667889]">
-                Payment via {selectedMethod.title}
-              </p>
-            </div>
-            <div className="shrink-0 text-right">
-              <p className="text-[18px] font-extrabold text-[#14213D]">PKR 6,450</p>
-              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#94A3AD]">
-                Tax included
-              </p>
-            </div>
+        <div className="mt-7 flex items-center justify-between rounded-[14px] border border-[#15A9D6]/65 bg-white px-4 py-4 shadow-[0_8px_18px_rgba(6,27,58,0.05)]">
+          <div>
+            <p className="text-[13px] font-bold text-[#14213D]">Amount Payable</p>
+            <p className="mt-1 text-[10px] font-semibold text-[#667889]">Total amount for this order</p>
           </div>
-
-          <div className="border-t border-[#E9F4F8] bg-[#F6FCFF] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Lock className="h-4 w-4 text-[#0E7BC1]" strokeWidth={2} />
-              <p className="text-[11px] font-bold text-[#14213D]">Secure &amp; Private</p>
-            </div>
-            <p className="mt-1 text-[10.5px] font-medium leading-4 text-[#667889]">
-              Payment details are kept safe and only the selected payment status is attached to this order.
-            </p>
+          <div className="text-right">
+            <p className="text-[19px] font-bold text-[#14213D]">PKR 6,450</p>
+            <p className="mt-1 text-[10px] font-semibold text-[#667889]">Inclusive of tax</p>
           </div>
         </div>
       </section>
@@ -5408,19 +5278,24 @@ function PaymentMethodScreen({ onBack, onConfirm }: { onBack: () => void; onConf
         <button
           type="button"
           onClick={onConfirm}
-          className="compact-cta-button flex h-[40px] w-[78%] mx-auto items-center justify-center gap-2 rounded-[14px] bg-[#14213D] text-[13px] font-semibold text-white shadow-[0_8px_18px_rgba(7,25,54,0.16)] transition hover:scale-[1.01]"
+          className="compact-cta-button flex h-[55px] w-[78%] mx-auto items-center justify-center gap-2 rounded-[14px] bg-[#14213D] text-[13px] font-semibold text-white shadow-[0_8px_18px_rgba(7,25,54,0.16)] transition hover:scale-[1.01]"
         >
-          Confirm Order
+          Confirm & Place Order
           <ArrowRight className="h-5 w-5" strokeWidth={1.9} />
         </button>
         <button type="button" onClick={onBack} className="mt-3 flex h-7 w-full items-center justify-center gap-1 text-[12px] font-semibold text-[#14213D]">
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.8} />
           Back
         </button>
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-[#667889]">
+          <Lock className="h-3.5 w-3.5 text-[#667889]" strokeWidth={2} />
+          Secure & Private
+        </div>
       </footer>
     </PhoneFrame>
   );
 }
+
 function OrderPlacedScreen({ onTrack, onHome }: { onTrack: () => void; onHome: () => void }) {
   return (
     <PhoneFrame contentClassName="flex h-full flex-col px-6 pb-0 pt-12">
@@ -5490,7 +5365,7 @@ function OrderPlacedScreen({ onTrack, onHome }: { onTrack: () => void; onHome: (
           <div className="border-t border-[#E9F4F8] bg-[#F6FCFF] px-4 py-3">
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-[#78BE43]" strokeWidth={2.4} />
-              <p className="text-[11px] font-bold text-[#14213D]">Shopkeeper has received the order details.</p>
+              <p className="text-[11px] font-bold text-[#14213D]">Order details saved with this Order ID.</p>
             </div>
           </div>
         </div>
