@@ -38309,6 +38309,12 @@ function AdRevenueSignals({
     setNotice(`Reviewing buyer signals from ${record.campaignName}.`);
   }
 
+  function openTeamMessage(record: AdRevenueSignalRecord = selectedRecord ?? adRevenueSignals[0]) {
+    setSelected(record);
+    setModal("teamMessage");
+    setNotice(`Preparing internal team message for ${record.campaignName}.`);
+  }
+
   function openExportPreview() {
     setSelected(selectedRecord ?? firstRecord);
     setModal("export");
