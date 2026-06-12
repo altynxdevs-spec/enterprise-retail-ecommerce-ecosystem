@@ -43876,6 +43876,7 @@ function AutomationBuilderPage({
   const [customPipelineValidation, setCustomPipelineValidation] = useState<CustomPipelineValidationResult>(() => validateCustomPipelineDraft(createDefaultCustomPipelineDraft(automation)));
   const [configureSourceModalOpen, setConfigureSourceModalOpen] = useState(false);
   const [actionSettingsModalOpen, setActionSettingsModalOpen] = useState(false);
+  const [actionSafetyModalOpen, setActionSafetyModalOpen] = useState(false);
   const [conditionSafetyModalOpen, setConditionSafetyModalOpen] = useState(false);
   const [templateLibraryModalOpen, setTemplateLibraryModalOpen] = useState(false);
   const [previewOutputPanelOpen, setPreviewOutputPanelOpen] = useState(false);
@@ -44633,7 +44634,7 @@ function AutomationBuilderPage({
                       <strong>Safety settings</strong>
                       <p>Keep the action controlled with ready-made safety rules.</p>
                     </div>
-                    <button data-workflow-ignore="true" className="automation-action-show-more" type="button" onClick={() => setActionSettingsModalOpen(true)}>
+                    <button data-workflow-ignore="true" className="automation-action-show-more" type="button" onClick={() => setActionSafetyModalOpen(true)}>
                       Show more
                     </button>
                   </div>
@@ -45009,11 +45010,32 @@ function AutomationBuilderPage({
                   ))}
                 </div>
               </section>
+            </div>
 
+            <footer className="automation-action-settings-modal-footer">
+              <button data-workflow-ignore="true" className="secondary-btn" type="button" onClick={() => setActionSettingsModalOpen(false)}>Close</button>
+            </footer>
+          </article>
+        </div>
+      ) : null}
+
+      {actionSafetyModalOpen ? (
+        <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+          <article aria-modal="true" className="automation-detail-modal automation-action-settings-modal" role="dialog">
+            <header className="reports-modal-header automation-action-settings-modal-header">
+              <div>
+                <span>Safety settings</span>
+                <h2>Guardrails for {selectedActionChoice.label}</h2>
+                <p>Pick only safety rules for when this action should pause, stay manual, or require owner review.</p>
+              </div>
+              <button data-workflow-ignore="true" type="button" onClick={() => setActionSafetyModalOpen(false)} aria-label="Close safety settings">×</button>
+            </header>
+
+            <div className="automation-action-settings-modal-body">
               <section className="automation-action-settings-modal-section">
                 <div>
-                  <strong>Safety rules</strong>
-                  <p>Choose guardrails so the automation stays easy for a non-technical team to run.</p>
+                  <strong>Safety guardrails</strong>
+                  <p>Choose only safety-related rules for this action. No action-setting or selected-setting summary is shown here.</p>
                 </div>
                 <div className="automation-trigger-signal-grid automation-action-settings-modal-grid">
                   {actionSafetyOptions.map((option) => (
@@ -45023,17 +45045,10 @@ function AutomationBuilderPage({
                   ))}
                 </div>
               </section>
-
-              <section className="automation-action-settings-selected-box">
-                <strong>Selected action settings</strong>
-                <div className="reports-chip-row">
-                  {selectedActionSettingValues.slice(0, 8).map((setting) => <span key={`selected-action-${setting}`}>{setting}</span>)}
-                </div>
-              </section>
             </div>
 
             <footer className="automation-action-settings-modal-footer">
-              <button data-workflow-ignore="true" className="secondary-btn" type="button" onClick={() => setActionSettingsModalOpen(false)}>Close</button>
+              <button data-workflow-ignore="true" className="secondary-btn" type="button" onClick={() => setActionSafetyModalOpen(false)}>Close</button>
             </footer>
           </article>
         </div>
