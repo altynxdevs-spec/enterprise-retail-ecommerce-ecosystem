@@ -42576,6 +42576,149 @@ function getAutomationBuilderSourceCards(_sourceOptions: string[]) {
   return automationBuilderSourceCards;
 }
 
+
+type AutomationTriggerChoice = {
+  label: string;
+  helper: string;
+  icon: string;
+  signals: string[];
+  defaultSegment: string;
+};
+
+const automationIntentLevelOptions = ["Low", "Medium", "High"];
+const automationFrequencyRuleOptions = [
+  "Run when the trigger is detected",
+  "Run once per buyer per day",
+  "Run once per buyer per week",
+  "Run only during business hours",
+  "Run after owner review",
+  "Run only when no open recovery card exists",
+];
+const automationDelayBeforeActionOptions = [
+  "Immediately",
+  "5 minutes",
+  "10 minutes",
+  "15 minutes",
+  "30 minutes",
+  "1 hour",
+  "2 hours",
+  "1 day",
+  "2 days",
+  "3 days",
+];
+const automationBuyerSegmentOptions = [
+  "All matching buyers/clients",
+  "New buyers",
+  "Returning buyers",
+  "VIP buyers",
+  "High-intent buyers",
+  "Beauty support issues",
+  "Fashion size/fit shoppers",
+  "Payment/deposit pending buyers",
+  "Booking or appointment leads",
+  "Post-purchase buyers",
+];
+const automationExclusionRuleOptions = [
+  "Ignore spam or giveaway comments",
+  "Do not run if buyer already replied",
+  "Do not run if payment is completed",
+  "Do not run if issue is resolved",
+  "Do not run when an open recovery card already exists",
+  "Require approval for support complaints",
+  "Require approval for high-value buyers",
+  "Only run during business hours",
+];
+
+const triggerIconMap: Record<string, string> = {
+  dm: "✉️",
+  comment: "💬",
+  whatsapp: "🟢",
+  customer: "🙋",
+  engagement: "📣",
+  product: "🛍️",
+  cart: "🛒",
+  checkout: "💳",
+  size: "📏",
+  booking: "📅",
+  consultation: "🧴",
+  stock: "📦",
+  stripe: "💳",
+  payment: "💰",
+  deposit: "🏦",
+  invoice: "🧾",
+  review: "⭐",
+  ugc: "📸",
+  referral: "🤝",
+  exchange: "🔁",
+  delivery: "🚚",
+  quality: "⚠️",
+  support: "🛟",
+  wholesale: "🏷️",
+  custom: "✨",
+  manual: "👤",
+};
+
+function getTriggerIcon(trigger: string) {
+  const lowerTrigger = trigger.toLowerCase();
+  const matchedKey = Object.keys(triggerIconMap).find((key) => lowerTrigger.includes(key));
+  return matchedKey ? triggerIconMap[matchedKey] : "⚡";
+}
+
+function getTriggerSignals(trigger: string, businessType: NoCodeAutomationWorkflow["businessType"]) {
+  const lowerTrigger = trigger.toLowerCase();
+  if (lowerTrigger.includes("payment") || lowerTrigger.includes("deposit") || lowerTrigger.includes("invoice")) return ["payment missing", "deposit pending", "high value", "proof needed"];
+  if (lowerTrigger.includes("checkout") || lowerTrigger.includes("cart")) return ["cart", "checkout", "payment delay", "product interest"];
+  if (lowerTrigger.includes("booking") || lowerTrigger.includes("appointment") || lowerTrigger.includes("consultation")) return ["booking", "appointment", "time slot", "confirmation"];
+  if (lowerTrigger.includes("review") || lowerTrigger.includes("ugc") || lowerTrigger.includes("referral")) return ["review", "UGC", "referral", "post-purchase"];
+  if (lowerTrigger.includes("support") || lowerTrigger.includes("quality") || lowerTrigger.includes("exchange") || lowerTrigger.includes("delivery")) return ["support", "complaint", "delivery", "needs review"];
+  if (businessType === "Beauty/Cosmetics") return ["skin concern", "shade match", "routine", "usage question"];
+  if (businessType === "Fashion/Apparel") return ["size", "fit", "color", "delivery"];
+  return ["new inquiry", "buyer signal", "follow-up", "owner review"];
+}
+
+function getTriggerSegment(trigger: string, businessType: NoCodeAutomationWorkflow["businessType"]) {
+  const lowerTrigger = trigger.toLowerCase();
+  if (lowerTrigger.includes("payment") || lowerTrigger.includes("deposit")) return "Payment/deposit pending buyers";
+  if (lowerTrigger.includes("booking") || lowerTrigger.includes("appointment")) return "Booking or appointment leads";
+  if (lowerTrigger.includes("review") || lowerTrigger.includes("ugc") || lowerTrigger.includes("referral")) return "Post-purchase buyers";
+  if (lowerTrigger.includes("support") || lowerTrigger.includes("quality") || lowerTrigger.includes("delivery")) return "Beauty support issues";
+  if (businessType === "Fashion/Apparel") return "Fashion size/fit shoppers";
+  if (businessType === "Beauty/Cosmetics") return "Beauty support issues";
+  return "High-intent buyers";
+}
+
+function getTriggerHelper(trigger: string, pipelineId: string) {
+  const selectedPipeline = getPipelineById(noCodeAutomationPipelines, pipelineId);
+  return `${selectedPipeline.category} trigger · Altynx watches for this buyer signal and prepares the next recovery action.`;
+}
+
+function getTriggerChoiceOptions(pipelineId: string, businessType: NoCodeAutomationWorkflow["businessType"]): AutomationTriggerChoice[] {
+  return getTriggerOptionsByPipeline(pipelineId).map((trigger) => ({
+    label: trigger,
+    helper: getTriggerHelper(trigger, pipelineId),
+    icon: getTriggerIcon(trigger),
+    signals: getTriggerSignals(trigger, businessType),
+    defaultSegment: getTriggerSegment(trigger, businessType),
+  }));
+}
+
+function getKeywordSignalPacks(trigger: string, businessType: NoCodeAutomationWorkflow["businessType"]) {
+  const baseSignals = getTriggerSignals(trigger, businessType);
+  const supportSignals = ["support issue", "needs owner review", "not resolved", "customer concern"];
+  const paymentSignals = ["payment pending", "deposit missing", "failed payment", "proof needed"];
+  const followUpSignals = ["no reply", "first reply needed", "follow-up due", "warm buyer"];
+  const productSignals = businessType === "Beauty/Cosmetics"
+    ? ["skin concern", "shade", "routine", "usage"]
+    : ["size", "fit", "restock", "delivery"];
+
+  return Array.from(new Set([...baseSignals, ...productSignals, ...followUpSignals, ...paymentSignals, ...supportSignals]));
+}
+
+function ensureSelectedOption(options: string[], selectedValue: string | undefined, fallback: string) {
+  const normalizedValue = selectedValue?.trim() || fallback;
+  return options.includes(normalizedValue) ? options : [normalizedValue, ...options];
+}
+
 function getPipelineById(pipelines: NoCodeAutomationPipeline[], pipelineId: string) {
   return pipelines.find((pipeline) => pipeline.id === pipelineId) ?? pipelines[0];
 }
@@ -43418,6 +43561,9 @@ function AutomationBuilderPage({
   const actionOptions = isCustomPipelineSelected && customPipelineDraft.defaultActions.length > 0 ? customPipelineDraft.defaultActions : getActionOptionsByPipeline(draft.pipelineId);
   const sourceOptions = isCustomPipelineSelected && customPipelineDraft.selectedSources.length > 0 ? customPipelineDraft.selectedSources : getSourceOptionsByPipeline(draft.pipelineId);
   const visibleSourceCards = getAutomationBuilderSourceCards(sourceOptions);
+  const triggerChoiceOptions = getTriggerChoiceOptions(draft.pipelineId, draft.businessType);
+  const selectedTriggerChoice = triggerChoiceOptions.find((triggerChoice) => triggerChoice.label === draft.trigger) ?? triggerChoiceOptions[0];
+  const keywordSignalOptions = getKeywordSignalPacks(selectedTriggerChoice.label, draft.businessType);
   const ownerOptions = automationBuilderTeamMemberOptions.some((member) => member.value === draft.owner)
     ? automationBuilderTeamMemberOptions
     : [{ value: draft.owner, label: `${draft.owner} — current owner/team` }, ...automationBuilderTeamMemberOptions];
@@ -43454,6 +43600,35 @@ function AutomationBuilderPage({
     updateDraft("sourcePlatform", source);
     updateDraft("sourceChannel", source);
     updateDraft("sourceStatus", "Connected");
+  }
+
+  function selectTriggerChoice(triggerChoice: AutomationTriggerChoice) {
+    updateDraft("trigger", triggerChoice.label);
+    updateDraft("buyerIntentSignal", triggerChoice.helper);
+    updateDraft("keywords", triggerChoice.signals);
+    updateDraft("buyerSegment", triggerChoice.defaultSegment);
+  }
+
+  function toggleKeywordSignal(signal: string) {
+    setDraft((current) => {
+      const nextKeywords = current.keywords.includes(signal)
+        ? current.keywords.filter((item) => item !== signal)
+        : [...current.keywords, signal];
+      return { ...current, keywords: nextKeywords };
+    });
+  }
+
+  function toggleExclusionRule(rule: string) {
+    setDraft((current) => {
+      const currentRules = current.exclusionRules
+        .split(/[,\.]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const nextRules = currentRules.includes(rule)
+        ? currentRules.filter((item) => item !== rule)
+        : [...currentRules, rule];
+      return { ...current, exclusionRules: nextRules.join(", ") };
+    });
   }
 
   function openSourceConfigurationPage() {
@@ -43841,43 +44016,81 @@ function AutomationBuilderPage({
             </div>
           </AutomationBuilderSection>
 
-          <AutomationBuilderSection title="3. When this happens…" description="Select a clear business trigger that starts the automation.">
-            <div className="automation-builder-form-grid">
-              <label>
-                Trigger type
-                <select value={draft.trigger} onChange={(event) => updateDraft("trigger", event.target.value)}>
-                  {triggerOptions.map((trigger) => <option key={trigger}>{trigger}</option>)}
-                </select>
-              </label>
-              <label>
-                Keywords/signals
-                <input value={draft.keywords.join(", ")} onChange={(event) => updateDraft("keywords", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} />
-              </label>
-              <label>
-                Intent level
-                <select value={draft.minimumIntentLevel} onChange={(event) => updateDraft("minimumIntentLevel", event.target.value)}>
-                  <option>Low</option>
-                  <option>Medium</option>
-                  <option>High</option>
-                </select>
-              </label>
-              <label>
-                Frequency rule
-                <input value={draft.frequencyRule ?? "Run when the trigger is detected"} onChange={(event) => updateDraft("frequencyRule", event.target.value)} />
-              </label>
-              <label>
-                Delay before action
-                <input value={draft.delayBeforeAction ?? "10 minutes"} onChange={(event) => updateDraft("delayBeforeAction", event.target.value)} />
-              </label>
-              <label>
-                Buyer/client segment
-                <input value={draft.buyerSegment} onChange={(event) => updateDraft("buyerSegment", event.target.value)} />
-              </label>
+          <AutomationBuilderSection title="3. When this happens…" description="Choose from ready-made trigger and signal options. No manual keyword typing needed.">
+            <div className="automation-trigger-builder-layout">
+              <div className="automation-trigger-control-panel">
+                <label>
+                  Intent level
+                  <select value={draft.minimumIntentLevel} onChange={(event) => updateDraft("minimumIntentLevel", event.target.value)}>
+                    {automationIntentLevelOptions.map((level) => <option key={level}>{level}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Frequency rule
+                  <select value={draft.frequencyRule ?? automationFrequencyRuleOptions[0]} onChange={(event) => updateDraft("frequencyRule", event.target.value)}>
+                    {ensureSelectedOption(automationFrequencyRuleOptions, draft.frequencyRule, automationFrequencyRuleOptions[0]).map((rule) => <option key={rule}>{rule}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Delay before action
+                  <select value={draft.delayBeforeAction ?? automationDelayBeforeActionOptions[2]} onChange={(event) => updateDraft("delayBeforeAction", event.target.value)}>
+                    {ensureSelectedOption(automationDelayBeforeActionOptions, draft.delayBeforeAction, automationDelayBeforeActionOptions[2]).map((delay) => <option key={delay}>{delay}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Buyer/client segment
+                  <select value={draft.buyerSegment} onChange={(event) => updateDraft("buyerSegment", event.target.value)}>
+                    {ensureSelectedOption(automationBuyerSegmentOptions, draft.buyerSegment, automationBuyerSegmentOptions[0]).map((segment) => <option key={segment}>{segment}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <aside className="automation-trigger-side-panel">
+                <div className="automation-trigger-panel-header">
+                  <span>Trigger panel</span>
+                  <h4>{selectedTriggerChoice.label}</h4>
+                  <p>{selectedTriggerChoice.helper}</p>
+                </div>
+
+                <div className="automation-trigger-icon-grid">
+                  {triggerChoiceOptions.map((triggerChoice) => (
+                    <button key={triggerChoice.label} className={draft.trigger === triggerChoice.label ? "selected" : ""} type="button" onClick={() => selectTriggerChoice(triggerChoice)}>
+                      <span>{triggerChoice.icon}</span>
+                      <strong>{triggerChoice.label}</strong>
+                      <small>{triggerChoice.defaultSegment}</small>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="automation-trigger-signal-panel">
+                  <div>
+                    <strong>Keywords / signals</strong>
+                    <p>Choose ready-made signals Altynx should listen for in this automation.</p>
+                  </div>
+                  <div className="automation-trigger-signal-grid">
+                    {keywordSignalOptions.map((signal) => (
+                      <button key={signal} className={draft.keywords.includes(signal) ? "selected" : ""} type="button" onClick={() => toggleKeywordSignal(signal)}>
+                        {signal}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="automation-trigger-signal-panel">
+                  <div>
+                    <strong>Exclusion rules</strong>
+                    <p>Keep the automation safe without writing custom rules.</p>
+                  </div>
+                  <div className="automation-trigger-signal-grid">
+                    {automationExclusionRuleOptions.map((rule) => (
+                      <button key={rule} className={draft.exclusionRules.includes(rule) ? "selected" : ""} type="button" onClick={() => toggleExclusionRule(rule)}>
+                        {rule}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </aside>
             </div>
-            <label className="automation-builder-full-field">
-              Exclusion rules
-              <textarea value={draft.exclusionRules} onChange={(event) => updateDraft("exclusionRules", event.target.value)} />
-            </label>
           </AutomationBuilderSection>
 
           <AutomationBuilderSection title="4. Altynx should do this…" description="Choose the recovery action Altynx should prepare or create.">

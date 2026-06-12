@@ -65289,3 +65289,200 @@ button.buyer-product-preview {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   AUTOMATION BUILDER TRIGGER PANEL FIX
+   Scope: Reports & Automation > Automation Board > Edit/Create Automation only
+   ========================================================= */
+
+.automation-board-page .automation-trigger-builder-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.38fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.automation-board-page .automation-trigger-control-panel,
+.automation-board-page .automation-trigger-side-panel,
+.automation-board-page .automation-trigger-signal-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #eadfd4;
+  border-radius: 18px;
+  background: #fffaf7;
+}
+
+.automation-board-page .automation-trigger-control-panel label {
+  display: grid;
+  gap: 8px;
+  color: #7c5638;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.automation-board-page .automation-trigger-control-panel select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #eadfd4;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #111827;
+  padding: 0 13px;
+  outline: none;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+
+.automation-board-page .automation-trigger-control-panel select:focus {
+  border-color: #ff8a63;
+  box-shadow: 0 0 0 3px rgba(255, 69, 0, 0.08);
+}
+
+.automation-board-page .automation-trigger-side-panel {
+  background: linear-gradient(135deg, #fff7f1, #ffffff);
+}
+
+.automation-board-page .automation-trigger-panel-header {
+  display: grid;
+  gap: 6px;
+}
+
+.automation-board-page .automation-trigger-panel-header > span {
+  width: fit-content;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid #ffd3c2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #ff4500;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.automation-board-page .automation-trigger-panel-header h4,
+.automation-board-page .automation-trigger-signal-panel strong {
+  margin: 0;
+  color: #111111;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 950;
+  letter-spacing: -0.025em;
+}
+
+.automation-board-page .automation-trigger-panel-header p,
+.automation-board-page .automation-trigger-signal-panel p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 750;
+}
+
+.automation-board-page .automation-trigger-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.automation-board-page .automation-trigger-icon-grid button {
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid #eadfd4;
+  border-radius: 16px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.automation-board-page .automation-trigger-icon-grid button:hover {
+  transform: translateY(-1px);
+  border-color: #ffb399;
+}
+
+.automation-board-page .automation-trigger-icon-grid button.selected {
+  border-color: #ff8a63;
+  background: #fff7f1;
+  box-shadow: inset 0 -2px 0 #ff4500;
+}
+
+.automation-board-page .automation-trigger-icon-grid button > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff1e9;
+  color: #ff4500;
+  font-size: 18px;
+}
+
+.automation-board-page .automation-trigger-icon-grid strong {
+  color: #111111;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 950;
+}
+
+.automation-board-page .automation-trigger-icon-grid small {
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 750;
+}
+
+.automation-board-page .automation-trigger-signal-panel {
+  background: #ffffff;
+}
+
+.automation-board-page .automation-trigger-signal-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.automation-board-page .automation-trigger-signal-grid button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #eadfd4;
+  border-radius: 999px;
+  background: #fffaf7;
+  color: #111827;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.automation-board-page .automation-trigger-signal-grid button.selected {
+  border-color: #ff8a63;
+  background: #fff1e9;
+  color: #ff4500;
+  box-shadow: inset 0 -2px 0 #ff4500;
+}
+
+@media (max-width: 1180px) {
+  .automation-board-page .automation-trigger-builder-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .automation-board-page .automation-trigger-icon-grid {
+    grid-template-columns: 1fr;
+  }
+}
