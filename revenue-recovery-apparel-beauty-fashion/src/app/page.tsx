@@ -45091,6 +45091,7 @@ const workflowIgnoreButtonSelectors = [
   ".overview-tabs",
   ".overview-tab-row",
   ".overview-command-tabs",
+  ".automation-builder-source-card-grid",
 ];
 
 function isWorkflowIgnoredButton(button: HTMLButtonElement) {
