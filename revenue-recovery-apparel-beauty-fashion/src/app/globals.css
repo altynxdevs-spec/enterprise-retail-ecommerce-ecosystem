@@ -66042,3 +66042,32 @@ button.buyer-product-preview {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===============================
+   AUTOMATION BUILDER MODAL SCROLL FIX
+   Scoped to Section 4 Action Settings and Section 6 Conditions & Safety Rules show-more modals only.
+================================ */
+.automation-board-page .automation-action-settings-modal {
+  max-height: min(86vh, 760px) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.automation-board-page .automation-action-settings-modal .automation-action-settings-modal-header,
+.automation-board-page .automation-action-settings-modal .automation-action-settings-modal-footer {
+  flex: 0 0 auto;
+}
+
+.automation-board-page .automation-action-settings-modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.automation-board-page .automation-action-settings-modal-section {
+  min-height: min-content;
+}
