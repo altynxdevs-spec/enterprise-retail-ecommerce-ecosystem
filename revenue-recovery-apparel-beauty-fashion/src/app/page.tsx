@@ -43878,6 +43878,9 @@ function AutomationBuilderPage({
   const [actionSettingsModalOpen, setActionSettingsModalOpen] = useState(false);
   const [conditionSafetyModalOpen, setConditionSafetyModalOpen] = useState(false);
   const [templateLibraryModalOpen, setTemplateLibraryModalOpen] = useState(false);
+  const [previewOutputPanelOpen, setPreviewOutputPanelOpen] = useState(false);
+  const [testRecipientDraft, setTestRecipientDraft] = useState("test.customer@example.com");
+  const [frontendTestNotice, setFrontendTestNotice] = useState("");
   const templateTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -43921,6 +43924,9 @@ function AutomationBuilderPage({
   const validation = validateAutomationDraft(draft);
   const summary = buildAutomationSummary(draft);
   const canActivate = validation.isValid && testResult.status !== "failed";
+  const customerFacingPreviewText = buildCustomerFacingPreviewText();
+  const previewChannelLabel = draft.sourceChannel || draft.sourcePlatform || "Manual Copy";
+  const previewRecipientLabel = testRecipientDraft.trim() || "test customer";
 
   function updateDraft<K extends keyof NoCodeAutomationWorkflow>(field: K, value: NoCodeAutomationWorkflow[K]) {
     setDraft((current) => {
@@ -44116,6 +44122,46 @@ function AutomationBuilderPage({
 
   function runTest() {
     setTestResult(runAutomationTest(draft));
+  }
+
+  function openPreviewOutputPanel() {
+    const nextTestResult = runAutomationTest(draft);
+    setTestResult(nextTestResult);
+    setFrontendTestNotice("");
+    setPreviewOutputPanelOpen(true);
+  }
+
+  function simulateTriggerPreview() {
+    const nextTestResult = runAutomationTest(draft);
+    setTestResult(nextTestResult);
+    setFrontendTestNotice("Sample trigger simulated on the front end only. No real customer message was sent.");
+    setPreviewOutputPanelOpen(true);
+  }
+
+  function runFrontendPreviewTest() {
+    const recipient = testRecipientDraft.trim() || "test customer";
+    setFrontendTestNotice(`Frontend test prepared for ${recipient}. Backend sending will connect later.`);
+  }
+
+  function buildCustomerFacingPreviewText() {
+    const fallbackMessage = "Thanks for sharing this. Our specialist will review your concern and guide you safely.";
+    const replacementMap: Record<string, string> = {
+      "{{buyer_name}}": "Ayesha Khan",
+      "{{owner_name}}": draft.owner || "Recovery owner",
+      "{{inquiry_source}}": draft.sourcePlatform || "Instagram",
+      "{{last_message}}": "Is this available in my size?",
+      "{{service_name}}": draft.businessType || "Customer care",
+      "{{appointment_date}}": "Tuesday, 2:00 PM",
+      "{{product_name}}": draft.businessType || "Selected product",
+      "{{order_value}}": "$148",
+      "{{payment_amount}}": "$148",
+    };
+
+    let previewMessage = draft.templatePreview?.trim() || fallbackMessage;
+    Object.entries(replacementMap).forEach(([token, value]) => {
+      previewMessage = previewMessage.split(token).join(value);
+    });
+    return previewMessage;
   }
 
   function saveDraft(status: NoCodeAutomationStatus = "Needs Setup") {
@@ -44676,8 +44722,8 @@ function AutomationBuilderPage({
             </div>
             <div className="automation-builder-preview-actions">
               <button className="primary-btn" type="button" onClick={runTest}>Test workflow</button>
-              <button className="secondary-btn" type="button" onClick={runTest}>Preview output</button>
-              <button className="secondary-btn" type="button" onClick={runTest}>Simulate trigger</button>
+              <button className="secondary-btn" type="button" onClick={openPreviewOutputPanel}>Preview output</button>
+              <button className="secondary-btn" type="button" onClick={simulateTriggerPreview}>Simulate trigger</button>
             </div>
           </AutomationBuilderSection>
         </div>
@@ -44756,6 +44802,91 @@ function AutomationBuilderPage({
           </div>
         </aside>
       </section>
+
+      {previewOutputPanelOpen ? (
+        <div className="automation-preview-output-overlay" role="presentation">
+          <aside aria-modal="true" className="automation-preview-output-panel" role="dialog">
+            <header className="automation-preview-output-header">
+              <div>
+                <span>Preview output</span>
+                <h2>Customer-facing test preview</h2>
+                <p>Front-end preview only. This shows what would be prepared for the customer before backend sending is connected.</p>
+              </div>
+              <button data-workflow-ignore="true" type="button" onClick={() => setPreviewOutputPanelOpen(false)} aria-label="Close preview output">×</button>
+            </header>
+
+            <div className="automation-preview-output-body">
+              <section className={`automation-preview-output-status ${testResult.status}`}>
+                <span>{testResult.status === "passed" ? "Ready preview" : testResult.status === "warning" ? "Needs review" : "Needs fixing"}</span>
+                <strong>{testResult.headline}</strong>
+                <p>{testResult.status === "passed" ? "This workflow can be previewed as a customer message and team action." : testResult.status === "warning" ? "Preview is available, but review the warning before activation." : "Fix the failed checks before activating this automation."}</p>
+              </section>
+
+              <section className="automation-preview-output-grid">
+                <article>
+                  <span>Sample trigger</span>
+                  <strong>{draft.sourcePlatform || "Selected source"}</strong>
+                  <p>{summary.whenText}</p>
+                </article>
+                <article>
+                  <span>Expected Altynx action</span>
+                  <strong>{draft.action || "Selected action"}</strong>
+                  <p>{summary.actionText}</p>
+                </article>
+                <article>
+                  <span>Owner / approval</span>
+                  <strong>{draft.owner || "Recovery owner"}</strong>
+                  <p>{summary.approvalText}</p>
+                </article>
+                <article>
+                  <span>Safety rules</span>
+                  <strong>{testResult.checks.find((check) => check.label === "Safety rules")?.status ?? "Preview"}</strong>
+                  <p>{summary.safetyText}</p>
+                </article>
+              </section>
+
+              <section className="automation-customer-preview-card">
+                <div className="automation-customer-preview-top">
+                  <div>
+                    <span>Actual customer preview</span>
+                    <strong>{previewChannelLabel}</strong>
+                  </div>
+                  <span>{previewRecipientLabel}</span>
+                </div>
+                <div className="automation-customer-message-shell">
+                  <span>Message customer would see</span>
+                  <p>{customerFacingPreviewText}</p>
+                </div>
+              </section>
+
+              <section className="automation-preview-test-send-box">
+                <div>
+                  <strong>Front-end test recipient</strong>
+                  <p>Add an email, phone, or demo contact to test the preview locally. No real message is sent yet.</p>
+                </div>
+                <div className="automation-preview-test-send-row">
+                  <input value={testRecipientDraft} onChange={(event) => setTestRecipientDraft(event.target.value)} placeholder="customer@example.com or +1 phone" />
+                  <button className="primary-btn" type="button" onClick={runFrontendPreviewTest}>Run frontend test</button>
+                </div>
+                {frontendTestNotice ? <p className="automation-preview-test-notice">{frontendTestNotice}</p> : null}
+              </section>
+
+              <section className="automation-preview-output-checks">
+                <strong>Workflow checks</strong>
+                <div>
+                  {testResult.checks.map((check) => (
+                    <article key={`preview-${check.label}`} className={check.status.toLowerCase()}>
+                      <span>{check.status}</span>
+                      <strong>{check.label}</strong>
+                      <p>{check.detail}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       {templateLibraryModalOpen ? (
         <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
