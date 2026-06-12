@@ -42912,6 +42912,141 @@ function getActionSafetyOptions(action: string, businessType: NoCodeAutomationWo
   return Array.from(new Set([...baseSafety, ...supportSafety, ...actionSpecificSafety]));
 }
 
+function getConditionSafetyRuleOptions(
+  trigger: string,
+  action: string,
+  businessType: NoCodeAutomationWorkflow["businessType"],
+  pipelineId: string,
+) {
+  const lowerTrigger = trigger.toLowerCase();
+  const lowerAction = action.toLowerCase();
+  const lowerPipeline = pipelineId.toLowerCase();
+
+  const baseRules = [
+    "Do not run if buyer already replied",
+    "Do not run if payment is completed",
+    "Do not run if issue is resolved",
+    "Do not run if an open recovery card exists",
+    "Require approval for high-value buyers",
+    "Require approval for support complaints",
+    "Only run during business hours",
+    "Do not repeat the same action today",
+    "Stop after owner marks the task done",
+    "Keep customer contact manual when source is not connected",
+    "Send to owner review when confidence is low",
+    "Pause if owner or fallback owner is missing",
+    "Run only when template is ready",
+    "Run only when buyer/client contact details exist",
+    "Exclude already recovered buyers",
+    "Exclude spam or giveaway comments",
+    "Create internal task only until approved",
+    "Escalate if no owner action after 24 hours",
+  ];
+
+  const triggerRules: string[] = [];
+
+  if (lowerTrigger.includes("payment") || lowerTrigger.includes("deposit") || lowerTrigger.includes("invoice")) {
+    triggerRules.push(
+      "Require payment status check before follow-up",
+      "Do not close as recovered without proof",
+      "Stop if payment proof is uploaded",
+      "Send to payment owner if amount is high",
+    );
+  }
+
+  if (lowerTrigger.includes("booking") || lowerTrigger.includes("appointment") || lowerTrigger.includes("consultation")) {
+    triggerRules.push(
+      "Run only if appointment is not confirmed",
+      "Stop if booking is confirmed",
+      "Require owner check before rebooking message",
+      "Do not send outside available slot window",
+    );
+  }
+
+  if (lowerTrigger.includes("support") || lowerTrigger.includes("quality") || lowerTrigger.includes("exchange") || lowerTrigger.includes("delivery")) {
+    triggerRules.push(
+      "Keep complaint cases manual until reviewed",
+      "Require support owner approval",
+      "Stop if issue is marked resolved",
+      "Escalate unresolved issue to support owner",
+    );
+  }
+
+  if (lowerTrigger.includes("cart") || lowerTrigger.includes("checkout") || lowerTrigger.includes("website")) {
+    triggerRules.push(
+      "Run only if checkout is still incomplete",
+      "Attach product/page context before owner review",
+      "Do not repeat website interest task today",
+    );
+  }
+
+  const actionRules: string[] = [];
+
+  if (lowerAction.includes("message") || lowerAction.includes("follow") || lowerAction.includes("reminder")) {
+    actionRules.push(
+      "Prepare message only until owner approves",
+      "Do not send if buyer replied after trigger",
+      "Stop follow-up after max attempts",
+      "Log manual send confirmation",
+    );
+  }
+
+  if (lowerAction.includes("queue") || lowerAction.includes("task") || lowerAction.includes("card")) {
+    actionRules.push(
+      "Create one queue item per buyer/client",
+      "Keep queue item pending until reviewed",
+      "Escalate overdue queue item",
+    );
+  }
+
+  if (lowerAction.includes("assign") || lowerAction.includes("notify") || lowerAction.includes("owner")) {
+    actionRules.push(
+      "Notify selected owner inside Altynx only",
+      "Reassign to fallback owner if no response",
+      "Show workload warning before assignment",
+    );
+  }
+
+  const businessRules = businessType === "Beauty/Cosmetics"
+    ? [
+      "Require specialist review for skin or usage concerns",
+      "Do not advise on sensitive concerns automatically",
+      "Ask owner to check shade or routine context first",
+    ]
+    : businessType === "Fashion/Apparel"
+      ? [
+        "Confirm size or fit context before follow-up",
+        "Check stock or variant availability first",
+        "Do not send delivery promise without owner review",
+      ]
+      : [
+        "Use buyer/client wording safely",
+        "Require owner review for product or service gaps",
+        "Keep hybrid cases manual when context is missing",
+      ];
+
+  const pipelineRules = lowerPipeline.includes("external")
+    ? ["Run only after source sync is healthy", "Create source review task if data is missing", "Do not update external tool automatically"]
+    : lowerPipeline.includes("payment")
+      ? ["Require payment owner confirmation", "Do not auto-mark payment recovered", "Stop if deposit is marked paid"]
+      : lowerPipeline.includes("support")
+        ? ["Do not auto-send support replies", "Require support team review", "Escalate if issue stays open"]
+        : lowerPipeline.includes("website")
+          ? ["Run only if website event has buyer identity", "Do not create duplicate website lead task", "Attach product interest before owner review"]
+          : [];
+
+  return Array.from(new Set([...baseRules, ...triggerRules, ...actionRules, ...businessRules, ...pipelineRules]));
+}
+
+function getSelectedSafetyRuleValues(safetyRules: string | undefined, fallbackRules: string[] = []) {
+  const parsedRules = (safetyRules ?? "")
+    .split(/[,\.]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return parsedRules.length > 0 ? parsedRules : fallbackRules;
+}
+
 function ensureSelectedOption(options: string[], selectedValue: string | undefined, fallback: string) {
   const normalizedValue = selectedValue?.trim() || fallback;
   return options.includes(normalizedValue) ? options : [normalizedValue, ...options];
@@ -43741,6 +43876,7 @@ function AutomationBuilderPage({
   const [customPipelineValidation, setCustomPipelineValidation] = useState<CustomPipelineValidationResult>(() => validateCustomPipelineDraft(createDefaultCustomPipelineDraft(automation)));
   const [configureSourceModalOpen, setConfigureSourceModalOpen] = useState(false);
   const [actionSettingsModalOpen, setActionSettingsModalOpen] = useState(false);
+  const [conditionSafetyModalOpen, setConditionSafetyModalOpen] = useState(false);
   const [templateLibraryModalOpen, setTemplateLibraryModalOpen] = useState(false);
   const templateTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -43770,8 +43906,11 @@ function AutomationBuilderPage({
   const actionSafetyOptions = getActionSafetyOptions(selectedActionChoice.label, draft.businessType);
   const actionSettingOptions = getExpandedActionSettingOptions(selectedActionChoice.label, draft.businessType, draft.pipelineId);
   const selectedActionSettingValues = getSelectedActionSettingValues(draft.actionSettings, selectedActionChoice.settings);
+  const conditionSafetyRuleOptions = getConditionSafetyRuleOptions(draft.trigger, selectedActionChoice.label, draft.businessType, draft.pipelineId);
+  const selectedConditionSafetyRuleValues = getSelectedSafetyRuleValues(draft.safetyRules, conditionSafetyRuleOptions.slice(0, 3));
   const visibleActionSettingOptions = actionSettingOptions.slice(0, 6);
   const visibleActionSafetyOptions = actionSafetyOptions.slice(0, 5);
+  const visibleConditionSafetyRuleOptions = conditionSafetyRuleOptions.slice(0, 6);
   const ownerOptions = automationBuilderTeamMemberOptions.some((member) => member.value === draft.owner)
     ? automationBuilderTeamMemberOptions
     : [{ value: draft.owner, label: `${draft.owner} — current owner/team` }, ...automationBuilderTeamMemberOptions];
@@ -44501,17 +44640,23 @@ function AutomationBuilderPage({
           </AutomationBuilderSection>
 
           <AutomationBuilderSection title="6. Conditions & Safety Rules" description="Prevent spammy, duplicate, or wrong automations.">
-            <label className="automation-builder-full-field">
-              Safety rules
-              <textarea value={summary.safetyText} onChange={(event) => updateDraft("safetyRules", event.target.value)} />
-            </label>
-            <div className="automation-builder-option-grid compact">
-              {["Do not send if buyer already replied", "Do not send if payment completed", "Require approval for high-value buyers", "Require approval for support complaints", "Only run during business hours", "Exclude already recovered buyers"].map((option) => (
-                <button key={option} className="automation-builder-option selected" type="button">
-                  <strong>{option}</strong>
-                  <span>Enabled</span>
+            <div className="automation-action-setting-panel">
+              <div className="automation-action-setting-header-row">
+                <div>
+                  <strong>Prebuilt condition & safety rules</strong>
+                  <p>Select the rules that decide when this automation should pause, require approval, or create a manual task.</p>
+                </div>
+                <button data-workflow-ignore="true" className="automation-action-show-more" type="button" onClick={() => setConditionSafetyModalOpen(true)}>
+                  Show more
                 </button>
-              ))}
+              </div>
+              <div className="automation-trigger-signal-grid automation-action-setting-chip-grid">
+                {visibleConditionSafetyRuleOptions.map((option) => (
+                  <button data-workflow-ignore="true" key={option} className={selectedConditionSafetyRuleValues.includes(option) ? "selected" : ""} type="button" onClick={() => toggleActionSafetyRule(option)}>
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
           </AutomationBuilderSection>
 
@@ -44643,6 +44788,48 @@ function AutomationBuilderPage({
 
             <footer className="automation-action-settings-modal-footer">
               <button data-workflow-ignore="true" className="secondary-btn" type="button" onClick={() => setTemplateLibraryModalOpen(false)}>Close</button>
+            </footer>
+          </article>
+        </div>
+      ) : null}
+
+      {conditionSafetyModalOpen ? (
+        <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+          <article aria-modal="true" className="automation-detail-modal automation-action-settings-modal" role="dialog">
+            <header className="reports-modal-header automation-action-settings-modal-header">
+              <div>
+                <span>Conditions & Safety Rules</span>
+                <h2>Choose prebuilt guardrails</h2>
+                <p>Select ready-made rules for when this automation should run, pause, require approval, or stay manual. These are not technical setup fields.</p>
+              </div>
+              <button data-workflow-ignore="true" type="button" onClick={() => setConditionSafetyModalOpen(false)} aria-label="Close condition and safety rules">×</button>
+            </header>
+
+            <div className="automation-action-settings-modal-body">
+              <section className="automation-action-settings-modal-section">
+                <div>
+                  <strong>Full condition & safety rule list</strong>
+                  <p>Use these for automations that prepare tasks, owner reviews, queues, checks, and manual handoffs that Altynx is not already handling automatically.</p>
+                </div>
+                <div className="automation-trigger-signal-grid automation-action-settings-modal-grid">
+                  {conditionSafetyRuleOptions.map((option) => (
+                    <button data-workflow-ignore="true" key={option} className={selectedConditionSafetyRuleValues.includes(option) ? "selected" : ""} type="button" onClick={() => toggleActionSafetyRule(option)}>
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="automation-action-settings-selected-box">
+                <strong>Selected rules</strong>
+                <div className="reports-chip-row">
+                  {selectedConditionSafetyRuleValues.slice(0, 10).map((rule) => <span key={`selected-safety-${rule}`}>{rule}</span>)}
+                </div>
+              </section>
+            </div>
+
+            <footer className="automation-action-settings-modal-footer">
+              <button data-workflow-ignore="true" className="secondary-btn" type="button" onClick={() => setConditionSafetyModalOpen(false)}>Close</button>
             </footer>
           </article>
         </div>
