@@ -42585,6 +42585,14 @@ type AutomationTriggerChoice = {
   defaultSegment: string;
 };
 
+type AutomationActionChoice = {
+  label: string;
+  helper: string;
+  icon: string;
+  settings: string[];
+  defaultApprovalMode: string;
+};
+
 const automationIntentLevelOptions = ["Low", "Medium", "High"];
 const automationFrequencyRuleOptions = [
   "Run when the trigger is detected",
@@ -42712,6 +42720,69 @@ function getKeywordSignalPacks(trigger: string, businessType: NoCodeAutomationWo
     : ["size", "fit", "restock", "delivery"];
 
   return Array.from(new Set([...baseSignals, ...productSignals, ...followUpSignals, ...paymentSignals, ...supportSignals]));
+}
+
+const actionIconMap: Record<string, string> = {
+  card: "🧾",
+  queue: "📋",
+  notify: "🔔",
+  assign: "👥",
+  message: "💬",
+  follow: "➡️",
+  payment: "💳",
+  reminder: "⏰",
+  support: "🛟",
+  tag: "🏷️",
+  summary: "📊",
+  review: "✅",
+  task: "📝",
+  owner: "👤",
+};
+
+function getActionIcon(action: string) {
+  const lowerAction = action.toLowerCase();
+  const matchedKey = Object.keys(actionIconMap).find((key) => lowerAction.includes(key));
+  return matchedKey ? actionIconMap[matchedKey] : "⚙️";
+}
+
+function getActionSettings(action: string) {
+  const lowerAction = action.toLowerCase();
+  if (lowerAction.includes("payment") || lowerAction.includes("deposit")) return ["Create payment recovery card", "Prepare payment reminder", "Notify payment owner", "Wait for approval"];
+  if (lowerAction.includes("support") || lowerAction.includes("review")) return ["Create support task", "Require owner review", "Keep message manual", "Mark as needs review"];
+  if (lowerAction.includes("queue")) return ["Add to Today’s Recovery Queue", "Assign owner", "Prepare next step", "Show in live summary"];
+  if (lowerAction.includes("message") || lowerAction.includes("follow")) return ["Prepare message for approval", "Use selected channel", "Log follow-up", "Stop after reply"];
+  if (lowerAction.includes("tag")) return ["Add buyer/client tag", "Update buyer profile", "Keep recovery history", "Include in monthly summary"];
+  if (lowerAction.includes("notify") || lowerAction.includes("assign")) return ["Notify owner", "Assign to team member", "Create internal note", "Track owner response"];
+  return ["Create recovery card", "Notify owner", "Prepare message for approval", "Add to recovery activity"];
+}
+
+function getActionHelper(action: string, pipelineId: string) {
+  const selectedPipeline = getPipelineById(noCodeAutomationPipelines, pipelineId);
+  return `${selectedPipeline.category} action · Altynx prepares this recovery step from the selected trigger without needing manual setup.`;
+}
+
+function getActionDefaultApprovalMode(action: string) {
+  const lowerAction = action.toLowerCase();
+  if (lowerAction.includes("send") || lowerAction.includes("payment") || lowerAction.includes("support")) return "Needs approval before sending";
+  if (lowerAction.includes("card") || lowerAction.includes("task") || lowerAction.includes("queue")) return "Auto-create task only";
+  return "Needs owner approval";
+}
+
+function getActionChoiceOptions(actions: string[], pipelineId: string): AutomationActionChoice[] {
+  return actions.map((action) => ({
+    label: action,
+    helper: getActionHelper(action, pipelineId),
+    icon: getActionIcon(action),
+    settings: getActionSettings(action),
+    defaultApprovalMode: getActionDefaultApprovalMode(action),
+  }));
+}
+
+function getActionSafetyOptions(action: string, businessType: NoCodeAutomationWorkflow["businessType"]) {
+  const baseSafety = ["Stop after buyer replies", "Stop if payment completed", "Stop if issue resolved", "Escalate if no response", "Max follow-up attempts"];
+  const supportSafety = businessType === "Beauty/Cosmetics" ? ["Require specialist approval", "Keep concern cases manual"] : ["Require owner approval for complaints"];
+  const actionSpecificSafety = action.toLowerCase().includes("payment") ? ["Do not send if payment is completed", "Require approval for high-value buyers"] : ["Do not run if buyer already replied"];
+  return Array.from(new Set([...baseSafety, ...supportSafety, ...actionSpecificSafety]));
 }
 
 function ensureSelectedOption(options: string[], selectedValue: string | undefined, fallback: string) {
@@ -43564,9 +43635,15 @@ function AutomationBuilderPage({
   const triggerChoiceOptions = getTriggerChoiceOptions(draft.pipelineId, draft.businessType);
   const selectedTriggerChoice = triggerChoiceOptions.find((triggerChoice) => triggerChoice.label === draft.trigger) ?? triggerChoiceOptions[0];
   const keywordSignalOptions = getKeywordSignalPacks(selectedTriggerChoice.label, draft.businessType);
+  const actionChoiceOptions = getActionChoiceOptions(actionOptions, draft.pipelineId);
+  const selectedActionChoice = actionChoiceOptions.find((actionChoice) => actionChoice.label === draft.action) ?? actionChoiceOptions[0];
+  const actionSafetyOptions = getActionSafetyOptions(selectedActionChoice.label, draft.businessType);
   const ownerOptions = automationBuilderTeamMemberOptions.some((member) => member.value === draft.owner)
     ? automationBuilderTeamMemberOptions
     : [{ value: draft.owner, label: `${draft.owner} — current owner/team` }, ...automationBuilderTeamMemberOptions];
+  const fallbackOwnerOptions = automationBuilderTeamMemberOptions.some((member) => member.value === draft.fallbackOwner)
+    ? automationBuilderTeamMemberOptions
+    : [{ value: draft.fallbackOwner, label: `${draft.fallbackOwner} — current fallback owner` }, ...automationBuilderTeamMemberOptions];
   const templateVariables = getTemplateVariables(draft);
   const validation = validateAutomationDraft(draft);
   const summary = buildAutomationSummary(draft);
@@ -43607,6 +43684,37 @@ function AutomationBuilderPage({
     updateDraft("buyerIntentSignal", triggerChoice.helper);
     updateDraft("keywords", triggerChoice.signals);
     updateDraft("buyerSegment", triggerChoice.defaultSegment);
+  }
+
+  function selectActionChoice(actionChoice: AutomationActionChoice) {
+    updateDraft("action", actionChoice.label);
+    updateDraft("actionSettings", actionChoice.settings.join(", "));
+  }
+
+  function toggleActionSetting(setting: string) {
+    setDraft((current) => {
+      const currentSettings = (current.actionSettings ?? current.action)
+        .split(/[,\.]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const nextSettings = currentSettings.includes(setting)
+        ? currentSettings.filter((item) => item !== setting)
+        : [...currentSettings, setting];
+      return { ...current, actionSettings: nextSettings.join(", ") };
+    });
+  }
+
+  function toggleActionSafetyRule(rule: string) {
+    setDraft((current) => {
+      const currentRules = (current.safetyRules ?? "")
+        .split(/[,\.]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const nextRules = currentRules.includes(rule)
+        ? currentRules.filter((item) => item !== rule)
+        : [...currentRules, rule];
+      return { ...current, safetyRules: nextRules.join(", ") };
+    });
   }
 
   function toggleKeywordSignal(signal: string) {
@@ -44094,38 +44202,77 @@ function AutomationBuilderPage({
           </AutomationBuilderSection>
 
           <AutomationBuilderSection title="4. Altynx should do this…" description="Choose the recovery action Altynx should prepare or create.">
-            <div className="automation-builder-form-grid">
-              <label>
-                Action
-                <select value={draft.action} onChange={(event) => updateDraft("action", event.target.value)}>
-                  {actionOptions.map((action) => <option key={action}>{action}</option>)}
-                </select>
-              </label>
-              <label>
-                Approval mode
-                <select value={draft.approvalMode} onChange={(event) => updateDraft("approvalMode", event.target.value)}>
-                  <option>Needs approval before sending</option>
-                  <option>Auto-create task only</option>
-                  <option>Auto-send after condition</option>
-                  <option>Needs owner approval</option>
-                </select>
-              </label>
-              <label>
-                Fallback owner
-                <input value={draft.fallbackOwner} onChange={(event) => updateDraft("fallbackOwner", event.target.value)} />
-              </label>
-            </div>
-            <label className="automation-builder-full-field">
-              Action settings
-              <textarea value={draft.actionSettings ?? draft.action} onChange={(event) => updateDraft("actionSettings", event.target.value)} />
-            </label>
-            <div className="automation-builder-option-grid compact">
-              {["Stop after buyer replies", "Stop if payment completed", "Stop if issue resolved", "Escalate if no response", "Max follow-up attempts"].map((option) => (
-                <button key={option} className="automation-builder-option selected" type="button">
-                  <strong>{option}</strong>
-                  <span>Safety setting</span>
-                </button>
-              ))}
+            <div className="automation-trigger-builder-layout automation-action-builder-layout">
+              <div className="automation-trigger-control-panel automation-action-control-panel">
+                <label>
+                  Approval mode
+                  <select value={draft.approvalMode} onChange={(event) => updateDraft("approvalMode", event.target.value)}>
+                    {ensureSelectedOption(["Needs approval before sending", "Auto-create task only", "Auto-send after condition", "Needs owner approval"], draft.approvalMode, "Needs approval before sending").map((mode) => <option key={mode}>{mode}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Fallback owner
+                  <select value={draft.fallbackOwner} onChange={(event) => updateDraft("fallbackOwner", event.target.value)}>
+                    {fallbackOwnerOptions.map((member) => <option key={member.value} value={member.value}>{member.label}</option>)}
+                  </select>
+                </label>
+                <div className="automation-trigger-signal-panel">
+                  <div>
+                    <strong>Selected action</strong>
+                    <p>{selectedActionChoice.label}</p>
+                  </div>
+                  <div className="reports-chip-row">
+                    <span>{selectedActionChoice.defaultApprovalMode}</span>
+                    <span>{draft.fallbackOwner}</span>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="automation-trigger-side-panel automation-action-side-panel">
+                <div className="automation-trigger-panel-header">
+                  <span>Action panel</span>
+                  <h4>{selectedActionChoice.label}</h4>
+                  <p>{selectedActionChoice.helper}</p>
+                </div>
+
+                <div className="automation-trigger-icon-grid">
+                  {actionChoiceOptions.map((actionChoice) => (
+                    <button key={actionChoice.label} className={draft.action === actionChoice.label ? "selected" : ""} type="button" onClick={() => selectActionChoice(actionChoice)}>
+                      <span>{actionChoice.icon}</span>
+                      <strong>{actionChoice.label}</strong>
+                      <small>{actionChoice.defaultApprovalMode}</small>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="automation-trigger-signal-panel">
+                  <div>
+                    <strong>Action settings</strong>
+                    <p>Choose prepared action settings instead of writing custom instructions.</p>
+                  </div>
+                  <div className="automation-trigger-signal-grid">
+                    {selectedActionChoice.settings.map((setting) => (
+                      <button key={setting} className={(draft.actionSettings ?? draft.action).includes(setting) ? "selected" : ""} type="button" onClick={() => toggleActionSetting(setting)}>
+                        {setting}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="automation-trigger-signal-panel">
+                  <div>
+                    <strong>Safety settings</strong>
+                    <p>Keep the action controlled with ready-made safety options.</p>
+                  </div>
+                  <div className="automation-trigger-signal-grid">
+                    {actionSafetyOptions.map((option) => (
+                      <button key={option} className={(draft.safetyRules ?? "").includes(option) ? "selected" : ""} type="button" onClick={() => toggleActionSafetyRule(option)}>
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </aside>
             </div>
           </AutomationBuilderSection>
 
