@@ -42564,6 +42564,17 @@ const customPipelineActionOptions = ["Create recovery card", "Add to Today’s R
 const customPipelineOwnerOptions = ["Owner / Admin", "Recovery Lead", "Sales", "Support", "Operations", "Beauty Specialist", "Post-Purchase", "Custom Owner"];
 const customPipelineApprovalModes: CustomPipelineDraft["approvalMode"][] = ["Auto-run when safe", "Always needs approval", "Needs approval only for high-value or support cases"];
 const customPipelineSafetyRuleOptions = ["Do not run if buyer already replied", "Do not run if payment is completed", "Do not send more than X messages per buyer", "Require approval for high-value buyers", "Require approval for support complaints", "Stop if issue is resolved", "Only run during business hours"];
+const automationBuilderSourceCards = ["Instagram", "WhatsApp", "Website", "Shopify", "Email", "Manual Entry"];
+const automationBuilderTeamMemberOptions = Array.from(new Map<string, { value: string; label: string }>([
+  ...setupTeamUsers.map((member) => [member.name, { value: member.name, label: `${member.name} — ${member.role}` }] as const),
+  ...teamUsers.map((member) => [member.name, { value: member.name, label: `${member.name} — ${member.role}` }] as const),
+  ...fallbackCaptureAssignees.map((member) => [member.name, { value: member.name, label: `${member.name} — ${member.role}` }] as const),
+  ...setupTeamUsers.map((member) => [member.role, { value: member.role, label: `${member.role} team` }] as const),
+]).values());
+
+function getAutomationBuilderSourceCards(_sourceOptions: string[]) {
+  return automationBuilderSourceCards;
+}
 
 function getPipelineById(pipelines: NoCodeAutomationPipeline[], pipelineId: string) {
   return pipelines.find((pipeline) => pipeline.id === pipelineId) ?? pipelines[0];
@@ -43371,6 +43382,7 @@ function AutomationBuilderPage({
   onActivate,
   onDelete,
   onSaveCustomPipeline,
+  onOpenSourceConfiguration,
 }: {
   mode: AutomationBuilderMode;
   automation: NoCodeAutomationWorkflow;
@@ -43380,11 +43392,13 @@ function AutomationBuilderPage({
   onActivate: (automation: NoCodeAutomationWorkflow) => void;
   onDelete: (automationId: string) => void;
   onSaveCustomPipeline: (customPipeline: CustomPipelineDraft) => NoCodeAutomationPipeline;
+  onOpenSourceConfiguration?: () => void;
 }) {
   const [draft, setDraft] = useState<NoCodeAutomationWorkflow>(() => automation);
   const [testResult, setTestResult] = useState<AutomationTestResult>(() => runAutomationTest(automation));
   const [customPipelineDraft, setCustomPipelineDraft] = useState<CustomPipelineDraft>(() => createDefaultCustomPipelineDraft(automation));
   const [customPipelineValidation, setCustomPipelineValidation] = useState<CustomPipelineValidationResult>(() => validateCustomPipelineDraft(createDefaultCustomPipelineDraft(automation)));
+  const [configureSourceModalOpen, setConfigureSourceModalOpen] = useState(false);
 
   useEffect(() => {
     setDraft(automation);
@@ -43403,6 +43417,10 @@ function AutomationBuilderPage({
   const triggerOptions = isCustomPipelineSelected && customPipelineDraft.defaultTriggers.length > 0 ? customPipelineDraft.defaultTriggers : getTriggerOptionsByPipeline(draft.pipelineId);
   const actionOptions = isCustomPipelineSelected && customPipelineDraft.defaultActions.length > 0 ? customPipelineDraft.defaultActions : getActionOptionsByPipeline(draft.pipelineId);
   const sourceOptions = isCustomPipelineSelected && customPipelineDraft.selectedSources.length > 0 ? customPipelineDraft.selectedSources : getSourceOptionsByPipeline(draft.pipelineId);
+  const visibleSourceCards = getAutomationBuilderSourceCards(sourceOptions);
+  const ownerOptions = automationBuilderTeamMemberOptions.some((member) => member.value === draft.owner)
+    ? automationBuilderTeamMemberOptions
+    : [{ value: draft.owner, label: `${draft.owner} — current owner/team` }, ...automationBuilderTeamMemberOptions];
   const templateVariables = getTemplateVariables(draft);
   const validation = validateAutomationDraft(draft);
   const summary = buildAutomationSummary(draft);
@@ -43425,6 +43443,24 @@ function AutomationBuilderPage({
       }
       return nextDraft;
     });
+  }
+
+  function selectAutomationSource(source: string) {
+    if (source === "Manual Entry") {
+      setConfigureSourceModalOpen(true);
+      return;
+    }
+
+    updateDraft("sourcePlatform", source);
+    updateDraft("sourceChannel", source);
+    updateDraft("sourceStatus", "Connected");
+  }
+
+  function openSourceConfigurationPage() {
+    setConfigureSourceModalOpen(false);
+    if (onOpenSourceConfiguration) {
+      onOpenSourceConfiguration();
+    }
   }
 
   function updateCustomPipeline<K extends keyof CustomPipelineDraft>(field: K, value: CustomPipelineDraft[K]) {
@@ -43591,7 +43627,12 @@ function AutomationBuilderPage({
               </label>
               <label>
                 Owner/team member
-                <input value={draft.owner} onChange={(event) => updateDraft("owner", event.target.value)} />
+                <select value={draft.owner} onChange={(event) => {
+                  updateDraft("owner", event.target.value);
+                  updateDraft("fallbackOwner", event.target.value);
+                }}>
+                  {ownerOptions.map((member) => <option key={member.value} value={member.value}>{member.label}</option>)}
+                </select>
               </label>
             </div>
             <label className="automation-builder-full-field">
@@ -43628,7 +43669,10 @@ function AutomationBuilderPage({
                 <label>
                   Default owner / team
                   <select value={customPipelineDraft.defaultOwner} onChange={(event) => updateCustomPipeline("defaultOwner", event.target.value)}>
-                    {customPipelineOwnerOptions.map((option) => <option key={option}>{option}</option>)}
+                    {(automationBuilderTeamMemberOptions.some((member) => member.value === customPipelineDraft.defaultOwner)
+                      ? automationBuilderTeamMemberOptions
+                      : [{ value: customPipelineDraft.defaultOwner, label: `${customPipelineDraft.defaultOwner} — current owner/team` }, ...automationBuilderTeamMemberOptions]
+                    ).map((member) => <option key={member.value} value={member.value}>{member.label}</option>)}
                   </select>
                 </label>
               </div>
@@ -43782,36 +43826,16 @@ function AutomationBuilderPage({
             </AutomationBuilderSection>
           ) : null}
 
-          <AutomationBuilderSection title="2. Source / Channel" description="Choose where the automation starts. Use connect/request wording, not technical setup.">
-            <div className="automation-builder-form-grid">
-              <label>
-                Source
-                <select value={draft.sourcePlatform} onChange={(event) => {
-                  updateDraft("sourcePlatform", event.target.value);
-                  updateDraft("sourceChannel", event.target.value);
-                }}>
-                  {sourceOptions.map((source) => <option key={source}>{source}</option>)}
-                </select>
-              </label>
-              <label>
-                Source/channel label
-                <input value={draft.sourceChannel} onChange={(event) => updateDraft("sourceChannel", event.target.value)} />
-              </label>
-              <label>
-                Connection status
-                <select value={summary.sourceStatus} onChange={(event) => updateDraft("sourceStatus", event.target.value as NoCodeAutomationWorkflow["sourceStatus"])}>
-                  {automationSourceStatusOptions.map((option) => <option key={option}>{option}</option>)}
-                </select>
-              </label>
+          <AutomationBuilderSection title="2. Source / Channel" description="Choose from the sources already available for this automation. Use Manual Entry only when a new source needs proper setup first.">
+            <div className="automation-builder-source-note">
+              <strong>Connected sources</strong>
+              <p>Source, source label, and connection status are managed in source configuration. Pick a connected source below or configure a manual/new source first.</p>
             </div>
-            <div className="automation-builder-option-grid">
-              {sourceOptions.slice(0, 8).map((source) => (
-                <button key={source} className={`automation-builder-option ${draft.sourcePlatform === source ? "selected" : ""}`} type="button" onClick={() => {
-                  updateDraft("sourcePlatform", source);
-                  updateDraft("sourceChannel", source);
-                }}>
+            <div className="automation-builder-option-grid automation-builder-source-card-grid">
+              {visibleSourceCards.map((source) => (
+                <button key={source} className={`automation-builder-option ${draft.sourcePlatform === source ? "selected" : ""}`} type="button" onClick={() => selectAutomationSource(source)}>
                   <strong>{source}</strong>
-                  <span>{source === "Custom API" ? "Request custom integration" : "Connect source"}</span>
+                  <span>{source === "Manual Entry" ? "Configure source" : "Connected source"}</span>
                 </button>
               ))}
             </div>
@@ -44029,6 +44053,37 @@ function AutomationBuilderPage({
           </div>
         </aside>
       </section>
+
+      {configureSourceModalOpen ? (
+        <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+          <article aria-modal="true" className="automation-detail-modal automation-source-config-modal" role="dialog">
+            <header className="reports-modal-header">
+              <div>
+                <span>Configure source</span>
+                <h2>Add the source properly first</h2>
+                <p>Use this when a brand adds a new Instagram page, WhatsApp line, website form, or any other source after the main Altynx setup.</p>
+              </div>
+              <button type="button" onClick={() => setConfigureSourceModalOpen(false)} aria-label="Close source configuration">×</button>
+            </header>
+
+            <div className="reports-modal-note automation-source-config-note">
+              <span>Manual source setup</span>
+              <p>Altynx will already prepare the default recovery sources during setup. If the company creates another source later, add and configure it from the source configuration page before using it inside this automation.</p>
+            </div>
+
+            <div className="automation-source-config-steps">
+              <div><strong>1</strong><span>Add the source name and channel.</span></div>
+              <div><strong>2</strong><span>Connect/login where needed.</span></div>
+              <div><strong>3</strong><span>Set owner routing and recovery rules.</span></div>
+            </div>
+
+            <footer className="reports-modal-footer">
+              <button className="primary-btn" type="button" onClick={openSourceConfigurationPage}>Open Source Configuration</button>
+              <button className="secondary-btn" type="button" onClick={() => setConfigureSourceModalOpen(false)}>Close</button>
+            </footer>
+          </article>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -44462,6 +44517,10 @@ function AutomationBoard({ onNavigate }: { onNavigate?: (page: string) => void }
         onActivate={activateAutomation}
         onDelete={deleteAutomation}
         onSaveCustomPipeline={saveCustomPipeline}
+        onOpenSourceConfiguration={() => {
+          setBuilderState(null);
+          onNavigate?.("Brand Settings");
+        }}
       />
     );
   }

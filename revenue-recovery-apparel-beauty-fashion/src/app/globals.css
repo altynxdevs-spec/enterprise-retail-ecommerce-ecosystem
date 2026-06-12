@@ -65196,3 +65196,96 @@ button.buyer-product-preview {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   AUTOMATION BUILDER SOURCE / OWNER FIX
+   Scope: Reports & Automation > Automation Board > Edit/Create Automation only
+   ========================================================= */
+
+.automation-board-page .automation-builder-source-note {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid #eadfd4;
+  border-radius: 16px;
+  background: #fffaf7;
+}
+
+.automation-board-page .automation-builder-source-note strong {
+  color: #111111;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+.automation-board-page .automation-builder-source-note p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 750;
+}
+
+.automation-board-page .automation-builder-source-card-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.automation-board-page .automation-source-config-modal {
+  width: min(680px, 100%);
+}
+
+.automation-board-page .automation-source-config-modal .reports-modal-header button {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #fff7f1;
+  color: #ff4500;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.automation-board-page .automation-source-config-note {
+  margin-top: 0;
+}
+
+.automation-board-page .automation-source-config-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.automation-board-page .automation-source-config-steps div {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #eadfd4;
+  border-radius: 16px;
+  background: #fffaf7;
+}
+
+.automation-board-page .automation-source-config-steps strong {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ff4500;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.automation-board-page .automation-source-config-steps span {
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .automation-board-page .automation-builder-source-card-grid,
+  .automation-board-page .automation-source-config-steps {
+    grid-template-columns: 1fr;
+  }
+}
