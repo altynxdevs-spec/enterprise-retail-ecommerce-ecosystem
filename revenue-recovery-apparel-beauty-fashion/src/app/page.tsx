@@ -41694,6 +41694,33 @@ type NoCodeAutomationWorkflow = {
   failedReason: string;
   tags: string[];
   tone: Tone;
+  customPipeline?: CustomPipelineDraft;
+};
+
+type CustomPipelineDraft = {
+  id: string;
+  name: string;
+  purpose: string;
+  businessType: "Fashion/Apparel" | "Beauty/Cosmetics" | "Hybrid";
+  icon: string;
+  colorTone: Tone;
+  selectedSources: string[];
+  defaultTriggers: string[];
+  defaultActions: string[];
+  defaultOwner: string;
+  approvalMode: "Auto-run when safe" | "Always needs approval" | "Needs approval only for high-value or support cases";
+  safetyRules: string[];
+  testStatus: "Ready to use" | "Needs missing fields" | "Needs source/channel selection" | "Needs trigger/action setup";
+  createdAt: string;
+  updatedAt: string;
+};
+
+type CustomPipelineValidationResult = {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  status: CustomPipelineDraft["testStatus"];
+  headline: string;
 };
 
 type CreateAutomationDraft = {
@@ -42530,6 +42557,13 @@ const automationSourceStatusOptions: NonNullable<NoCodeAutomationWorkflow["sourc
 const automationStatusOptions: NoCodeAutomationStatus[] = ["Live", "Paused", "Needs Setup", "Needs Review", "Failed"];
 const automationPriorityOptions: Priority[] = ["Low", "Medium", "High", "Critical"];
 const automationMessageToneOptions: NonNullable<NoCodeAutomationWorkflow["messageTone"]>[] = ["Friendly", "Premium", "Direct", "Supportive"];
+const customPipelineIconOptions = ["Social", "Website", "Payment", "Support", "Message", "VIP", "Custom"];
+const customPipelineSourceOptions = ["Instagram", "TikTok", "WhatsApp", "Facebook", "LinkedIn", "Twitter/X", "Website", "Shopify", "WooCommerce", "Stripe", "PayPal", "Calendly", "Email", "Google Sheets", "CRM", "Manual Entry", "Custom Source"];
+const customPipelineTriggerOptions = ["New inquiry received", "High-intent buyer signal", "Customer asks a question", "Payment or deposit missing", "Booking or appointment not confirmed", "Product/service interest detected", "Review/UGC opportunity detected", "Support issue detected", "Manual owner alert needed", "Custom trigger"];
+const customPipelineActionOptions = ["Create recovery card", "Add to Today’s Recovery Queue", "Notify owner", "Assign to team member", "Prepare message for approval", "Send follow-up message", "Send payment reminder", "Create support task", "Add buyer/client tag", "Add to monthly summary", "Mark as needs review"];
+const customPipelineOwnerOptions = ["Owner / Admin", "Recovery Lead", "Sales", "Support", "Operations", "Beauty Specialist", "Post-Purchase", "Custom Owner"];
+const customPipelineApprovalModes: CustomPipelineDraft["approvalMode"][] = ["Auto-run when safe", "Always needs approval", "Needs approval only for high-value or support cases"];
+const customPipelineSafetyRuleOptions = ["Do not run if buyer already replied", "Do not run if payment is completed", "Do not send more than X messages per buyer", "Require approval for high-value buyers", "Require approval for support complaints", "Stop if issue is resolved", "Only run during business hours"];
 
 function getPipelineById(pipelines: NoCodeAutomationPipeline[], pipelineId: string) {
   return pipelines.find((pipeline) => pipeline.id === pipelineId) ?? pipelines[0];
@@ -42772,6 +42806,114 @@ function calculateAutomationHealth(automation: NoCodeAutomationWorkflow) {
   return Math.max(0, Math.min(100, score));
 }
 
+function createDefaultCustomPipelineDraft(automation?: NoCodeAutomationWorkflow): CustomPipelineDraft {
+  const now = new Date().toISOString();
+  return automation?.customPipeline ?? {
+    id: `custom-draft-${Date.now()}`,
+    name: automation?.pipelineId === "custom-pipeline" ? automation.pipelineType || "VIP Buyer Recovery" : "VIP Buyer Recovery",
+    purpose: automation?.description || "Use this custom pipeline for workflows that need owner review, follow-up, and recovery action in one place.",
+    businessType: automation?.businessType ?? "Hybrid",
+    icon: "VIP",
+    colorTone: automation?.tone ?? "indigo",
+    selectedSources: Array.from(new Set([automation?.sourcePlatform || "Instagram", "WhatsApp", "Manual Entry"].filter(Boolean))),
+    defaultTriggers: [automation?.trigger || "Manual owner alert needed"],
+    defaultActions: [automation?.action || "Create recovery card", "Notify owner"],
+    defaultOwner: automation?.owner || "Recovery Lead",
+    approvalMode: "Always needs approval",
+    safetyRules: ["Do not run if buyer already replied", "Require approval for high-value buyers", "Stop if issue is resolved"],
+    testStatus: "Needs missing fields",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function validateCustomPipelineDraft(customPipeline: CustomPipelineDraft): CustomPipelineValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!customPipeline.name.trim()) errors.push("Custom pipeline name is required.");
+  if (!customPipeline.purpose.trim()) errors.push("Pipeline purpose is required.");
+  if (!customPipeline.businessType) errors.push("Business type is required.");
+  if (customPipeline.selectedSources.length === 0) errors.push("Select at least one source or channel.");
+  if (customPipeline.defaultTriggers.length === 0) errors.push("Select at least one default trigger.");
+  if (customPipeline.defaultActions.length === 0) errors.push("Select at least one default action.");
+  if (!customPipeline.defaultOwner.trim()) errors.push("Default owner or team is required.");
+  if (!customPipeline.approvalMode) errors.push("Approval mode is required.");
+  if (customPipeline.safetyRules.length === 0) warnings.push("Add at least one safety rule before using this custom pipeline.");
+
+  let status: CustomPipelineDraft["testStatus"] = "Ready to use";
+  if (errors.some((error) => error.toLowerCase().includes("source"))) status = "Needs source/channel selection";
+  else if (errors.some((error) => error.toLowerCase().includes("trigger") || error.toLowerCase().includes("action"))) status = "Needs trigger/action setup";
+  else if (errors.length > 0) status = "Needs missing fields";
+
+  const headline = errors.length === 0
+    ? "Custom pipeline is ready. You can now use it for this automation and show it as a board column."
+    : errors[0];
+
+  return { isValid: errors.length === 0, errors, warnings, status, headline };
+}
+
+function buildCustomPipelineSummary(customPipeline: CustomPipelineDraft) {
+  return {
+    title: `Custom Pipeline: ${customPipeline.name || "Untitled custom pipeline"}`,
+    whenText: customPipeline.defaultTriggers[0] || "Select a trigger for this custom pipeline.",
+    actionText: customPipeline.defaultActions[0] || "Choose what Altynx should usually do.",
+    ownerText: customPipeline.defaultOwner || "Recovery Lead",
+    approvalText: customPipeline.approvalMode || "Always needs approval",
+    sourceText: customPipeline.selectedSources.length > 0 ? customPipeline.selectedSources.join(", ") : "No sources selected",
+    healthScore: validateCustomPipelineDraft(customPipeline).isValid ? 92 : 58,
+  };
+}
+
+function buildCustomPipelineBoardPreview(customPipeline: CustomPipelineDraft) {
+  return {
+    title: customPipeline.name.trim() || "Custom Pipeline",
+    purpose: customPipeline.purpose.trim() || "Add a purpose to describe this board column.",
+    helperText: `${customPipeline.selectedSources.length} sources · ${customPipeline.defaultActions.length} default actions`,
+    owner: customPipeline.defaultOwner || "Recovery Lead",
+    approvalMode: customPipeline.approvalMode || "Always needs approval",
+    automationCount: customPipeline.defaultTriggers.length,
+  };
+}
+
+function getCustomPipelineTriggerSuggestions(businessType: CustomPipelineDraft["businessType"]) {
+  if (businessType === "Fashion/Apparel") {
+    return ["High-intent buyer signal", "Payment or deposit missing", "Product/service interest detected", "Manual owner alert needed"];
+  }
+  if (businessType === "Beauty/Cosmetics") {
+    return ["Booking or appointment not confirmed", "Support issue detected", "Customer asks a question", "Manual owner alert needed"];
+  }
+  return ["New inquiry received", "High-intent buyer signal", "Payment or deposit missing", "Review/UGC opportunity detected"];
+}
+
+function getCustomPipelineActionSuggestions(businessType: CustomPipelineDraft["businessType"]) {
+  if (businessType === "Fashion/Apparel") return ["Create recovery card", "Notify owner", "Prepare message for approval", "Add buyer/client tag"];
+  if (businessType === "Beauty/Cosmetics") return ["Create support task", "Notify owner", "Prepare message for approval", "Mark as needs review"];
+  return ["Create recovery card", "Add to Today’s Recovery Queue", "Notify owner", "Add to monthly summary"];
+}
+
+function saveCustomPipelineDraft(customPipeline: CustomPipelineDraft): CustomPipelineDraft {
+  const validation = validateCustomPipelineDraft(customPipeline);
+  return {
+    ...customPipeline,
+    id: customPipeline.id.startsWith("custom-draft") ? `custom-${customPipeline.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}` : customPipeline.id,
+    testStatus: validation.status,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function mapCustomPipelineToKanbanColumn(customPipeline: CustomPipelineDraft): NoCodeAutomationPipeline {
+  const savedDraft = saveCustomPipelineDraft(customPipeline);
+  return {
+    id: savedDraft.id,
+    title: savedDraft.name.trim() || "Custom Pipeline",
+    category: "Custom",
+    purpose: savedDraft.purpose.trim() || "Custom automation category for recovery workflows.",
+    helperText: `${savedDraft.businessType} · ${savedDraft.selectedSources.join(", ") || "Manual Entry"}`,
+    tone: savedDraft.colorTone,
+  };
+}
+
 function createDefaultAutomationDraft(pipelines: NoCodeAutomationPipeline[]): NoCodeAutomationWorkflow {
   const selectedPipeline = pipelines[0] ?? noCodeAutomationPipelines[0];
 
@@ -42821,6 +42963,7 @@ function createDefaultAutomationDraft(pipelines: NoCodeAutomationPipeline[]): No
     failedReason: "No failed runs.",
     tags: ["No-code", selectedPipeline.category, "Recovery"],
     tone: selectedPipeline.tone,
+    customPipeline: selectedPipeline.category === "Custom" ? createDefaultCustomPipelineDraft() : undefined,
   };
 }
 
@@ -43227,6 +43370,7 @@ function AutomationBuilderPage({
   onSave,
   onActivate,
   onDelete,
+  onSaveCustomPipeline,
 }: {
   mode: AutomationBuilderMode;
   automation: NoCodeAutomationWorkflow;
@@ -43235,19 +43379,30 @@ function AutomationBuilderPage({
   onSave: (automation: NoCodeAutomationWorkflow) => void;
   onActivate: (automation: NoCodeAutomationWorkflow) => void;
   onDelete: (automationId: string) => void;
+  onSaveCustomPipeline: (customPipeline: CustomPipelineDraft) => NoCodeAutomationPipeline;
 }) {
   const [draft, setDraft] = useState<NoCodeAutomationWorkflow>(() => automation);
   const [testResult, setTestResult] = useState<AutomationTestResult>(() => runAutomationTest(automation));
+  const [customPipelineDraft, setCustomPipelineDraft] = useState<CustomPipelineDraft>(() => createDefaultCustomPipelineDraft(automation));
+  const [customPipelineValidation, setCustomPipelineValidation] = useState<CustomPipelineValidationResult>(() => validateCustomPipelineDraft(createDefaultCustomPipelineDraft(automation)));
 
   useEffect(() => {
     setDraft(automation);
     setTestResult(runAutomationTest(automation));
+    const nextCustomDraft = createDefaultCustomPipelineDraft(automation);
+    setCustomPipelineDraft(nextCustomDraft);
+    setCustomPipelineValidation(validateCustomPipelineDraft(nextCustomDraft));
   }, [automation.id]);
 
   const selectedPipeline = getPipelineById(pipelines, draft.pipelineId);
-  const triggerOptions = getTriggerOptionsByPipeline(draft.pipelineId);
-  const actionOptions = getActionOptionsByPipeline(draft.pipelineId);
-  const sourceOptions = getSourceOptionsByPipeline(draft.pipelineId);
+  const isCustomPipelineSelected = selectedPipeline.category === "Custom" || draft.pipelineId === "custom-pipeline" || draft.pipelineId.startsWith("custom-");
+  const customPipelineSummary = buildCustomPipelineSummary(customPipelineDraft);
+  const customPipelineBoardPreview = buildCustomPipelineBoardPreview(customPipelineDraft);
+  const customTriggerSuggestions = getCustomPipelineTriggerSuggestions(customPipelineDraft.businessType);
+  const customActionSuggestions = getCustomPipelineActionSuggestions(customPipelineDraft.businessType);
+  const triggerOptions = isCustomPipelineSelected && customPipelineDraft.defaultTriggers.length > 0 ? customPipelineDraft.defaultTriggers : getTriggerOptionsByPipeline(draft.pipelineId);
+  const actionOptions = isCustomPipelineSelected && customPipelineDraft.defaultActions.length > 0 ? customPipelineDraft.defaultActions : getActionOptionsByPipeline(draft.pipelineId);
+  const sourceOptions = isCustomPipelineSelected && customPipelineDraft.selectedSources.length > 0 ? customPipelineDraft.selectedSources : getSourceOptionsByPipeline(draft.pipelineId);
   const templateVariables = getTemplateVariables(draft);
   const validation = validateAutomationDraft(draft);
   const summary = buildAutomationSummary(draft);
@@ -43266,9 +43421,69 @@ function AutomationBuilderPage({
         }
         nextDraft.trigger = getTriggerOptionsByPipeline(nextPipeline.id)[0];
         nextDraft.action = getActionOptionsByPipeline(nextPipeline.id)[0];
+        nextDraft.customPipeline = nextPipeline.category === "Custom" ? createDefaultCustomPipelineDraft(nextDraft) : undefined;
       }
       return nextDraft;
     });
+  }
+
+  function updateCustomPipeline<K extends keyof CustomPipelineDraft>(field: K, value: CustomPipelineDraft[K]) {
+    setCustomPipelineDraft((current) => {
+      const nextDraft = { ...current, [field]: value, updatedAt: new Date().toISOString() };
+      const validationResult = validateCustomPipelineDraft(nextDraft);
+      setCustomPipelineValidation(validationResult);
+      return { ...nextDraft, testStatus: validationResult.status };
+    });
+  }
+
+  function toggleCustomPipelineArrayField(field: "selectedSources" | "defaultTriggers" | "defaultActions" | "safetyRules", value: string) {
+    setCustomPipelineDraft((current) => {
+      const currentValues = current[field];
+      const nextValues = currentValues.includes(value) ? currentValues.filter((item) => item !== value) : [...currentValues, value];
+      const nextDraft = { ...current, [field]: nextValues, updatedAt: new Date().toISOString() };
+      const validationResult = validateCustomPipelineDraft(nextDraft);
+      setCustomPipelineValidation(validationResult);
+      return { ...nextDraft, testStatus: validationResult.status };
+    });
+  }
+
+  function testCustomPipelineSetup() {
+    const validationResult = validateCustomPipelineDraft(customPipelineDraft);
+    setCustomPipelineValidation(validationResult);
+    setCustomPipelineDraft((current) => ({ ...current, testStatus: validationResult.status, updatedAt: new Date().toISOString() }));
+  }
+
+  function saveCurrentCustomPipeline() {
+    const savedCustomPipeline = saveCustomPipelineDraft(customPipelineDraft);
+    const validationResult = validateCustomPipelineDraft(savedCustomPipeline);
+    setCustomPipelineValidation(validationResult);
+    setCustomPipelineDraft(savedCustomPipeline);
+
+    if (!validationResult.isValid) return;
+
+    const savedPipeline = onSaveCustomPipeline(savedCustomPipeline);
+    const firstSource = savedCustomPipeline.selectedSources[0] || draft.sourcePlatform;
+    const firstTrigger = savedCustomPipeline.defaultTriggers[0] || draft.trigger;
+    const firstAction = savedCustomPipeline.defaultActions[0] || draft.action;
+
+    setDraft((current) => ({
+      ...current,
+      pipelineId: savedPipeline.id,
+      pipelineType: savedPipeline.title,
+      businessType: savedCustomPipeline.businessType,
+      sourcePlatform: firstSource,
+      sourceChannel: firstSource,
+      trigger: firstTrigger,
+      action: firstAction,
+      owner: savedCustomPipeline.defaultOwner,
+      fallbackOwner: savedCustomPipeline.defaultOwner,
+      approvalMode: savedCustomPipeline.approvalMode,
+      safetyRules: savedCustomPipeline.safetyRules.join(", "),
+      description: savedCustomPipeline.purpose,
+      tags: Array.from(new Set(["Custom", savedCustomPipeline.name, savedCustomPipeline.businessType, savedCustomPipeline.icon].filter(Boolean))),
+      tone: savedPipeline.tone,
+      customPipeline: { ...savedCustomPipeline, testStatus: "Ready to use" },
+    }));
   }
 
   function runTest() {
@@ -43282,8 +43497,9 @@ function AutomationBuilderPage({
       pipelineType: selectedPipeline.title,
       tone: selectedPipeline.tone,
       sourceChannel: draft.sourceChannel || draft.sourcePlatform,
-      tags: Array.from(new Set([selectedPipeline.category, draft.sourcePlatform, draft.businessType, "No-code"].filter(Boolean))),
+      tags: Array.from(new Set([selectedPipeline.category, draft.sourcePlatform, draft.businessType, isCustomPipelineSelected ? customPipelineDraft.name : "No-code"].filter(Boolean))),
       testResultStatus: status === "Live" ? "Ready to activate" : draft.testResultStatus,
+      customPipeline: isCustomPipelineSelected ? customPipelineDraft : undefined,
     });
     onSave(mappedDraft);
   }
@@ -43302,8 +43518,9 @@ function AutomationBuilderPage({
       pipelineType: selectedPipeline.title,
       tone: selectedPipeline.tone,
       sourceChannel: draft.sourceChannel || draft.sourcePlatform,
-      tags: Array.from(new Set([selectedPipeline.category, draft.sourcePlatform, draft.businessType, "Live", "No-code"].filter(Boolean))),
+      tags: Array.from(new Set([selectedPipeline.category, draft.sourcePlatform, draft.businessType, "Live", isCustomPipelineSelected ? customPipelineDraft.name : "No-code"].filter(Boolean))),
       testResultStatus: test.status === "passed" ? "Ready to activate" : "Approval rule required",
+      customPipeline: isCustomPipelineSelected ? customPipelineDraft : undefined,
     }));
   }
 
@@ -43385,6 +43602,185 @@ function AutomationBuilderPage({
               {draft.tags.map((tag) => <span key={`${draft.id}-${tag}`}>{tag}</span>)}
             </div>
           </AutomationBuilderSection>
+
+          {isCustomPipelineSelected ? (
+            <AutomationBuilderSection title="Custom Pipeline Setup" description="Create a simple custom automation category for workflows that do not fit the default pipelines.">
+              <div className="custom-pipeline-setup-intro">
+                <strong>This stays inside the Edit Automation page.</strong>
+                <p>This custom pipeline will become an Automation Board column. Cards inside it represent automation workflows, not deal stages.</p>
+              </div>
+
+              <div className="automation-builder-form-grid">
+                <label>
+                  Custom pipeline name
+                  <input
+                    value={customPipelineDraft.name}
+                    onChange={(event) => updateCustomPipeline("name", event.target.value)}
+                    placeholder="VIP Buyer Recovery"
+                  />
+                </label>
+                <label>
+                  Business type
+                  <select value={customPipelineDraft.businessType} onChange={(event) => updateCustomPipeline("businessType", event.target.value as CustomPipelineDraft["businessType"])}>
+                    {automationBusinessTypeOptions.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Default owner / team
+                  <select value={customPipelineDraft.defaultOwner} onChange={(event) => updateCustomPipeline("defaultOwner", event.target.value)}>
+                    {customPipelineOwnerOptions.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <label className="automation-builder-full-field">
+                Pipeline purpose
+                <textarea
+                  value={customPipelineDraft.purpose}
+                  onChange={(event) => updateCustomPipeline("purpose", event.target.value)}
+                  placeholder="Use this pipeline for bridal customers who need appointment follow-up, deposit reminders, fitting updates, and owner review."
+                />
+              </label>
+
+              <div className="custom-pipeline-field-block">
+                <div>
+                  <strong>Pipeline icon / color</strong>
+                  <p>Choose a simple visual label for this board column.</p>
+                </div>
+                <div className="custom-pipeline-chip-grid">
+                  {customPipelineIconOptions.map((icon) => (
+                    <button key={icon} className={customPipelineDraft.icon === icon ? "selected" : ""} type="button" onClick={() => updateCustomPipeline("icon", icon)}>
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+                <div className="custom-pipeline-color-row">
+                  {(["amber", "cyan", "emerald", "indigo", "rose", "gray"] as Tone[]).map((tone) => (
+                    <button key={tone} className={`custom-pipeline-color ${tone} ${customPipelineDraft.colorTone === tone ? "selected" : ""}`} type="button" onClick={() => updateCustomPipeline("colorTone", tone)}>
+                      {tone}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="custom-pipeline-field-block">
+                <div>
+                  <strong>Sources / channels included</strong>
+                  <p>Select every place this custom pipeline can listen for buyer or client signals.</p>
+                </div>
+                <div className="custom-pipeline-chip-grid">
+                  {customPipelineSourceOptions.map((source) => (
+                    <button key={source} className={customPipelineDraft.selectedSources.includes(source) ? "selected" : ""} type="button" onClick={() => toggleCustomPipelineArrayField("selectedSources", source)}>
+                      {source}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="custom-pipeline-two-column">
+                <div className="custom-pipeline-field-block">
+                  <div>
+                    <strong>What should this custom pipeline listen for?</strong>
+                    <p>Pick default trigger types for this category.</p>
+                  </div>
+                  <div className="custom-pipeline-suggestion-row">
+                    {customTriggerSuggestions.map((suggestion) => <span key={suggestion}>{suggestion}</span>)}
+                  </div>
+                  <div className="custom-pipeline-chip-grid compact">
+                    {customPipelineTriggerOptions.map((trigger) => (
+                      <button key={trigger} className={customPipelineDraft.defaultTriggers.includes(trigger) ? "selected" : ""} type="button" onClick={() => toggleCustomPipelineArrayField("defaultTriggers", trigger)}>
+                        {trigger}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="custom-pipeline-field-block">
+                  <div>
+                    <strong>What should Altynx usually do?</strong>
+                    <p>Pick default actions for cards in this custom pipeline.</p>
+                  </div>
+                  <div className="custom-pipeline-suggestion-row">
+                    {customActionSuggestions.map((suggestion) => <span key={suggestion}>{suggestion}</span>)}
+                  </div>
+                  <div className="custom-pipeline-chip-grid compact">
+                    {customPipelineActionOptions.map((action) => (
+                      <button key={action} className={customPipelineDraft.defaultActions.includes(action) ? "selected" : ""} type="button" onClick={() => toggleCustomPipelineArrayField("defaultActions", action)}>
+                        {action}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="custom-pipeline-field-block">
+                <div>
+                  <strong>Approval mode</strong>
+                  <p>Choose when this custom pipeline needs owner review.</p>
+                </div>
+                <div className="custom-pipeline-radio-row">
+                  {customPipelineApprovalModes.map((modeOption) => (
+                    <button key={modeOption} className={customPipelineDraft.approvalMode === modeOption ? "selected" : ""} type="button" onClick={() => updateCustomPipeline("approvalMode", modeOption)}>
+                      {modeOption}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="custom-pipeline-field-block">
+                <div>
+                  <strong>Safety rules</strong>
+                  <p>Protect buyers from duplicate, unsafe, or wrong automation actions.</p>
+                </div>
+                <div className="custom-pipeline-chip-grid compact">
+                  {customPipelineSafetyRuleOptions.map((rule) => (
+                    <button key={rule} className={customPipelineDraft.safetyRules.includes(rule) ? "selected" : ""} type="button" onClick={() => toggleCustomPipelineArrayField("safetyRules", rule)}>
+                      {rule}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="custom-pipeline-preview-grid">
+                <article className="custom-pipeline-board-preview">
+                  <span>Board Column Preview</span>
+                  <h4>{customPipelineBoardPreview.title}</h4>
+                  <p>{customPipelineBoardPreview.purpose}</p>
+                  <div className="reports-chip-row">
+                    <span>{customPipelineBoardPreview.helperText}</span>
+                    <span>{customPipelineBoardPreview.owner}</span>
+                    <span>{customPipelineBoardPreview.approvalMode}</span>
+                  </div>
+                  <small>This custom pipeline will appear as a new Automation Board column. Cards inside it will represent automation workflows, not deal stages.</small>
+                </article>
+
+                <article className="custom-pipeline-card-preview">
+                  <span>Automation Card Preview</span>
+                  <strong>{draft.title || "New automation workflow"}</strong>
+                  <p>{customPipelineSummary.whenText}</p>
+                  <p>{customPipelineSummary.actionText}</p>
+                  <div className="reports-chip-row">
+                    <span>{draft.status}</span>
+                    <span>{customPipelineSummary.sourceText}</span>
+                    <span>{customPipelineSummary.ownerText}</span>
+                    <span>{customPipelineValidation.status}</span>
+                  </div>
+                </article>
+              </div>
+
+              <div className={`custom-pipeline-test-result ${customPipelineValidation.isValid ? "ready" : "needs-work"}`}>
+                <strong>{customPipelineValidation.headline}</strong>
+                <p>{customPipelineValidation.isValid ? "Ready to use" : customPipelineValidation.status}</p>
+                {customPipelineValidation.errors.length > 0 ? <small>{customPipelineValidation.errors.join(" · ")}</small> : null}
+                {customPipelineValidation.warnings.length > 0 ? <small>{customPipelineValidation.warnings.join(" · ")}</small> : null}
+              </div>
+
+              <div className="automation-builder-preview-actions">
+                <button className="secondary-btn" type="button" onClick={testCustomPipelineSetup}>Test Pipeline Setup</button>
+                <button className="primary-btn" type="button" onClick={saveCurrentCustomPipeline}>Save Custom Pipeline</button>
+              </div>
+            </AutomationBuilderSection>
+          ) : null}
 
           <AutomationBuilderSection title="2. Source / Channel" description="Choose where the automation starts. Use connect/request wording, not technical setup.">
             <div className="automation-builder-form-grid">
@@ -43563,6 +43959,22 @@ function AutomationBuilderPage({
           <div className="automation-builder-preview-card">
             <span>Live Summary / Preview</span>
             <h3>{draft.title}</h3>
+            {isCustomPipelineSelected ? (
+              <>
+                <div className="automation-summary-block custom">
+                  <strong>Custom pipeline</strong>
+                  <p>{customPipelineSummary.title}</p>
+                </div>
+                <div className="automation-summary-block custom">
+                  <strong>Selected sources</strong>
+                  <p>{customPipelineSummary.sourceText}</p>
+                </div>
+                <div className="automation-summary-block custom">
+                  <strong>Pipeline health score</strong>
+                  <p>{customPipelineSummary.healthScore}% · {customPipelineValidation.status}</p>
+                </div>
+              </>
+            ) : null}
             <div className="automation-summary-block">
               <strong>When this happens</strong>
               <p>{summary.whenText}</p>
@@ -43592,6 +44004,7 @@ function AutomationBuilderPage({
               <span>{draft.businessType}</span>
               <span>{summary.sourceStatus}</span>
               <span>{calculateAutomationHealth(draft)}% health</span>
+              {isCustomPipelineSelected ? <span>{customPipelineDraft.name || "Custom Pipeline"}</span> : null}
             </div>
           </div>
 
@@ -44024,8 +44437,18 @@ function AutomationBoard({ onNavigate }: { onNavigate?: (page: string) => void }
       tone: draft.tone,
     };
 
-    setPipelines((current) => [...current, newPipeline]);
+    setPipelines((current) => current.some((pipeline) => pipeline.id === newPipeline.id) ? current : [...current, newPipeline]);
     setCreatePipelineOpen(false);
+  }
+
+  function saveCustomPipeline(customPipeline: CustomPipelineDraft) {
+    const savedPipeline = mapCustomPipelineToKanbanColumn(customPipeline);
+    setPipelines((current) => {
+      const exists = current.some((pipeline) => pipeline.id === savedPipeline.id);
+      if (exists) return current.map((pipeline) => pipeline.id === savedPipeline.id ? savedPipeline : pipeline);
+      return [...current, savedPipeline];
+    });
+    return savedPipeline;
   }
 
   if (builderState) {
@@ -44038,6 +44461,7 @@ function AutomationBoard({ onNavigate }: { onNavigate?: (page: string) => void }
         onSave={upsertAutomation}
         onActivate={activateAutomation}
         onDelete={deleteAutomation}
+        onSaveCustomPipeline={saveCustomPipeline}
       />
     );
   }

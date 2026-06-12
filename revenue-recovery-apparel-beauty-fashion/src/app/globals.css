@@ -65032,3 +65032,167 @@ button.buyer-product-preview {
   }
 }
 
+
+/* ===============================
+   AUTOMATION BOARD CUSTOM PIPELINE SETUP
+   Scoped only to Automation Builder page
+================================ */
+
+.automation-board-page .custom-pipeline-setup-intro,
+.automation-board-page .custom-pipeline-field-block,
+.automation-board-page .custom-pipeline-board-preview,
+.automation-board-page .custom-pipeline-card-preview,
+.automation-board-page .custom-pipeline-test-result {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #eadfd4;
+  border-radius: 18px;
+  background: #fffaf7;
+}
+
+.automation-board-page .custom-pipeline-setup-intro {
+  border-color: #ffd3c2;
+  background: linear-gradient(135deg, #fff7f1, #ffffff);
+}
+
+.automation-board-page .custom-pipeline-setup-intro strong,
+.automation-board-page .custom-pipeline-field-block strong,
+.automation-board-page .custom-pipeline-board-preview h4,
+.automation-board-page .custom-pipeline-card-preview strong,
+.automation-board-page .custom-pipeline-test-result strong {
+  margin: 0;
+  color: #111111;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 950;
+  letter-spacing: -0.025em;
+}
+
+.automation-board-page .custom-pipeline-setup-intro p,
+.automation-board-page .custom-pipeline-field-block p,
+.automation-board-page .custom-pipeline-board-preview p,
+.automation-board-page .custom-pipeline-card-preview p,
+.automation-board-page .custom-pipeline-board-preview small,
+.automation-board-page .custom-pipeline-test-result p,
+.automation-board-page .custom-pipeline-test-result small {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 750;
+}
+
+.automation-board-page .custom-pipeline-chip-grid,
+.automation-board-page .custom-pipeline-radio-row,
+.automation-board-page .custom-pipeline-suggestion-row,
+.automation-board-page .custom-pipeline-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.automation-board-page .custom-pipeline-chip-grid button,
+.automation-board-page .custom-pipeline-radio-row button,
+.automation-board-page .custom-pipeline-color-row button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #eadfd4;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.automation-board-page .custom-pipeline-chip-grid button.selected,
+.automation-board-page .custom-pipeline-radio-row button.selected,
+.automation-board-page .custom-pipeline-color-row button.selected {
+  border-color: #ff8a63;
+  background: #fff1e9;
+  color: #ff4500;
+  box-shadow: inset 0 -2px 0 #ff4500;
+}
+
+.automation-board-page .custom-pipeline-chip-grid.compact button {
+  min-height: 38px;
+  border-radius: 14px;
+}
+
+.automation-board-page .custom-pipeline-suggestion-row span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #7c5638;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.automation-board-page .custom-pipeline-color {
+  text-transform: capitalize;
+}
+
+.automation-board-page .custom-pipeline-color.amber { background: #fffbeb; }
+.automation-board-page .custom-pipeline-color.cyan { background: #ecfeff; }
+.automation-board-page .custom-pipeline-color.emerald { background: #ecfdf5; }
+.automation-board-page .custom-pipeline-color.indigo { background: #eef2ff; }
+.automation-board-page .custom-pipeline-color.rose { background: #fff1f2; }
+.automation-board-page .custom-pipeline-color.gray { background: #f9fafb; }
+
+.automation-board-page .custom-pipeline-two-column,
+.automation-board-page .custom-pipeline-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.automation-board-page .custom-pipeline-board-preview,
+.automation-board-page .custom-pipeline-card-preview {
+  background: #ffffff;
+}
+
+.automation-board-page .custom-pipeline-board-preview > span,
+.automation-board-page .custom-pipeline-card-preview > span {
+  width: fit-content;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid #ffd3c2;
+  border-radius: 999px;
+  background: #fff7f1;
+  color: #ff4500;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.automation-board-page .custom-pipeline-test-result.ready {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.automation-board-page .custom-pipeline-test-result.needs-work {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.automation-board-page .automation-summary-block.custom {
+  border-color: #ffd3c2;
+  background: #fff7f1;
+}
+
+@media (max-width: 1180px) {
+  .automation-board-page .custom-pipeline-two-column,
+  .automation-board-page .custom-pipeline-preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
