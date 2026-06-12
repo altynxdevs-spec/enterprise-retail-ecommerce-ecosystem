@@ -44968,13 +44968,6 @@ function AutomationBuilderPage({
                   ))}
                 </div>
               </section>
-
-              <section className="automation-action-settings-selected-box">
-                <strong>Selected rules</strong>
-                <div className="reports-chip-row">
-                  {selectedConditionSafetyRuleValues.slice(0, 10).map((rule) => <span key={`selected-safety-${rule}`}>{rule}</span>)}
-                </div>
-              </section>
             </div>
 
             <footer className="automation-action-settings-modal-footer">
