@@ -43053,6 +43053,7 @@ function AutomationWorkflowDetailModal({
 
   if (!workflow) return null;
 
+  const selectedWorkflow = workflow;
   const statusTone = getAutomationStatusTone(workflow.status);
   const summary = buildAutomationSummary(workflow);
   const reviewItems = getAutomationReviewItems(workflow);
@@ -43061,7 +43062,7 @@ function AutomationWorkflowDetailModal({
 
   function openEditPage() {
     onClose();
-    onEdit(workflow);
+    onEdit(selectedWorkflow);
   }
 
   return (
