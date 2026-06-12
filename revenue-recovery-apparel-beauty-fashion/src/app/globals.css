@@ -65973,6 +65973,18 @@ button.buyer-product-preview {
   outline: none;
 }
 
+.automation-preview-workflow-test-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.automation-preview-workflow-test-actions .primary-btn,
+.automation-preview-workflow-test-actions .secondary-btn {
+  min-height: 44px;
+}
+
 .automation-preview-test-notice {
   padding: 12px 14px;
   border-radius: 14px;

@@ -44138,6 +44138,14 @@ function AutomationBuilderPage({
     setPreviewOutputPanelOpen(true);
   }
 
+  function runPreviewWorkflowTest() {
+    const nextTestResult = runAutomationTest(draft);
+    setTestResult(nextTestResult);
+    const statusText = nextTestResult.status === "passed" ? "passed" : nextTestResult.status === "warning" ? "needs review" : "failed";
+    setFrontendTestNotice(`Workflow test ${statusText} inside this preview panel. No real customer message was sent.`);
+    setPreviewOutputPanelOpen(true);
+  }
+
   function runFrontendPreviewTest() {
     const recipient = testRecipientDraft.trim() || "test customer";
     setFrontendTestNotice(`Frontend test prepared for ${recipient}. Backend sending will connect later.`);
@@ -44721,9 +44729,7 @@ function AutomationBuilderPage({
               ))}
             </div>
             <div className="automation-builder-preview-actions">
-              <button className="primary-btn" type="button" onClick={runTest}>Test workflow</button>
               <button className="secondary-btn" type="button" onClick={openPreviewOutputPanel}>Preview output</button>
-              <button className="secondary-btn" type="button" onClick={simulateTriggerPreview}>Simulate trigger</button>
             </div>
           </AutomationBuilderSection>
         </div>
@@ -44856,6 +44862,17 @@ function AutomationBuilderPage({
                 <div className="automation-customer-message-shell">
                   <span>Message customer would see</span>
                   <p>{customerFacingPreviewText}</p>
+                </div>
+              </section>
+
+              <section className="automation-preview-test-send-box">
+                <div>
+                  <strong>Workflow testing inside this panel</strong>
+                  <p>Run the workflow check or simulate the selected trigger here. This keeps testing inside the preview panel only.</p>
+                </div>
+                <div className="automation-preview-workflow-test-actions">
+                  <button className="primary-btn" type="button" onClick={runPreviewWorkflowTest}>Test workflow</button>
+                  <button className="secondary-btn" type="button" onClick={simulateTriggerPreview}>Simulate trigger</button>
                 </div>
               </section>
 
