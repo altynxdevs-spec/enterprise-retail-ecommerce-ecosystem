@@ -42756,6 +42756,122 @@ function getActionSettings(action: string) {
   return ["Create recovery card", "Notify owner", "Prepare message for approval", "Add to recovery activity"];
 }
 
+function getExpandedActionSettingOptions(action: string, businessType: NoCodeAutomationWorkflow["businessType"], pipelineId: string) {
+  const lowerAction = action.toLowerCase();
+  const lowerPipeline = pipelineId.toLowerCase();
+
+  const commonSettings = [
+    "Create recovery record only",
+    "Add to Today’s Recovery Queue",
+    "Notify selected owner",
+    "Assign to fallback owner if owner is missing",
+    "Add internal note for the team",
+    "Do not send customer message automatically",
+    "Prepare draft only for owner review",
+    "Ask owner to review before customer contact",
+    "Request missing buyer/client details",
+    "Add buyer/client tag",
+    "Update buyer/client profile",
+    "Create manual follow-up task",
+    "Track manual completion",
+    "Add to monthly summary",
+    "Log recovered/lost result",
+  ];
+
+  const actionSpecificSettings: string[] = [];
+
+  if (lowerAction.includes("payment") || lowerAction.includes("deposit")) {
+    actionSpecificSettings.push(
+      "Create payment/deposit recovery card",
+      "Prepare payment reminder draft only",
+      "Ask owner to confirm payment status",
+      "Add proof needed task",
+      "Stop once payment is marked completed",
+    );
+  }
+
+  if (lowerAction.includes("queue")) {
+    actionSpecificSettings.push(
+      "Place card in Today’s Queue",
+      "Show next required step",
+      "Keep card pending until owner marks done",
+      "Escalate if queue item is overdue",
+    );
+  }
+
+  if (lowerAction.includes("notify") || lowerAction.includes("assign")) {
+    actionSpecificSettings.push(
+      "Notify owner inside Altynx only",
+      "Create team handoff note",
+      "Assign backup owner if no response",
+      "Show owner workload warning",
+    );
+  }
+
+  if (lowerAction.includes("message") || lowerAction.includes("follow")) {
+    actionSpecificSettings.push(
+      "Prepare follow-up draft only",
+      "Require manual send confirmation",
+      "Log follow-up after owner action",
+      "Stop follow-up when buyer replies",
+    );
+  }
+
+  if (lowerAction.includes("tag") || lowerAction.includes("group")) {
+    actionSpecificSettings.push(
+      "Apply selected buyer/client tag",
+      "Add to selected buyer group",
+      "Keep tag history on profile",
+      "Remove tag when issue is resolved",
+    );
+  }
+
+  if (lowerAction.includes("summary")) {
+    actionSpecificSettings.push(
+      "Add action to monthly summary",
+      "Include owner and source",
+      "Show recovered/open value",
+      "Mark as report-only action",
+    );
+  }
+
+  if (lowerAction.includes("task") || lowerAction.includes("card")) {
+    actionSpecificSettings.push(
+      "Create task with selected owner",
+      "Attach source and buyer context",
+      "Set task as needs review",
+      "Keep activity in recovery history",
+    );
+  }
+
+  const businessSettings = businessType === "Beauty/Cosmetics"
+    ? ["Send to beauty specialist queue", "Mark skin/usage concern for review", "Ask for concern photo before action"]
+    : businessType === "Fashion/Apparel"
+      ? ["Mark size/fit issue for review", "Add restock/variant context", "Ask owner to confirm delivery or stock"]
+      : ["Use buyer/client wording", "Allow product or service context", "Keep hybrid owner routing"];
+
+  const pipelineSettings = lowerPipeline.includes("external")
+    ? ["Create external handoff task", "Flag source connection gap", "Ask owner to confirm external update"]
+    : lowerPipeline.includes("website")
+      ? ["Create website interest follow-up", "Attach product/page context", "Mark checkout or form gap"]
+      : lowerPipeline.includes("payment")
+        ? ["Create payment owner task", "Require payment proof before close", "Do not mark recovered automatically"]
+        : lowerPipeline.includes("support")
+          ? ["Create support review task", "Do not send until issue is checked", "Escalate unresolved issue"]
+          : [];
+
+  return Array.from(new Set([...getActionSettings(action), ...actionSpecificSettings, ...businessSettings, ...pipelineSettings, ...commonSettings]));
+}
+
+function getSelectedActionSettingValues(actionSettings: string | undefined, fallbackSettings: string[]) {
+  const parsedSettings = (actionSettings ?? fallbackSettings.join(", "))
+    .split(/[,\.]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return parsedSettings.length > 0 ? parsedSettings : fallbackSettings;
+}
+
 function getActionHelper(action: string, pipelineId: string) {
   const selectedPipeline = getPipelineById(noCodeAutomationPipelines, pipelineId);
   return `${selectedPipeline.category} action · Altynx prepares this recovery step from the selected trigger without needing manual setup.`;
@@ -42779,9 +42895,20 @@ function getActionChoiceOptions(actions: string[], pipelineId: string): Automati
 }
 
 function getActionSafetyOptions(action: string, businessType: NoCodeAutomationWorkflow["businessType"]) {
-  const baseSafety = ["Stop after buyer replies", "Stop if payment completed", "Stop if issue resolved", "Escalate if no response", "Max follow-up attempts"];
-  const supportSafety = businessType === "Beauty/Cosmetics" ? ["Require specialist approval", "Keep concern cases manual"] : ["Require owner approval for complaints"];
-  const actionSpecificSafety = action.toLowerCase().includes("payment") ? ["Do not send if payment is completed", "Require approval for high-value buyers"] : ["Do not run if buyer already replied"];
+  const baseSafety = [
+    "Stop after buyer replies",
+    "Stop if payment completed",
+    "Stop if issue resolved",
+    "Escalate if no response",
+    "Max follow-up attempts",
+    "Do not run if an open recovery card exists",
+    "Require owner approval before customer contact",
+    "Keep action manual when source is not connected",
+    "Only run during business hours",
+    "Do not repeat same action today",
+  ];
+  const supportSafety = businessType === "Beauty/Cosmetics" ? ["Require specialist approval", "Keep concern cases manual", "Do not advise on sensitive issues automatically"] : ["Require owner approval for complaints", "Confirm size/fit issue before follow-up"];
+  const actionSpecificSafety = action.toLowerCase().includes("payment") ? ["Do not send if payment is completed", "Require approval for high-value buyers", "Do not mark recovered without payment proof"] : ["Do not run if buyer already replied", "Stop when owner marks action done"];
   return Array.from(new Set([...baseSafety, ...supportSafety, ...actionSpecificSafety]));
 }
 
@@ -43613,6 +43740,7 @@ function AutomationBuilderPage({
   const [customPipelineDraft, setCustomPipelineDraft] = useState<CustomPipelineDraft>(() => createDefaultCustomPipelineDraft(automation));
   const [customPipelineValidation, setCustomPipelineValidation] = useState<CustomPipelineValidationResult>(() => validateCustomPipelineDraft(createDefaultCustomPipelineDraft(automation)));
   const [configureSourceModalOpen, setConfigureSourceModalOpen] = useState(false);
+  const [actionSettingsModalOpen, setActionSettingsModalOpen] = useState(false);
 
   useEffect(() => {
     setDraft(automation);
@@ -43638,6 +43766,10 @@ function AutomationBuilderPage({
   const actionChoiceOptions = getActionChoiceOptions(actionOptions, draft.pipelineId);
   const selectedActionChoice = actionChoiceOptions.find((actionChoice) => actionChoice.label === draft.action) ?? actionChoiceOptions[0];
   const actionSafetyOptions = getActionSafetyOptions(selectedActionChoice.label, draft.businessType);
+  const actionSettingOptions = getExpandedActionSettingOptions(selectedActionChoice.label, draft.businessType, draft.pipelineId);
+  const selectedActionSettingValues = getSelectedActionSettingValues(draft.actionSettings, selectedActionChoice.settings);
+  const visibleActionSettingOptions = actionSettingOptions.slice(0, 6);
+  const visibleActionSafetyOptions = actionSafetyOptions.slice(0, 5);
   const ownerOptions = automationBuilderTeamMemberOptions.some((member) => member.value === draft.owner)
     ? automationBuilderTeamMemberOptions
     : [{ value: draft.owner, label: `${draft.owner} — current owner/team` }, ...automationBuilderTeamMemberOptions];
@@ -44245,28 +44377,38 @@ function AutomationBuilderPage({
                   ))}
                 </div>
 
-                <div className="automation-trigger-signal-panel">
-                  <div>
-                    <strong>Action settings</strong>
-                    <p>Choose prepared action settings instead of writing custom instructions.</p>
+                <div className="automation-trigger-signal-panel automation-action-setting-panel">
+                  <div className="automation-action-setting-header-row">
+                    <div>
+                      <strong>Action settings</strong>
+                      <p>Choose prepared rules for work Altynx should prepare, queue, notify, or hand off.</p>
+                    </div>
+                    <button data-workflow-ignore="true" className="automation-action-show-more" type="button" onClick={() => setActionSettingsModalOpen(true)}>
+                      Show more
+                    </button>
                   </div>
-                  <div className="automation-trigger-signal-grid">
-                    {selectedActionChoice.settings.map((setting) => (
-                      <button key={setting} className={(draft.actionSettings ?? draft.action).includes(setting) ? "selected" : ""} type="button" onClick={() => toggleActionSetting(setting)}>
+                  <div className="automation-trigger-signal-grid automation-action-setting-chip-grid">
+                    {visibleActionSettingOptions.map((setting) => (
+                      <button data-workflow-ignore="true" key={setting} className={selectedActionSettingValues.includes(setting) ? "selected" : ""} type="button" onClick={() => toggleActionSetting(setting)}>
                         {setting}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="automation-trigger-signal-panel">
-                  <div>
-                    <strong>Safety settings</strong>
-                    <p>Keep the action controlled with ready-made safety options.</p>
+                <div className="automation-trigger-signal-panel automation-action-setting-panel">
+                  <div className="automation-action-setting-header-row">
+                    <div>
+                      <strong>Safety settings</strong>
+                      <p>Keep the action controlled with ready-made safety rules.</p>
+                    </div>
+                    <button data-workflow-ignore="true" className="automation-action-show-more" type="button" onClick={() => setActionSettingsModalOpen(true)}>
+                      Show more
+                    </button>
                   </div>
-                  <div className="automation-trigger-signal-grid">
-                    {actionSafetyOptions.map((option) => (
-                      <button key={option} className={(draft.safetyRules ?? "").includes(option) ? "selected" : ""} type="button" onClick={() => toggleActionSafetyRule(option)}>
+                  <div className="automation-trigger-signal-grid automation-action-setting-chip-grid">
+                    {visibleActionSafetyOptions.map((option) => (
+                      <button data-workflow-ignore="true" key={option} className={(draft.safetyRules ?? "").includes(option) ? "selected" : ""} type="button" onClick={() => toggleActionSafetyRule(option)}>
                         {option}
                       </button>
                     ))}
@@ -44413,6 +44555,62 @@ function AutomationBuilderPage({
           </div>
         </aside>
       </section>
+
+      {actionSettingsModalOpen ? (
+        <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+          <article aria-modal="true" className="automation-detail-modal automation-action-settings-modal" role="dialog">
+            <header className="reports-modal-header automation-action-settings-modal-header">
+              <div>
+                <span>Action settings</span>
+                <h2>{selectedActionChoice.label}</h2>
+                <p>Pick ready-made rules. These are for prepared work, owner routing, queues, tags, reports, and manual handoffs — not extra technical setup.</p>
+              </div>
+              <button data-workflow-ignore="true" type="button" onClick={() => setActionSettingsModalOpen(false)} aria-label="Close action settings">×</button>
+            </header>
+
+            <div className="automation-action-settings-modal-body">
+              <section className="automation-action-settings-modal-section">
+                <div>
+                  <strong>Prepared action options</strong>
+                  <p>Select what Altynx should prepare, queue, notify, tag, or log for the team.</p>
+                </div>
+                <div className="automation-trigger-signal-grid automation-action-settings-modal-grid">
+                  {actionSettingOptions.map((setting) => (
+                    <button data-workflow-ignore="true" key={setting} className={selectedActionSettingValues.includes(setting) ? "selected" : ""} type="button" onClick={() => toggleActionSetting(setting)}>
+                      {setting}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="automation-action-settings-modal-section">
+                <div>
+                  <strong>Safety rules</strong>
+                  <p>Choose guardrails so the automation stays easy for a non-technical team to run.</p>
+                </div>
+                <div className="automation-trigger-signal-grid automation-action-settings-modal-grid">
+                  {actionSafetyOptions.map((option) => (
+                    <button data-workflow-ignore="true" key={option} className={(draft.safetyRules ?? "").includes(option) ? "selected" : ""} type="button" onClick={() => toggleActionSafetyRule(option)}>
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="automation-action-settings-selected-box">
+                <strong>Selected action settings</strong>
+                <div className="reports-chip-row">
+                  {selectedActionSettingValues.slice(0, 8).map((setting) => <span key={`selected-action-${setting}`}>{setting}</span>)}
+                </div>
+              </section>
+            </div>
+
+            <footer className="automation-action-settings-modal-footer">
+              <button data-workflow-ignore="true" className="secondary-btn" type="button" onClick={() => setActionSettingsModalOpen(false)}>Close</button>
+            </footer>
+          </article>
+        </div>
+      ) : null}
 
       {configureSourceModalOpen ? (
         <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
@@ -45452,6 +45650,8 @@ const workflowIgnoreButtonSelectors = [
   ".overview-tab-row",
   ".overview-command-tabs",
   ".automation-builder-source-card-grid",
+  ".automation-action-builder-layout",
+  ".automation-action-settings-modal",
 ];
 
 function isWorkflowIgnoredButton(button: HTMLButtonElement) {
