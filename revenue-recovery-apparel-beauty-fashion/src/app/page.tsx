@@ -37696,45 +37696,48 @@ function AutomationHealth({
 
             return (
               <article className={`ra-card automation-health-record ${selectedId === item.id ? "selected" : ""}`} key={item.id}>
-                <div className="ra-card-main">
-                  <div className="ra-card-title-row">
-                    <h3>{item.automationName}</h3>
-                    <span className={`ra-status status-${item.reviewStatus.toLowerCase().replace(/\s+/g, "-")}`}>{item.reviewStatus}</span>
-                    <span className="ra-soft-badge">{item.recordType}</span>
+                <div className="automation-health-card-body">
+                  <div className="ra-card-main">
+                    <div className="ra-card-title-row">
+                      <h3>{item.automationName}</h3>
+                      <span className={`ra-status status-${item.reviewStatus.toLowerCase().replace(/\s+/g, "-")}`}>{item.reviewStatus}</span>
+                      <span className="ra-soft-badge">{item.recordType}</span>
+                    </div>
+                    <p>{item.thirdPartySource} · {item.eventType} · Last event {item.lastRunTime}</p>
+                    <div className="ra-chip-row">
+                      <span>{item.sourceCategory}</span>
+                      <span>{item.recordsProcessed} processed</span>
+                      <span>{item.recordsCreated} created</span>
+                      <span>{item.recordsUpdated} updated</span>
+                      <span>{item.failedRecords} failed</span>
+                      <span>{item.relatedRecoveryCases} Original follow-ups</span>
+                      <span>{item.workflowResponse}</span>
+                    </div>
+                    <div className="ra-impact-grid">
+                      <div><span>Impact</span><strong>{item.impactOnRecovery}</strong></div>
+                      <div><span>Next action</span><strong>{item.recommendedFix}</strong></div>
+                    </div>
                   </div>
-                  <p>{item.thirdPartySource} · {item.eventType} · Last event {item.lastRunTime}</p>
-                  <div className="ra-chip-row">
-                    <span>{item.sourceCategory}</span>
-                    <span>{item.recordsProcessed} processed</span>
-                    <span>{item.recordsCreated} created</span>
-                    <span>{item.recordsUpdated} updated</span>
-                    <span>{item.failedRecords} failed</span>
-                    <span>{item.relatedRecoveryCases} Original follow-ups</span>
-                    <span>{item.workflowResponse}</span>
-                  </div>
-                  <div className="ra-impact-grid">
-                    <div><span>Impact</span><strong>{item.impactOnRecovery}</strong></div>
-                    <div><span>Next action</span><strong>{item.recommendedFix}</strong></div>
+
+                  <div className="ra-card-side automation-health-count-card">
+                    <strong>{item.relatedRecoveryCases}</strong>
+                    <span>Original follow-ups</span>
                   </div>
                 </div>
 
-                <div className="ra-card-side">
-                  <strong>{item.relatedRecoveryCases}</strong>
-                  <span>Original follow-ups</span>
-                  <div className="ra-card-actions reports-action-cluster">
-                    <button className="primary-btn" type="button" onClick={() => openModal(item, "reviewIssue")}>Review Issue</button>
-                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "fixPanel")}>Open Fix Panel</button>
-                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "requestResync")}>Request Re-sync</button>
-                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "notifyTeam")}>Notify Altynx Team</button>
-                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "assignOwner")}>Assign Owner</button>
-                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "backendFix")}>Create Backend Fix Request</button>
-                    {item.reviewStatus === "Reviewed" ? (
-                      <button className="secondary-btn" type="button" onClick={() => reopenReview(item)}>Reopen Review</button>
-                    ) : (
-                      <button className="secondary-btn" type="button" onClick={() => openModal(item, "markReviewed")}>Mark Reviewed</button>
-                    )}
-                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "details")}>View Details</button>
-                  </div>
+                <div className="ra-card-actions reports-action-cluster automation-health-actions-row">
+                  <button className="primary-btn" type="button" onClick={() => openModal(item, "reviewIssue")}>Review Issue</button>
+                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "fixPanel")}>Open Fix Panel</button>
+                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "requestResync")}>Request Re-sync</button>
+                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "notifyTeam")}>Notify Altynx Team</button>
+                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "assignOwner")}>Assign Owner</button>
+                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "backendFix")}>Create Backend Fix Request</button>
+                  {item.reviewStatus === "Reviewed" ? (
+                    <button className="secondary-btn" type="button" onClick={() => reopenReview(item)}>Reopen Review</button>
+                  ) : (
+                    <button className="secondary-btn" type="button" onClick={() => openModal(item, "markReviewed")}>Mark Reviewed</button>
+                  )}
+                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "details")}>View Details</button>
                 </div>
               </article>
             );
@@ -39059,22 +39062,24 @@ function RevenueLeakReports({
         <div className="ra-list revenue-leak-list">
           {paginatedRows.map((item, index) => (
             <article className={`ra-card revenue-leak-card ${selectedId === item.id ? "selected" : ""}`} key={item.id}>
-              <div className="ra-card-main">
-                <div className="ra-card-title-row"><h3>{item.title}</h3><span className={`ra-status status-${item.status.toLowerCase()}`}>{item.status}</span><span className="ra-soft-badge">{item.priority}</span></div>
-                <p>{item.recommendedFix}</p>
-                <div className="ra-chip-row"><span>{item.openCases} open cases</span><span>{item.revenueAtRisk} at risk</span><span>{item.recoveredValue} recovered</span><span>{item.lostValue} lost</span><span>{item.owner}</span><span>{item.recoveryRate} recovery rate</span></div>
-              </div>
-              <div className="ra-card-side">
-                <strong>{item.revenueAtRisk}</strong><span>at risk</span>
-                <div className="ra-card-actions reports-action-cluster">
-                  <button className="primary-btn" type="button" onClick={() => openModal(item, "details")}>View Details</button>
-                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "assignAction")}>Assign Report Action</button>
-                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "notifyTeam")}>Notify Team</button>
-                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "relatedCases")}>Open Original Follow-ups</button>
-                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "backendRequest")}>Create Backend/Support Request</button>
-                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "note")}>Add Management Note</button>
-                  <button className="secondary-btn" type="button" onClick={() => openModal(item, "review")}>Mark Reviewed</button>
+              <div className="revenue-leak-card-body">
+                <div className="ra-card-main revenue-leak-card-content">
+                  <div className="ra-card-title-row"><h3>{item.title}</h3><span className={`ra-status status-${item.status.toLowerCase()}`}>{item.status}</span><span className="ra-soft-badge">{item.priority}</span></div>
+                  <p>{item.recommendedFix}</p>
+                  <div className="ra-chip-row"><span>{item.openCases} open cases</span><span>{item.revenueAtRisk} at risk</span><span>{item.recoveredValue} recovered</span><span>{item.lostValue} lost</span><span>{item.owner}</span><span>{item.recoveryRate} recovery rate</span></div>
                 </div>
+                <div className="ra-card-side revenue-leak-value-card">
+                  <strong>{item.revenueAtRisk}</strong><span>at risk</span>
+                </div>
+              </div>
+              <div className="ra-card-actions reports-action-cluster revenue-leak-actions-row">
+                <button className="primary-btn" type="button" onClick={() => openModal(item, "details")}>View Details</button>
+                <button className="secondary-btn" type="button" onClick={() => openModal(item, "assignAction")}>Assign Report Action</button>
+                <button className="secondary-btn" type="button" onClick={() => openModal(item, "notifyTeam")}>Notify Team</button>
+                <button className="secondary-btn" type="button" onClick={() => openModal(item, "relatedCases")}>Open Original Follow-ups</button>
+                <button className="secondary-btn" type="button" onClick={() => openModal(item, "backendRequest")}>Create Backend/Support Request</button>
+                <button className="secondary-btn" type="button" onClick={() => openModal(item, "note")}>Add Management Note</button>
+                <button className="secondary-btn" type="button" onClick={() => openModal(item, "review")}>Mark Reviewed</button>
               </div>
             </article>
           ))}
@@ -41631,72 +41636,2488 @@ function AutomationDetailModal({ modal, onClose }: { modal: ReportsModalState; o
   );
 }
 
-function AutomationBoard({ onNavigate }: { onNavigate?: (page: string) => void }) {
-  const [cards, setCards] = useState<ReportsAutomationCard[]>(automationBoardSeedCards);
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [modal, setModal] = useState<ReportsModalState>(null);
-  const filters = ["All", "Failed", "Needs Owner", "Payment", "Ad Signals", "Support", "Reviewed"];
+type NoCodeAutomationStatus = "Live" | "Paused" | "Needs Setup" | "Needs Review" | "Failed";
 
-  const visibleCards = cards.filter((card) => {
-    if (activeFilter === "All") return true;
-    if (activeFilter === "Failed") return card.stage === "failed" || card.status.includes("Failed");
-    if (activeFilter === "Needs Owner") return card.stage === "needs-owner" || card.owner.includes("Unassigned");
-    if (activeFilter === "Payment") return card.relatedPage.includes("Payment") || card.sourceType.toLowerCase().includes("payment");
-    if (activeFilter === "Ad Signals") return card.relatedPage.includes("Ad") || card.sourceType.toLowerCase().includes("ad");
-    if (activeFilter === "Support") return card.sourceType.toLowerCase().includes("support") || card.relatedPage.includes("Order");
-    return card.stage === "reviewed";
-  });
+type NoCodeAutomationPipeline = {
+  id: string;
+  title: string;
+  category: "Social Media" | "Website Events" | "External API" | "Payment" | "Messaging" | "Support" | "Custom";
+  purpose: string;
+  helperText: string;
+  tone: Tone;
+};
 
-  function openCard(card: ReportsAutomationCard) {
-    setModal({
-      title: card.title,
-      subtitle: `${card.source} · ${card.relatedPage}`,
-      amount: card.moneyOpen,
-      items: [
-        { label: "Source", value: card.source },
-        { label: "Channel", value: card.channel },
-        { label: "Owner", value: card.owner },
-        { label: "Priority", value: card.priority },
-        { label: "n8n trigger status", value: card.n8nStatus ?? "Frontend config only" },
-        { label: "Related page", value: card.relatedPage },
-      ],
-      note: card.nextStep,
-      actions: ["Assign owner", "Create recovery action", "Request sync", "Mark reviewed"],
+type NoCodeAutomationWorkflow = {
+  id: string;
+  pipelineId: string;
+  title: string;
+  pipelineType: string;
+  status: NoCodeAutomationStatus;
+  sourcePlatform: string;
+  sourceChannel: string;
+  sourceStatus?: "Connected" | "Needs connection" | "Request integration" | "Source unavailable";
+  description?: string;
+  trigger: string;
+  buyerIntentSignal: string;
+  action: string;
+  owner: string;
+  fallbackOwner: string;
+  businessType: "Fashion/Apparel" | "Beauty/Cosmetics" | "Hybrid";
+  priority: Priority;
+  runsToday: number;
+  totalRuns: number;
+  actionsCreated: number;
+  insightsFound: number;
+  needsReview: number;
+  failedRuns: number;
+  moneyStillOpen: number;
+  revenueRecovered: number;
+  repliesCaptured: number;
+  openOpportunities: number;
+  lastRun: string;
+  nextRun: string;
+  templateStatus: string;
+  templatePreview: string;
+  messageTone?: "Friendly" | "Premium" | "Direct" | "Supportive";
+  approvalMode: string;
+  frequencyRule?: string;
+  delayBeforeAction?: string;
+  actionSettings?: string;
+  internalNote?: string;
+  safetyRules?: string;
+  testResultStatus?: "Ready to activate" | "Needs missing fields" | "Source not connected" | "Template missing" | "Approval rule required" | "Action setup incomplete" | "Test failed";
+  keywords: string[];
+  buyerSegment: string;
+  minimumIntentLevel: string;
+  exclusionRules: string;
+  mostCommonTriggerReason: string;
+  failedReason: string;
+  tags: string[];
+  tone: Tone;
+};
+
+type CreateAutomationDraft = {
+  pipelineId: string;
+  source: string;
+  trigger: string;
+  action: string;
+  template: string;
+  owner: string;
+  approvalMode: string;
+};
+
+type CreatePipelineDraft = {
+  pipelineName: string;
+  businessPurpose: string;
+  industryType: string;
+  channelsIncluded: string;
+  tone: Tone;
+  defaultTemplates: string;
+  ownerAssignment: string;
+  automationGoal: string;
+};
+
+const noCodeAutomationPipelines: NoCodeAutomationPipeline[] = [
+  {
+    id: "social-media",
+    title: "Social Media Automations",
+    category: "Social Media",
+    purpose: "Automations for Instagram, TikTok, WhatsApp, Facebook, LinkedIn, YouTube, Pinterest, Snapchat, and social inboxes.",
+    helperText: "DMs, comments, post engagement, and social lead forms.",
+    tone: "amber",
+  },
+  {
+    id: "website-events",
+    title: "Website Event Automations",
+    category: "Website Events",
+    purpose: "Automations for product views, abandoned checkout, booking forms, service pages, size guides, and high-intent website behavior.",
+    helperText: "Website behavior that shows buying intent.",
+    tone: "cyan",
+  },
+  {
+    id: "external-systems",
+    title: "External API / Third-Party Integrations",
+    category: "External API",
+    purpose: "Simple connection workflows for Shopify, WooCommerce, Stripe, Calendly, CRMs, email tools, support tools, and custom systems.",
+    helperText: "Connect source, sync event, or send to external system.",
+    tone: "indigo",
+  },
+  {
+    id: "payment-deposit",
+    title: "Payment & Deposit Workflows",
+    category: "Payment",
+    purpose: "Automations for pending payments, failed payments, booking deposits, invoices, appointment deposits, and high-value unpaid orders.",
+    helperText: "Payment reminders, deposit nudges, and proof requests.",
+    tone: "rose",
+  },
+  {
+    id: "messaging-touchpoints",
+    title: "Messaging & Customer Touchpoints",
+    category: "Messaging",
+    purpose: "Automations for welcome messages, first replies, thank-you notes, review requests, UGC prompts, referrals, and repeat buyer messages.",
+    helperText: "Customer messages without a technical builder.",
+    tone: "emerald",
+  },
+  {
+    id: "customer-care",
+    title: "Customer Care / Support Automations",
+    category: "Support",
+    purpose: "Automations for wrong size, fit issue, exchange request, delivery delay, missing item, quality concern, appointment reschedule, and product concerns.",
+    helperText: "Support issues routed into recovery actions.",
+    tone: "amber",
+  },
+  {
+    id: "custom-pipeline",
+    title: "Custom Pipeline",
+    category: "Custom",
+    purpose: "User-created workflow categories for VIP recovery, bridal follow-up, wholesale inquiries, salon appointment recovery, UGC, and owner alerts.",
+    helperText: "Build a custom automation category.",
+    tone: "gray",
+  },
+];
+
+const noCodeAutomationWorkflows: NoCodeAutomationWorkflow[] = [
+  {
+    id: "NA-001",
+    pipelineId: "social-media",
+    title: "Instagram DM with size/fit question",
+    pipelineType: "Social Media Automation",
+    status: "Live",
+    sourcePlatform: "Instagram",
+    sourceChannel: "Instagram DM",
+    trigger: "When a DM includes size, fit, price, delivery, or product questions.",
+    buyerIntentSignal: "Buyer is asking before purchase and needs a fast answer.",
+    action: "Create recovery task, send follow-up template, and alert the sales owner.",
+    owner: "Sales Owner",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Fashion/Apparel",
+    priority: "High",
+    runsToday: 18,
+    totalRuns: 342,
+    actionsCreated: 46,
+    insightsFound: 19,
+    needsReview: 3,
+    failedRuns: 0,
+    moneyStillOpen: 7820,
+    revenueRecovered: 4460,
+    repliesCaptured: 28,
+    openOpportunities: 18,
+    lastRun: "12 minutes ago",
+    nextRun: "When next matching DM arrives",
+    templateStatus: "Template ready",
+    templatePreview: "Hey {{buyer_name}}, I can help with sizing for {{product_name}}. Which fit are you looking for?",
+    approvalMode: "Send after owner approval",
+    keywords: ["size", "fit", "price", "delivery", "available"],
+    buyerSegment: "High-intent Instagram buyers",
+    minimumIntentLevel: "Medium",
+    exclusionRules: "Ignore spam, giveaways, and already purchased orders.",
+    mostCommonTriggerReason: "Size and fit questions before checkout.",
+    failedReason: "No failed runs today.",
+    tags: ["Instagram DM", "Fashion", "Size/Fit", "Follow-up Recovery", "Buyer Signal"],
+    tone: "amber",
+  },
+  {
+    id: "NA-002",
+    pipelineId: "social-media",
+    title: "TikTok product comment to recovery queue",
+    pipelineType: "Social Media Automation",
+    status: "Needs Review",
+    sourcePlatform: "TikTok",
+    sourceChannel: "TikTok comments",
+    trigger: "When a comment asks about shade, size, restock, price, or delivery.",
+    buyerIntentSignal: "Comment shows product interest but no direct inquiry has been created.",
+    action: "Add the buyer signal to Product Demand and create a follow-up owner alert.",
+    owner: "Marketing",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Hybrid",
+    priority: "Medium",
+    runsToday: 11,
+    totalRuns: 218,
+    actionsCreated: 22,
+    insightsFound: 31,
+    needsReview: 6,
+    failedRuns: 0,
+    moneyStillOpen: 3640,
+    revenueRecovered: 1880,
+    repliesCaptured: 14,
+    openOpportunities: 11,
+    lastRun: "29 minutes ago",
+    nextRun: "Every 30 minutes",
+    templateStatus: "Needs owner review",
+    templatePreview: "Thanks for asking. We can help you choose the right option and send the latest availability.",
+    approvalMode: "Needs owner approval",
+    keywords: ["shade", "restock", "price", "available", "link"],
+    buyerSegment: "Warm TikTok commenters",
+    minimumIntentLevel: "Medium",
+    exclusionRules: "Ignore generic emojis and comments with no product signal.",
+    mostCommonTriggerReason: "Comment asks if a product is available.",
+    failedReason: "No failed runs today.",
+    tags: ["TikTok", "Product Comment", "Warm Buyer", "Product Demand"],
+    tone: "cyan",
+  },
+  {
+    id: "NA-003",
+    pipelineId: "social-media",
+    title: "WhatsApp unanswered inquiry reminder",
+    pipelineType: "Social Media Automation",
+    status: "Live",
+    sourcePlatform: "WhatsApp",
+    sourceChannel: "WhatsApp Business",
+    trigger: "When a buyer inquiry has no reply after 20 minutes.",
+    buyerIntentSignal: "Buyer asked a question and may drop if nobody responds.",
+    action: "Notify owner, create first-reply task, and keep inquiry in today's queue.",
+    owner: "Support",
+    fallbackOwner: "Sales Owner",
+    businessType: "Hybrid",
+    priority: "High",
+    runsToday: 24,
+    totalRuns: 401,
+    actionsCreated: 58,
+    insightsFound: 16,
+    needsReview: 2,
+    failedRuns: 0,
+    moneyStillOpen: 5210,
+    revenueRecovered: 6020,
+    repliesCaptured: 33,
+    openOpportunities: 17,
+    lastRun: "8 minutes ago",
+    nextRun: "When inquiry becomes 20 minutes old",
+    templateStatus: "Template ready",
+    templatePreview: "Hi {{buyer_name}}, thanks for reaching out. We are checking this and will guide you shortly.",
+    approvalMode: "Auto-create task only",
+    keywords: ["no reply", "first reply", "new inquiry"],
+    buyerSegment: "Unanswered WhatsApp inquiries",
+    minimumIntentLevel: "Low",
+    exclusionRules: "Ignore resolved chats and messages already replied by an owner.",
+    mostCommonTriggerReason: "No first response within the reply window.",
+    failedReason: "No failed runs today.",
+    tags: ["WhatsApp", "First Reply", "Owner Alert", "Inquiry Recovery"],
+    tone: "emerald",
+  },
+  {
+    id: "NA-004",
+    pipelineId: "website-events",
+    title: "Product page viewed 3 times but no purchase",
+    pipelineType: "Website Event Automation",
+    status: "Live",
+    sourcePlatform: "Website",
+    sourceChannel: "Product pages",
+    trigger: "When the same visitor opens a product page 3 times and does not purchase.",
+    buyerIntentSignal: "Repeated product interest without checkout.",
+    action: "Create high-intent product viewer follow-up and add buyer to warm list.",
+    owner: "Sales Owner",
+    fallbackOwner: "Marketing",
+    businessType: "Fashion/Apparel",
+    priority: "Medium",
+    runsToday: 36,
+    totalRuns: 760,
+    actionsCreated: 71,
+    insightsFound: 42,
+    needsReview: 5,
+    failedRuns: 0,
+    moneyStillOpen: 9180,
+    revenueRecovered: 7340,
+    repliesCaptured: 38,
+    openOpportunities: 29,
+    lastRun: "16 minutes ago",
+    nextRun: "Live website check",
+    templateStatus: "Template ready",
+    templatePreview: "Still thinking about {{product_name}}? We can help with size, fit, and availability.",
+    approvalMode: "Send after owner approval",
+    keywords: ["repeat visitor", "product view", "no purchase"],
+    buyerSegment: "Returning product viewers",
+    minimumIntentLevel: "Medium",
+    exclusionRules: "Ignore buyers who purchased the same product today.",
+    mostCommonTriggerReason: "Product viewed multiple times without checkout.",
+    failedReason: "No failed runs today.",
+    tags: ["Website", "Product View", "High Intent", "Fashion"],
+    tone: "cyan",
+  },
+  {
+    id: "NA-005",
+    pipelineId: "website-events",
+    title: "Checkout started but abandoned",
+    pipelineType: "Website Event Automation",
+    status: "Live",
+    sourcePlatform: "Shopify",
+    sourceChannel: "Checkout",
+    trigger: "When checkout starts but no order is placed within 45 minutes.",
+    buyerIntentSignal: "Buyer reached checkout but did not complete payment.",
+    action: "Create recovery card and send checkout reminder to the owner queue.",
+    owner: "Payment Recovery",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Hybrid",
+    priority: "Critical",
+    runsToday: 13,
+    totalRuns: 488,
+    actionsCreated: 64,
+    insightsFound: 18,
+    needsReview: 4,
+    failedRuns: 1,
+    moneyStillOpen: 9640,
+    revenueRecovered: 6180,
+    repliesCaptured: 21,
+    openOpportunities: 22,
+    lastRun: "21 minutes ago",
+    nextRun: "Every 15 minutes",
+    templateStatus: "Template ready",
+    templatePreview: "Your checkout is still open. We can help if payment, delivery, or product details caused a delay.",
+    approvalMode: "Manual approval before sending",
+    keywords: ["checkout", "abandoned", "payment delay"],
+    buyerSegment: "Checkout started buyers",
+    minimumIntentLevel: "High",
+    exclusionRules: "Ignore completed payments and cancelled duplicate sessions.",
+    mostCommonTriggerReason: "Checkout started but payment was not completed.",
+    failedReason: "One checkout session is missing email/phone.",
+    tags: ["Website", "Checkout", "Payment", "High Intent"],
+    tone: "rose",
+  },
+  {
+    id: "NA-006",
+    pipelineId: "website-events",
+    title: "Beauty consultation page viewed twice",
+    pipelineType: "Website Event Automation",
+    status: "Paused",
+    sourcePlatform: "Website",
+    sourceChannel: "Service page",
+    trigger: "When a visitor views the skin consultation page twice without booking.",
+    buyerIntentSignal: "Service interest is present but booking is not confirmed.",
+    action: "Create consultation nudge and notify the beauty specialist.",
+    owner: "Beauty Specialist",
+    fallbackOwner: "Support",
+    businessType: "Beauty/Cosmetics",
+    priority: "Medium",
+    runsToday: 0,
+    totalRuns: 129,
+    actionsCreated: 17,
+    insightsFound: 12,
+    needsReview: 0,
+    failedRuns: 0,
+    moneyStillOpen: 2450,
+    revenueRecovered: 1420,
+    repliesCaptured: 9,
+    openOpportunities: 7,
+    lastRun: "Paused yesterday",
+    nextRun: "Paused",
+    templateStatus: "Template ready",
+    templatePreview: "We can help you choose the right consultation time and product routine.",
+    approvalMode: "Send after owner approval",
+    keywords: ["consultation", "skin concern", "booking"],
+    buyerSegment: "Beauty consultation visitors",
+    minimumIntentLevel: "Medium",
+    exclusionRules: "Ignore visitors who already booked today.",
+    mostCommonTriggerReason: "Consultation page repeated view.",
+    failedReason: "No failed runs.",
+    tags: ["Website", "Beauty", "Consultation", "Booking"],
+    tone: "amber",
+  },
+  {
+    id: "NA-007",
+    pipelineId: "external-systems",
+    title: "Shopify abandoned checkout sync",
+    pipelineType: "External System Integration",
+    status: "Live",
+    sourcePlatform: "Shopify",
+    sourceChannel: "Ecommerce store",
+    trigger: "When Shopify reports an abandoned checkout.",
+    buyerIntentSignal: "Buyer was close to purchase and may need a small nudge.",
+    action: "Sync customer event to Altynx and create checkout recovery task.",
+    owner: "Automation Owner",
+    fallbackOwner: "Payment Recovery",
+    businessType: "Fashion/Apparel",
+    priority: "High",
+    runsToday: 19,
+    totalRuns: 632,
+    actionsCreated: 52,
+    insightsFound: 21,
+    needsReview: 2,
+    failedRuns: 0,
+    moneyStillOpen: 8420,
+    revenueRecovered: 6910,
+    repliesCaptured: 24,
+    openOpportunities: 19,
+    lastRun: "10 minutes ago",
+    nextRun: "Live source sync",
+    templateStatus: "Template ready",
+    templatePreview: "Your checkout is still available. Reply if you need help with payment or delivery.",
+    approvalMode: "Manual approval before sending",
+    keywords: ["abandoned checkout", "cart", "payment"],
+    buyerSegment: "Shopify checkout visitors",
+    minimumIntentLevel: "High",
+    exclusionRules: "Ignore completed or refunded orders.",
+    mostCommonTriggerReason: "Checkout event received from Shopify.",
+    failedReason: "No failed runs today.",
+    tags: ["Shopify", "Checkout", "External System", "Payment Recovery"],
+    tone: "indigo",
+  },
+  {
+    id: "NA-008",
+    pipelineId: "external-systems",
+    title: "Stripe failed payment recovery",
+    pipelineType: "External System Integration",
+    status: "Failed",
+    sourcePlatform: "Stripe",
+    sourceChannel: "Payment provider",
+    trigger: "When a payment fails or needs another attempt.",
+    buyerIntentSignal: "Buyer tried to pay but payment did not complete.",
+    action: "Create payment recovery case and request a fresh payment reminder.",
+    owner: "Payment Recovery",
+    fallbackOwner: "Automation Owner",
+    businessType: "Hybrid",
+    priority: "Critical",
+    runsToday: 4,
+    totalRuns: 206,
+    actionsCreated: 18,
+    insightsFound: 9,
+    needsReview: 4,
+    failedRuns: 4,
+    moneyStillOpen: 6840,
+    revenueRecovered: 5820,
+    repliesCaptured: 7,
+    openOpportunities: 12,
+    lastRun: "34 minutes ago",
+    nextRun: "Retry after source check",
+    templateStatus: "Needs review",
+    templatePreview: "There was a payment issue. We can send a fresh secure payment option if you want to continue.",
+    approvalMode: "Needs owner approval",
+    keywords: ["failed payment", "payment issue", "retry"],
+    buyerSegment: "Failed payment buyers",
+    minimumIntentLevel: "High",
+    exclusionRules: "Ignore successful retry payments.",
+    mostCommonTriggerReason: "Payment failed at provider.",
+    failedReason: "Payment source needs reconnection.",
+    tags: ["Stripe", "Failed Payment", "Payment Recovery", "Needs Review"],
+    tone: "rose",
+  },
+  {
+    id: "NA-009",
+    pipelineId: "external-systems",
+    title: "Calendly booking not confirmed",
+    pipelineType: "External System Integration",
+    status: "Needs Setup",
+    sourcePlatform: "Calendly",
+    sourceChannel: "Booking calendar",
+    trigger: "When booking starts but the appointment is not confirmed.",
+    buyerIntentSignal: "Client selected a service time but did not finish booking.",
+    action: "Create booking follow-up and alert the service owner.",
+    owner: "Service Owner",
+    fallbackOwner: "Support",
+    businessType: "Beauty/Cosmetics",
+    priority: "Medium",
+    runsToday: 0,
+    totalRuns: 0,
+    actionsCreated: 0,
+    insightsFound: 0,
+    needsReview: 1,
+    failedRuns: 0,
+    moneyStillOpen: 1900,
+    revenueRecovered: 0,
+    repliesCaptured: 0,
+    openOpportunities: 5,
+    lastRun: "Not connected",
+    nextRun: "After source connection",
+    templateStatus: "Needs setup",
+    templatePreview: "Your appointment time is almost ready. Would you like us to confirm it?",
+    approvalMode: "Needs setup before sending",
+    keywords: ["booking", "not confirmed", "appointment"],
+    buyerSegment: "Unconfirmed booking visitors",
+    minimumIntentLevel: "Medium",
+    exclusionRules: "Ignore confirmed appointments.",
+    mostCommonTriggerReason: "Booking was started but not finished.",
+    failedReason: "Connect source to start.",
+    tags: ["Calendly", "Booking", "Beauty", "Needs Setup"],
+    tone: "amber",
+  },
+  {
+    id: "NA-010",
+    pipelineId: "payment-deposit",
+    title: "Unpaid deposit reminder",
+    pipelineType: "Payment & Deposit Workflow",
+    status: "Live",
+    sourcePlatform: "Website",
+    sourceChannel: "Booking form",
+    trigger: "When a booking deposit is not paid within 30 minutes.",
+    buyerIntentSignal: "Client wants the slot but has not paid the deposit.",
+    action: "Send payment reminder to owner queue and keep appointment at risk.",
+    owner: "Payment Recovery",
+    fallbackOwner: "Support",
+    businessType: "Hybrid",
+    priority: "High",
+    runsToday: 9,
+    totalRuns: 248,
+    actionsCreated: 29,
+    insightsFound: 11,
+    needsReview: 1,
+    failedRuns: 0,
+    moneyStillOpen: 3740,
+    revenueRecovered: 2950,
+    repliesCaptured: 12,
+    openOpportunities: 9,
+    lastRun: "18 minutes ago",
+    nextRun: "Every 20 minutes",
+    templateStatus: "Template ready",
+    templatePreview: "Your slot is still available. You can secure it with the deposit link.",
+    approvalMode: "Manual approval before sending",
+    keywords: ["deposit", "booking", "pending"],
+    buyerSegment: "Deposit pending clients",
+    minimumIntentLevel: "High",
+    exclusionRules: "Ignore paid deposits and cancelled bookings.",
+    mostCommonTriggerReason: "Deposit pending after booking form.",
+    failedReason: "No failed runs today.",
+    tags: ["Deposit", "Booking", "Payment", "Hybrid"],
+    tone: "rose",
+  },
+  {
+    id: "NA-011",
+    pipelineId: "payment-deposit",
+    title: "High-value unpaid order owner alert",
+    pipelineType: "Payment & Deposit Workflow",
+    status: "Needs Review",
+    sourcePlatform: "Shopify",
+    sourceChannel: "Orders",
+    trigger: "When an unpaid order value is above $500.",
+    buyerIntentSignal: "High-value buyer has not completed payment.",
+    action: "Notify payment owner and create priority recovery task.",
+    owner: "Payment Recovery",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Fashion/Apparel",
+    priority: "Critical",
+    runsToday: 6,
+    totalRuns: 157,
+    actionsCreated: 22,
+    insightsFound: 8,
+    needsReview: 3,
+    failedRuns: 0,
+    moneyStillOpen: 5980,
+    revenueRecovered: 2730,
+    repliesCaptured: 6,
+    openOpportunities: 6,
+    lastRun: "42 minutes ago",
+    nextRun: "Every 30 minutes",
+    templateStatus: "Needs owner review",
+    templatePreview: "Your order is still reserved. We can help complete the payment or answer any final concern.",
+    approvalMode: "Needs owner approval",
+    keywords: ["unpaid order", "high value", "payment"],
+    buyerSegment: "High-value unpaid orders",
+    minimumIntentLevel: "High",
+    exclusionRules: "Ignore small orders and completed payments.",
+    mostCommonTriggerReason: "High-value order still unpaid.",
+    failedReason: "No failed runs today.",
+    tags: ["Payment", "High Value", "Owner Alert", "Fashion"],
+    tone: "amber",
+  },
+  {
+    id: "NA-012",
+    pipelineId: "messaging-touchpoints",
+    title: "Review request after delivery",
+    pipelineType: "Messaging & Customer Touchpoint",
+    status: "Live",
+    sourcePlatform: "Email",
+    sourceChannel: "Post-purchase email",
+    trigger: "When delivery is marked complete and satisfaction window has passed.",
+    buyerIntentSignal: "Customer is ready for review, referral, or UGC request.",
+    action: "Send review request task and add customer to post-purchase follow-up.",
+    owner: "Post-Purchase",
+    fallbackOwner: "Marketing",
+    businessType: "Hybrid",
+    priority: "Medium",
+    runsToday: 27,
+    totalRuns: 690,
+    actionsCreated: 75,
+    insightsFound: 23,
+    needsReview: 0,
+    failedRuns: 0,
+    moneyStillOpen: 3420,
+    revenueRecovered: 4180,
+    repliesCaptured: 41,
+    openOpportunities: 19,
+    lastRun: "5 minutes ago",
+    nextRun: "Every 10 minutes",
+    templateStatus: "Approved",
+    templatePreview: "Hope you loved your order. Would you be open to leaving a quick review or sharing a photo?",
+    approvalMode: "Auto-create task only",
+    keywords: ["delivered", "review", "UGC", "referral"],
+    buyerSegment: "Delivered orders",
+    minimumIntentLevel: "Low",
+    exclusionRules: "Ignore unresolved support issues.",
+    mostCommonTriggerReason: "Delivered order ready for review request.",
+    failedReason: "No failed runs today.",
+    tags: ["Email", "Review", "UGC", "Post-Purchase"],
+    tone: "emerald",
+  },
+  {
+    id: "NA-013",
+    pipelineId: "messaging-touchpoints",
+    title: "VIP buyer check-in",
+    pipelineType: "Messaging & Customer Touchpoint",
+    status: "Paused",
+    sourcePlatform: "WhatsApp",
+    sourceChannel: "VIP customer list",
+    trigger: "When VIP buyer has no recent purchase for 45 days.",
+    buyerIntentSignal: "Repeat buyer may be ready for a new drop or refill.",
+    action: "Create VIP check-in message for owner approval.",
+    owner: "Sales Owner",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Fashion/Apparel",
+    priority: "Medium",
+    runsToday: 0,
+    totalRuns: 96,
+    actionsCreated: 13,
+    insightsFound: 8,
+    needsReview: 0,
+    failedRuns: 0,
+    moneyStillOpen: 2760,
+    revenueRecovered: 3980,
+    repliesCaptured: 11,
+    openOpportunities: 8,
+    lastRun: "Paused 2 days ago",
+    nextRun: "Paused",
+    templateStatus: "Template ready",
+    templatePreview: "We have a new drop that matches your previous picks. Want us to send options?",
+    approvalMode: "Needs owner approval",
+    keywords: ["VIP", "repeat buyer", "new drop"],
+    buyerSegment: "VIP buyers",
+    minimumIntentLevel: "Medium",
+    exclusionRules: "Ignore buyers contacted this week.",
+    mostCommonTriggerReason: "VIP buyer inactive for 45 days.",
+    failedReason: "No failed runs.",
+    tags: ["VIP", "WhatsApp", "Repeat Buyer", "Fashion"],
+    tone: "emerald",
+  },
+  {
+    id: "NA-014",
+    pipelineId: "customer-care",
+    title: "Wrong size/fit request routing",
+    pipelineType: "Customer Care / Support Automation",
+    status: "Live",
+    sourcePlatform: "Instagram",
+    sourceChannel: "Instagram DM",
+    trigger: "When a buyer mentions wrong size, fit issue, exchange, or return.",
+    buyerIntentSignal: "Post-purchase issue could become refund or complaint if delayed.",
+    action: "Send issue to customer care, create order risk task, and notify operations.",
+    owner: "Operations",
+    fallbackOwner: "Support",
+    businessType: "Fashion/Apparel",
+    priority: "High",
+    runsToday: 7,
+    totalRuns: 183,
+    actionsCreated: 26,
+    insightsFound: 12,
+    needsReview: 2,
+    failedRuns: 0,
+    moneyStillOpen: 4210,
+    revenueRecovered: 2140,
+    repliesCaptured: 10,
+    openOpportunities: 7,
+    lastRun: "24 minutes ago",
+    nextRun: "When matching support message arrives",
+    templateStatus: "Template ready",
+    templatePreview: "Please share your order number and size issue so our team can help with the next step.",
+    approvalMode: "Manual approval before sending",
+    keywords: ["wrong size", "fit issue", "exchange", "return"],
+    buyerSegment: "Fashion support issues",
+    minimumIntentLevel: "Low",
+    exclusionRules: "Ignore resolved exchange requests.",
+    mostCommonTriggerReason: "Buyer asks about exchange due to fit.",
+    failedReason: "No failed runs today.",
+    tags: ["Support", "Wrong Size", "Exchange", "Order Risk"],
+    tone: "amber",
+  },
+  {
+    id: "NA-015",
+    pipelineId: "customer-care",
+    title: "Skin/product concern owner alert",
+    pipelineType: "Customer Care / Support Automation",
+    status: "Needs Review",
+    sourcePlatform: "Website chat",
+    sourceChannel: "Support chat",
+    trigger: "When a customer mentions skin reaction, usage question, or product concern.",
+    buyerIntentSignal: "Beauty customer needs careful owner review before the reply.",
+    action: "Create support review card and alert the beauty specialist.",
+    owner: "Beauty Specialist",
+    fallbackOwner: "Support",
+    businessType: "Beauty/Cosmetics",
+    priority: "High",
+    runsToday: 5,
+    totalRuns: 141,
+    actionsCreated: 19,
+    insightsFound: 10,
+    needsReview: 5,
+    failedRuns: 0,
+    moneyStillOpen: 1840,
+    revenueRecovered: 1060,
+    repliesCaptured: 6,
+    openOpportunities: 5,
+    lastRun: "51 minutes ago",
+    nextRun: "Every 30 minutes",
+    templateStatus: "Needs review",
+    templatePreview: "Thanks for sharing this. Our specialist will review your concern and guide you safely.",
+    approvalMode: "Always needs specialist approval",
+    keywords: ["skin reaction", "usage", "concern", "routine"],
+    buyerSegment: "Beauty support issues",
+    minimumIntentLevel: "Low",
+    exclusionRules: "Ignore general product questions without a concern.",
+    mostCommonTriggerReason: "Customer asks product usage question.",
+    failedReason: "No failed runs today.",
+    tags: ["Beauty", "Support", "Skin Concern", "Owner Review"],
+    tone: "rose",
+  },
+  {
+    id: "NA-016",
+    pipelineId: "custom-pipeline",
+    title: "Bridal client follow-up workflow",
+    pipelineType: "Custom Pipeline",
+    status: "Live",
+    sourcePlatform: "WhatsApp",
+    sourceChannel: "Bridal inquiries",
+    trigger: "When a bridal inquiry is open and no follow-up happened after 24 hours.",
+    buyerIntentSignal: "High-value bridal client may need measurement, quote, or appointment follow-up.",
+    action: "Create bridal follow-up task and notify custom tailoring owner.",
+    owner: "Custom Tailoring Owner",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Hybrid",
+    priority: "Critical",
+    runsToday: 4,
+    totalRuns: 88,
+    actionsCreated: 15,
+    insightsFound: 7,
+    needsReview: 1,
+    failedRuns: 0,
+    moneyStillOpen: 7300,
+    revenueRecovered: 5200,
+    repliesCaptured: 8,
+    openOpportunities: 4,
+    lastRun: "1 hour ago",
+    nextRun: "Daily at 10:00 AM",
+    templateStatus: "Template ready",
+    templatePreview: "We can help finalize your bridal details, measurements, and next appointment slot.",
+    approvalMode: "Needs owner approval",
+    keywords: ["bridal", "measurements", "appointment", "quote"],
+    buyerSegment: "Bridal clients",
+    minimumIntentLevel: "High",
+    exclusionRules: "Ignore booked consultations.",
+    mostCommonTriggerReason: "Bridal inquiry has no follow-up after one day.",
+    failedReason: "No failed runs today.",
+    tags: ["Custom", "Bridal", "WhatsApp", "High Value"],
+    tone: "gray",
+  },
+  {
+    id: "NA-017",
+    pipelineId: "custom-pipeline",
+    title: "Influencer/UGC pipeline",
+    pipelineType: "Custom Pipeline",
+    status: "Needs Setup",
+    sourcePlatform: "Instagram",
+    sourceChannel: "Creator DMs",
+    trigger: "When creator or influencer partnership message is received.",
+    buyerIntentSignal: "Possible UGC, referral, or customer-content opportunity.",
+    action: "Route to marketing owner and create partnership review task.",
+    owner: "Marketing",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Hybrid",
+    priority: "Medium",
+    runsToday: 0,
+    totalRuns: 0,
+    actionsCreated: 0,
+    insightsFound: 0,
+    needsReview: 1,
+    failedRuns: 0,
+    moneyStillOpen: 1200,
+    revenueRecovered: 0,
+    repliesCaptured: 0,
+    openOpportunities: 3,
+    lastRun: "Not started",
+    nextRun: "After setup",
+    templateStatus: "Needs setup",
+    templatePreview: "Thanks for reaching out. Please share your profile, audience, and content examples.",
+    approvalMode: "Needs setup before sending",
+    keywords: ["collab", "creator", "UGC", "influencer"],
+    buyerSegment: "Creator inquiries",
+    minimumIntentLevel: "Low",
+    exclusionRules: "Ignore spam collaboration messages.",
+    mostCommonTriggerReason: "Creator asks for collaboration.",
+    failedReason: "Create default template to activate.",
+    tags: ["Custom", "UGC", "Influencer", "Marketing"],
+    tone: "gray",
+  },
+];
+
+const noCodeAutomationFilters = [
+  "All",
+  "Live",
+  "Paused",
+  "Needs Setup",
+  "Needs Review",
+  "Failed",
+  "Social Media",
+  "Website Events",
+  "External API",
+  "Payment",
+  "Messaging",
+  "Support",
+  "Custom",
+];
+
+const createAutomationSources = [
+  "Instagram",
+  "TikTok",
+  "WhatsApp",
+  "Website",
+  "Shopify",
+  "Stripe",
+  "Email",
+  "Facebook",
+  "LinkedIn",
+  "Calendly",
+  "WooCommerce",
+  "Custom source",
+];
+
+const createAutomationTriggers = [
+  "New DM received",
+  "Product viewed multiple times",
+  "Checkout abandoned",
+  "Payment failed",
+  "Booking not confirmed",
+  "Support issue detected",
+  "Review request timing reached",
+  "External system sends event",
+];
+
+const createAutomationActions = [
+  "Create recovery card",
+  "Send follow-up message",
+  "Notify owner",
+  "Add buyer to group",
+  "Create support task",
+  "Send payment reminder",
+  "Sync with external tool",
+  "Add to monthly report",
+];
+
+function formatAutomationMoney(value: number) {
+  return `$${value.toLocaleString("en-US")}`;
+}
+
+function getAutomationStatusTone(status: NoCodeAutomationStatus): Tone {
+  if (status === "Live") return "emerald";
+  if (status === "Failed") return "rose";
+  if (status === "Paused") return "gray";
+  if (status === "Needs Setup") return "amber";
+  return "cyan";
+}
+
+
+type AutomationValidationResult = {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+};
+
+type AutomationTestResult = {
+  status: "passed" | "warning" | "failed";
+  headline: string;
+  checks: { label: string; status: "Passed" | "Warning" | "Failed"; detail: string }[];
+  previewActions: string[];
+  errors: string[];
+  warnings: string[];
+};
+
+type AutomationBuilderMode = "create" | "edit";
+
+const automationBusinessTypeOptions: NoCodeAutomationWorkflow["businessType"][] = ["Fashion/Apparel", "Beauty/Cosmetics", "Hybrid"];
+const automationSourceStatusOptions: NonNullable<NoCodeAutomationWorkflow["sourceStatus"]>[] = ["Connected", "Needs connection", "Request integration", "Source unavailable"];
+const automationStatusOptions: NoCodeAutomationStatus[] = ["Live", "Paused", "Needs Setup", "Needs Review", "Failed"];
+const automationPriorityOptions: Priority[] = ["Low", "Medium", "High", "Critical"];
+const automationMessageToneOptions: NonNullable<NoCodeAutomationWorkflow["messageTone"]>[] = ["Friendly", "Premium", "Direct", "Supportive"];
+
+function getPipelineById(pipelines: NoCodeAutomationPipeline[], pipelineId: string) {
+  return pipelines.find((pipeline) => pipeline.id === pipelineId) ?? pipelines[0];
+}
+
+function getSourceStatusForAutomation(automation: NoCodeAutomationWorkflow) {
+  if (automation.sourceStatus) return automation.sourceStatus;
+  if (automation.status === "Failed") return "Needs connection";
+  if (automation.status === "Needs Setup") return "Request integration";
+  if (automation.sourcePlatform.toLowerCase().includes("custom")) return "Request integration";
+  return "Connected";
+}
+
+function getTriggerOptionsByPipeline(pipelineId: string) {
+  const optionMap: Record<string, string[]> = {
+    "social-media": [
+      "New DM received",
+      "Comment includes product question",
+      "WhatsApp inquiry not replied to",
+      "Customer asks for price, size, delivery, booking, or availability",
+      "High-intent engagement detected",
+    ],
+    "website-events": [
+      "Product page viewed multiple times",
+      "Add to cart but no checkout",
+      "Checkout started but abandoned",
+      "Size guide viewed",
+      "Booking form started but not submitted",
+      "Consultation page viewed twice",
+      "Out-of-stock request submitted",
+    ],
+    "external-systems": [
+      "Shopify order event received",
+      "Stripe failed payment detected",
+      "WooCommerce order issue synced",
+      "Calendly booking not confirmed",
+      "CRM lead not followed up",
+      "External system sends event",
+    ],
+    "payment-deposit": [
+      "Payment failed",
+      "Deposit not paid",
+      "Invoice pending",
+      "Booking payment missing",
+      "High-value order unpaid",
+      "Payment proof needed",
+    ],
+    "messaging-touchpoints": [
+      "New inquiry needs greeting",
+      "Review request timing reached",
+      "UGC request timing reached",
+      "Repeat buyer check-in due",
+      "Referral request timing reached",
+      "Birthday or seasonal message due",
+    ],
+    "customer-care": [
+      "Exchange request received",
+      "Wrong size/fit issue detected",
+      "Delivery delay complaint",
+      "Product quality concern",
+      "Missing item complaint",
+      "Appointment reschedule request",
+    ],
+    "custom-pipeline": [
+      "Manual owner alert needed",
+      "VIP buyer recovery timing reached",
+      "Wholesale inquiry received",
+      "Influencer/UGC opportunity found",
+      "Custom buyer signal detected",
+    ],
+  };
+
+  return optionMap[pipelineId] ?? optionMap["custom-pipeline"];
+}
+
+function getActionOptionsByPipeline(pipelineId: string) {
+  const commonActions = [
+    "Create recovery card",
+    "Add to Today’s Recovery Queue",
+    "Notify owner",
+    "Assign to team member",
+    "Add buyer/client tag",
+    "Add to Buyer Group",
+    "Add to monthly summary",
+  ];
+
+  const optionMap: Record<string, string[]> = {
+    "social-media": [...commonActions, "Send follow-up message", "Prepare reply for approval"],
+    "website-events": [...commonActions, "Send follow-up message", "Add buyer to warm visitor group"],
+    "external-systems": [...commonActions, "Send to external system", "Request custom integration"],
+    "payment-deposit": [...commonActions, "Send payment reminder", "Request payment proof", "Escalate if no response"],
+    "messaging-touchpoints": [...commonActions, "Send greeting email", "Request review", "Request UGC/content", "Request referral"],
+    "customer-care": [...commonActions, "Create customer care task", "Send to customer care", "Escalate support issue"],
+    "custom-pipeline": [...commonActions, "Create custom task", "Send follow-up message"],
+  };
+
+  return optionMap[pipelineId] ?? commonActions;
+}
+
+function getSourceOptionsByPipeline(pipelineId: string) {
+  const optionMap: Record<string, string[]> = {
+    "social-media": ["Instagram", "TikTok", "WhatsApp", "Facebook", "Twitter/X", "LinkedIn", "YouTube", "Pinterest", "Snapchat"],
+    "website-events": ["Website", "Shopify", "WooCommerce", "Booking form", "Consultation page", "Product page", "Website chat"],
+    "external-systems": ["Shopify", "WooCommerce", "Stripe", "PayPal", "Calendly", "Klaviyo", "Mailchimp", "Meta Ads", "TikTok Ads", "Google Sheets", "CRM", "Zendesk / Gorgias", "Custom API"],
+    "payment-deposit": ["Stripe", "PayPal", "Shopify", "WooCommerce", "Invoice", "Booking form", "Manual Entry"],
+    "messaging-touchpoints": ["Instagram", "WhatsApp", "Email", "SMS", "Facebook", "Website chat", "Manual Entry"],
+    "customer-care": ["WhatsApp", "Instagram", "Email", "Facebook", "Zendesk / Gorgias", "Website chat", "Manual Entry"],
+    "custom-pipeline": ["Instagram", "WhatsApp", "Website", "Shopify", "Email", "Google Sheets", "CRM", "Manual Entry", "Custom API"],
+  };
+
+  return optionMap[pipelineId] ?? createAutomationSources;
+}
+
+function getTemplateVariables(automation: NoCodeAutomationWorkflow) {
+  const baseVariables = ["{{buyer_name}}", "{{owner_name}}", "{{inquiry_source}}", "{{last_message}}"];
+  const source = automation.sourcePlatform.toLowerCase();
+  const action = automation.action.toLowerCase();
+
+  if (source.includes("shopify") || source.includes("website") || automation.businessType === "Fashion/Apparel") {
+    baseVariables.push("{{product_name}}", "{{order_value}}");
+  }
+
+  if (automation.businessType === "Beauty/Cosmetics" || action.includes("booking") || action.includes("appointment")) {
+    baseVariables.push("{{service_name}}", "{{appointment_date}}");
+  }
+
+  if (action.includes("payment") || action.includes("deposit") || action.includes("proof")) {
+    baseVariables.push("{{payment_amount}}");
+  }
+
+  return Array.from(new Set(baseVariables));
+}
+
+function validateAutomationDraft(automation: NoCodeAutomationWorkflow): AutomationValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!automation.title.trim()) errors.push("Automation name is required.");
+  if (!automation.pipelineId.trim()) errors.push("Pipeline/category is required.");
+  if (!automation.sourcePlatform.trim()) errors.push("Source/channel is required.");
+  if (!automation.trigger.trim()) errors.push("Trigger setup is required.");
+  if (!automation.action.trim()) errors.push("Action setup is required.");
+
+  const sourceStatus = getSourceStatusForAutomation(automation);
+  if (sourceStatus !== "Connected") warnings.push(`${automation.sourcePlatform} source is marked as ${sourceStatus}.`);
+  if ((automation.action.toLowerCase().includes("message") || automation.action.toLowerCase().includes("payment") || automation.action.toLowerCase().includes("review")) && !automation.templatePreview.trim()) {
+    warnings.push("Message/template preview should be added before activation.");
+  }
+  if (automation.moneyStillOpen > 1000 && !automation.approvalMode.toLowerCase().includes("approval")) {
+    warnings.push("High-value automations should usually require approval.");
+  }
+
+  return { isValid: errors.length === 0, errors, warnings };
+}
+
+function buildAutomationSummary(automation: NoCodeAutomationWorkflow) {
+  const sourceStatus = getSourceStatusForAutomation(automation);
+
+  return {
+    whenText: automation.trigger || `When this happens: ${automation.sourcePlatform} sends a buyer signal.`,
+    actionText: automation.action || "Altynx should create a recovery task and notify the owner.",
+    notifyText: automation.owner || "Recovery Lead",
+    templateText: automation.templatePreview || "No template preview added yet.",
+    approvalText: automation.approvalMode || "Needs approval",
+    safetyText: automation.safetyRules || automation.exclusionRules || "Stops if buyer replies, payment completes, or issue is resolved.",
+    sourceStatus,
+  };
+}
+
+function runAutomationTest(automation: NoCodeAutomationWorkflow): AutomationTestResult {
+  const validation = validateAutomationDraft(automation);
+  const sourceStatus = getSourceStatusForAutomation(automation);
+  const checks: AutomationTestResult["checks"] = [
+    {
+      label: "Required fields",
+      status: validation.errors.length === 0 ? "Passed" : "Failed",
+      detail: validation.errors.length === 0 ? "Automation name, pipeline, source, trigger, and action are ready." : validation.errors.join(" "),
+    },
+    {
+      label: "Source connection",
+      status: sourceStatus === "Connected" ? "Passed" : "Warning",
+      detail: sourceStatus === "Connected" ? `${automation.sourcePlatform} is connected.` : `${automation.sourcePlatform} needs connection or integration review.`,
+    },
+    {
+      label: "Message/template",
+      status: automation.templatePreview.trim() ? "Passed" : "Warning",
+      detail: automation.templatePreview.trim() ? "Template preview is ready." : "Add a template preview before sending customer messages.",
+    },
+    {
+      label: "Safety rules",
+      status: (automation.safetyRules || automation.exclusionRules).trim() ? "Passed" : "Warning",
+      detail: (automation.safetyRules || automation.exclusionRules).trim() ? "Safety rules are in place." : "Add safety rules to prevent wrong or spammy messages.",
+    },
+  ];
+
+  const previewActions = [
+    `${automation.sourcePlatform} detects: ${automation.trigger.replace(/^When this happens:\s*/i, "")}`,
+    automation.action.replace(/^Altynx should:\s*/i, ""),
+    `${automation.approvalMode || "Needs approval"} · Owner: ${automation.owner || "Recovery Lead"}`,
+  ];
+
+  if (!validation.isValid) {
+    return {
+      status: "failed",
+      headline: "Test failed. Complete the missing fields before activation.",
+      checks,
+      previewActions,
+      errors: validation.errors,
+      warnings: validation.warnings,
+    };
+  }
+
+  if (validation.warnings.length > 0) {
+    return {
+      status: "warning",
+      headline: `Test needs review. ${validation.warnings[0]}`,
+      checks,
+      previewActions,
+      errors: [],
+      warnings: validation.warnings,
+    };
+  }
+
+  return {
+    status: "passed",
+    headline: `Test passed. If ${automation.sourcePlatform} matches this trigger, Altynx will create the selected action and notify ${automation.owner}.`,
+    checks,
+    previewActions,
+    errors: [],
+    warnings: [],
+  };
+}
+
+function calculateAutomationHealth(automation: NoCodeAutomationWorkflow) {
+  let score = 100;
+  score -= Math.min(automation.failedRuns * 12, 36);
+  score -= Math.min(automation.needsReview * 5, 25);
+  if (getSourceStatusForAutomation(automation) !== "Connected") score -= 20;
+  if (!automation.templatePreview.trim()) score -= 10;
+  return Math.max(0, Math.min(100, score));
+}
+
+function createDefaultAutomationDraft(pipelines: NoCodeAutomationPipeline[]): NoCodeAutomationWorkflow {
+  const selectedPipeline = pipelines[0] ?? noCodeAutomationPipelines[0];
+
+  return {
+    id: `NA-DRAFT-${Date.now()}`,
+    pipelineId: selectedPipeline.id,
+    title: "New recovery automation",
+    pipelineType: selectedPipeline.title,
+    status: "Needs Setup",
+    sourcePlatform: "Instagram",
+    sourceChannel: "Instagram DM",
+    sourceStatus: "Connected",
+    description: "Recover interested buyers from simple customer signals.",
+    trigger: "New DM received",
+    buyerIntentSignal: "Buyer shows interest and needs a fast next step.",
+    action: "Create recovery card",
+    owner: "Recovery Lead",
+    fallbackOwner: "Recovery Lead",
+    businessType: "Fashion/Apparel",
+    priority: "Medium",
+    runsToday: 0,
+    totalRuns: 0,
+    actionsCreated: 0,
+    insightsFound: 0,
+    needsReview: 0,
+    failedRuns: 0,
+    moneyStillOpen: 0,
+    revenueRecovered: 0,
+    repliesCaptured: 0,
+    openOpportunities: 0,
+    lastRun: "Not run yet",
+    nextRun: "When trigger is detected",
+    templateStatus: "Template ready",
+    templatePreview: "Hi {{buyer_name}}, thanks for reaching out. We can help with {{product_name}} and guide you on the next step.",
+    messageTone: "Friendly",
+    approvalMode: "Needs approval before sending",
+    frequencyRule: "Run when the trigger is detected",
+    delayBeforeAction: "10 minutes",
+    actionSettings: "Create task, notify owner, and prepare message for approval.",
+    internalNote: "Created from Automation Builder.",
+    safetyRules: "Do not send if buyer already replied, payment completed, or issue is resolved.",
+    keywords: ["price", "size", "delivery", "booking", "availability"],
+    buyerSegment: "High-intent buyers",
+    minimumIntentLevel: "Medium",
+    exclusionRules: "Ignore spam, resolved records, and already recovered buyers.",
+    mostCommonTriggerReason: "New automation has not run yet.",
+    failedReason: "No failed runs.",
+    tags: ["No-code", selectedPipeline.category, "Recovery"],
+    tone: selectedPipeline.tone,
+  };
+}
+
+function mapAutomationToCard(automation: NoCodeAutomationWorkflow): NoCodeAutomationWorkflow {
+  return {
+    ...automation,
+    title: automation.title.trim() || "Untitled automation",
+    pipelineType: automation.pipelineType || "Custom Automation",
+    sourceChannel: automation.sourceChannel || automation.sourcePlatform,
+    templateStatus: automation.templateStatus || "Template ready",
+    approvalMode: automation.approvalMode || "Needs approval",
+    tags: automation.tags.length > 0 ? automation.tags : ["No-code", "Recovery"],
+  };
+}
+
+function getAutomationRecentActivity(workflow: NoCodeAutomationWorkflow) {
+  return [
+    `${workflow.insightsFound || workflow.runsToday} buyer signals detected from ${workflow.sourcePlatform}`,
+    `${workflow.actionsCreated} recovery actions created`,
+    `${workflow.repliesCaptured} replies captured after follow-up`,
+    `${formatAutomationMoney(workflow.moneyStillOpen)} still open from this automation`,
+  ];
+}
+
+function getAutomationReviewItems(workflow: NoCodeAutomationWorkflow) {
+  const items: { title: string; reason: string; severity: "High" | "Medium" | "Low"; action: string }[] = [];
+  const sourceStatus = getSourceStatusForAutomation(workflow);
+
+  if (workflow.failedRuns > 0) {
+    items.push({
+      title: `${workflow.failedRuns} failed runs`,
+      reason: workflow.failedReason || "Recent runs did not complete successfully.",
+      severity: "High",
+      action: "Retry",
     });
   }
 
-  function moveCard(card: ReportsAutomationCard) {
-    const currentIndex = automationBoardStages.findIndex((stage) => stage.id === card.stage);
-    const nextStage = automationBoardStages[(currentIndex + 1) % automationBoardStages.length]?.id ?? "reviewed";
-    setCards((current) => current.map((item) => item.id === card.id ? { ...item, stage: nextStage, status: automationBoardStages.find((stage) => stage.id === nextStage)?.title ?? item.status } : item));
+  if (sourceStatus !== "Connected") {
+    items.push({
+      title: "Source needs attention",
+      reason: `${workflow.sourcePlatform} is marked as ${sourceStatus}.`,
+      severity: "High",
+      action: "Connect source",
+    });
+  }
+
+  if (workflow.needsReview > 0) {
+    items.push({
+      title: `${workflow.needsReview} items need approval`,
+      reason: "Review the prepared actions before messages are sent.",
+      severity: "Medium",
+      action: "Assign owner",
+    });
+  }
+
+  if (workflow.templateStatus.toLowerCase().includes("needs")) {
+    items.push({
+      title: "Template needs review",
+      reason: "Message not sent until the template is approved.",
+      severity: "Medium",
+      action: "Mark reviewed",
+    });
+  }
+
+  return items;
+}
+
+function AutomationWorkflowCard({
+  workflow,
+  onShowMore,
+  onEdit,
+  onToggleStatus,
+}: {
+  workflow: NoCodeAutomationWorkflow;
+  onShowMore: (workflow: NoCodeAutomationWorkflow) => void;
+  onEdit: (workflow: NoCodeAutomationWorkflow) => void;
+  onToggleStatus: (workflow: NoCodeAutomationWorkflow) => void;
+}) {
+  const statusTone = getAutomationStatusTone(workflow.status);
+
+  return (
+    <article className={`automation-workflow-card ${workflow.tone}`}>
+      <div className="automation-workflow-card-head">
+        <span className={`reports-line-icon ${workflow.tone}`} />
+        <div>
+          <strong>{workflow.title}</strong>
+          <small>{workflow.pipelineType}</small>
+        </div>
+        <Badge tone={statusTone}>{workflow.status}</Badge>
+      </div>
+
+      <div className="automation-workflow-source-row">
+        <span>{workflow.sourcePlatform}</span>
+        <span>{workflow.sourceChannel}</span>
+      </div>
+
+      <div className="automation-workflow-rule-block">
+        <span>When this happens</span>
+        <p>{workflow.trigger}</p>
+      </div>
+
+      <div className="automation-workflow-rule-block">
+        <span>Altynx should do this</span>
+        <p>{workflow.action}</p>
+      </div>
+
+      <div className="automation-workflow-stats">
+        <div>
+          <span>Runs today</span>
+          <strong>{workflow.runsToday}</strong>
+        </div>
+        <div>
+          <span>Actions</span>
+          <strong>{workflow.actionsCreated}</strong>
+        </div>
+        <div>
+          <span>Insights</span>
+          <strong>{workflow.insightsFound}</strong>
+        </div>
+        <div>
+          <span>Review</span>
+          <strong>{workflow.needsReview}</strong>
+        </div>
+      </div>
+
+      <div className="automation-workflow-money">
+        <span>Money still open</span>
+        <strong>{formatAutomationMoney(workflow.moneyStillOpen)}</strong>
+        <small>{workflow.failedRuns > 0 ? `${workflow.failedRuns} failed runs` : `Last run: ${workflow.lastRun}`}</small>
+      </div>
+
+      <div className="reports-chip-row">
+        {workflow.tags.slice(0, 5).map((tag) => (
+          <span key={`${workflow.id}-${tag}`}>{tag}</span>
+        ))}
+      </div>
+
+      <div className="reports-card-actions automation-workflow-actions">
+        <button className="primary-btn" type="button" onClick={() => onShowMore(workflow)}>Show More</button>
+        <button className="secondary-btn" type="button" onClick={() => onEdit(workflow)}>Edit</button>
+        <button className="secondary-btn" type="button" onClick={() => onToggleStatus(workflow)}>
+          {workflow.status === "Live" ? "Pause" : "Run"}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function AutomationPipelineBoard({
+  pipelines,
+  workflows,
+  onShowMore,
+  onEdit,
+  onToggleStatus,
+  onCreateAutomation,
+}: {
+  pipelines: NoCodeAutomationPipeline[];
+  workflows: NoCodeAutomationWorkflow[];
+  onShowMore: (workflow: NoCodeAutomationWorkflow) => void;
+  onEdit: (workflow: NoCodeAutomationWorkflow) => void;
+  onToggleStatus: (workflow: NoCodeAutomationWorkflow) => void;
+  onCreateAutomation: () => void;
+}) {
+  return (
+    <section className="automation-pipeline-board">
+      {pipelines.map((pipeline) => {
+        const pipelineCards = workflows.filter((workflow) => workflow.pipelineId === pipeline.id);
+
+        return (
+          <div className={`automation-pipeline-column ${pipeline.tone}`} key={pipeline.id}>
+            <div className="automation-pipeline-column-head">
+              <div>
+                <span>{pipeline.category}</span>
+                <h3>{pipeline.title}</h3>
+                <p>{pipeline.purpose}</p>
+                <small>{pipeline.helperText}</small>
+              </div>
+              <strong>{pipelineCards.length}</strong>
+            </div>
+
+            <div className="automation-pipeline-stack">
+              {pipelineCards.length > 0 ? pipelineCards.map((workflow) => (
+                <AutomationWorkflowCard
+                  key={workflow.id}
+                  workflow={workflow}
+                  onShowMore={onShowMore}
+                  onEdit={onEdit}
+                  onToggleStatus={onToggleStatus}
+                />
+              )) : (
+                <div className="automation-empty-pipeline">
+                  <strong>No automations yet</strong>
+                  <span>Create your first automation or connect a source to start.</span>
+                  <button className="secondary-btn" type="button" onClick={onCreateAutomation}>Create automation</button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function AutomationDetailSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="automation-detail-section">
+      <h3>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function AutomationWorkflowDetailModal({
+  workflow,
+  onClose,
+  onToggleStatus,
+  onEdit,
+}: {
+  workflow: NoCodeAutomationWorkflow | null;
+  onClose: () => void;
+  onToggleStatus: (workflow: NoCodeAutomationWorkflow) => void;
+  onEdit: (workflow: NoCodeAutomationWorkflow) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<"overview" | "insights" | "review">("overview");
+
+  useEffect(() => {
+    if (workflow) setActiveTab("overview");
+  }, [workflow?.id]);
+
+  if (!workflow) return null;
+
+  const statusTone = getAutomationStatusTone(workflow.status);
+  const summary = buildAutomationSummary(workflow);
+  const reviewItems = getAutomationReviewItems(workflow);
+  const recentActivity = getAutomationRecentActivity(workflow);
+  const healthScore = calculateAutomationHealth(workflow);
+
+  function openEditPage() {
+    onClose();
+    onEdit(workflow);
+  }
+
+  return (
+    <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+      <article aria-modal="true" className="automation-detail-modal no-code-automation-detail automation-readonly-detail" role="dialog">
+        <header className="reports-modal-header automation-detail-modal-header">
+          <div>
+            <span>Automation workflow</span>
+            <h2>{workflow.title}</h2>
+            <p>{workflow.pipelineType} · {workflow.sourcePlatform} · {workflow.businessType}</p>
+            <div className="automation-detail-header-chips">
+              <Badge tone={statusTone}>{workflow.status}</Badge>
+              <span>{workflow.pipelineType}</span>
+              <span>{workflow.sourceChannel}</span>
+              <span>{summary.sourceStatus}</span>
+            </div>
+          </div>
+          <div className="automation-modal-header-actions">
+            <strong>{formatAutomationMoney(workflow.moneyStillOpen)}</strong>
+            <button type="button" onClick={onClose} aria-label="Close automation details">×</button>
+          </div>
+        </header>
+
+        <div className="automation-detail-tabs" role="tablist" aria-label="Automation details">
+          <button type="button" className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>Automation Overview</button>
+          <button type="button" className={activeTab === "insights" ? "active" : ""} onClick={() => setActiveTab("insights")}>Insights & Results</button>
+          <button type="button" className={activeTab === "review" ? "active" : ""} onClick={() => setActiveTab("review")}>Errors / Needs Review Queue</button>
+        </div>
+
+        {activeTab === "overview" ? (
+          <AutomationDetailSection title="Automation Overview">
+            <div className="reports-modal-grid compact">
+              <DetailField label="Automation title" value={workflow.title} />
+              <DetailField label="Pipeline/category" value={workflow.pipelineType} />
+              <DetailField label="Business type" value={workflow.businessType} />
+              <DetailField label="Source/channel" value={`${workflow.sourcePlatform} · ${workflow.sourceChannel}`} />
+              <DetailField label="Purpose" value={workflow.description ?? workflow.buyerIntentSignal} />
+              <DetailField label="Owner/team" value={workflow.owner} />
+              <DetailField label="Priority" value={workflow.priority} />
+              <DetailField label="Last run" value={workflow.lastRun} />
+              <DetailField label="Next scheduled run" value={workflow.nextRun} />
+              <DetailField label="Approval mode" value={workflow.approvalMode} />
+              <DetailField label="Connected source status" value={summary.sourceStatus} />
+              <DetailField label="Automation health" value={`${healthScore}%`} />
+            </div>
+
+            <div className="automation-readonly-summary-grid">
+              <div className="automation-detail-copy-block">
+                <span>Trigger summary</span>
+                <p>{summary.whenText}</p>
+              </div>
+              <div className="automation-detail-copy-block">
+                <span>Action summary</span>
+                <p>{summary.actionText}</p>
+              </div>
+            </div>
+          </AutomationDetailSection>
+        ) : null}
+
+        {activeTab === "insights" ? (
+          <AutomationDetailSection title="Insights & Results">
+            <div className="automation-detail-results">
+              <DetailField label="Runs today" value={workflow.runsToday} />
+              <DetailField label="Total runs" value={workflow.totalRuns} />
+              <DetailField label="Successful runs" value={Math.max(workflow.totalRuns - workflow.failedRuns, 0)} />
+              <DetailField label="Actions created" value={workflow.actionsCreated} />
+              <DetailField label="Buyer signals detected" value={workflow.insightsFound} />
+              <DetailField label="Replies captured" value={workflow.repliesCaptured} />
+              <DetailField label="Open opportunities" value={workflow.openOpportunities} />
+              <DetailField label="Money still open" value={formatAutomationMoney(workflow.moneyStillOpen)} />
+              <DetailField label="Revenue recovered" value={formatAutomationMoney(workflow.revenueRecovered)} />
+              <DetailField label="Average response time" value={workflow.runsToday > 20 ? "11 minutes" : "18 minutes"} />
+              <DetailField label="Best performing channel" value={workflow.sourcePlatform} />
+              <DetailField label="Most common trigger reason" value={workflow.mostCommonTriggerReason} />
+            </div>
+
+            <div className="automation-recent-activity-list">
+              {recentActivity.map((activity) => (
+                <div key={`${workflow.id}-${activity}`}>
+                  <span />
+                  <p>{activity}</p>
+                </div>
+              ))}
+            </div>
+          </AutomationDetailSection>
+        ) : null}
+
+        {activeTab === "review" ? (
+          <AutomationDetailSection title="Errors / Needs Review Queue">
+            <div className="automation-detail-results">
+              <DetailField label="Failed runs" value={workflow.failedRuns} />
+              <DetailField label="Missing template warnings" value={workflow.templateStatus.toLowerCase().includes("needs") ? "1 warning" : "No warnings"} />
+              <DetailField label="Source disconnected warnings" value={summary.sourceStatus === "Connected" ? "No warnings" : summary.sourceStatus} />
+              <DetailField label="Needs approval items" value={workflow.needsReview} />
+              <DetailField label="Message not sent items" value={workflow.needsReview > 0 ? workflow.needsReview : 0} />
+              <DetailField label="Sync issues" value={workflow.failedRuns > 0 ? `${workflow.failedRuns} issues` : "No sync issues"} />
+            </div>
+
+            {reviewItems.length > 0 ? (
+              <div className="automation-review-list">
+                {reviewItems.map((item) => (
+                  <article className="automation-review-item" key={`${workflow.id}-${item.title}`}>
+                    <div>
+                      <Badge tone={item.severity === "High" ? "rose" : item.severity === "Medium" ? "amber" : "gray"}>{item.severity}</Badge>
+                      <strong>{item.title}</strong>
+                      <p>{item.reason}</p>
+                    </div>
+                    <div>
+                      <button className="secondary-btn" type="button">{item.action === "Retry" ? "Retry action" : item.action}</button>
+                      <button className="secondary-btn" type="button">Mark reviewed</button>
+                      <button className="secondary-btn" type="button">Assign owner</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="automation-empty-review-state">
+                <strong>No errors found</strong>
+                <p>No review needed. All recent runs completed successfully.</p>
+              </div>
+            )}
+          </AutomationDetailSection>
+        ) : null}
+
+        <footer className="reports-modal-footer automation-readonly-footer">
+          <button className="secondary-btn" type="button" onClick={onClose}>Close</button>
+          <button className="secondary-btn" type="button" onClick={() => onToggleStatus(workflow)}>
+            {workflow.status === "Live" ? "Pause automation" : "Run automation"}
+          </button>
+          <button className="primary-btn" type="button" onClick={openEditPage}>Edit Automation</button>
+        </footer>
+      </article>
+    </div>
+  );
+}
+
+function AutomationBuilderSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="automation-builder-section">
+      <div className="automation-builder-section-header">
+        <h3>{title}</h3>
+        {description ? <p>{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AutomationBuilderPage({
+  mode,
+  automation,
+  pipelines,
+  onBack,
+  onSave,
+  onActivate,
+  onDelete,
+}: {
+  mode: AutomationBuilderMode;
+  automation: NoCodeAutomationWorkflow;
+  pipelines: NoCodeAutomationPipeline[];
+  onBack: () => void;
+  onSave: (automation: NoCodeAutomationWorkflow) => void;
+  onActivate: (automation: NoCodeAutomationWorkflow) => void;
+  onDelete: (automationId: string) => void;
+}) {
+  const [draft, setDraft] = useState<NoCodeAutomationWorkflow>(() => automation);
+  const [testResult, setTestResult] = useState<AutomationTestResult>(() => runAutomationTest(automation));
+
+  useEffect(() => {
+    setDraft(automation);
+    setTestResult(runAutomationTest(automation));
+  }, [automation.id]);
+
+  const selectedPipeline = getPipelineById(pipelines, draft.pipelineId);
+  const triggerOptions = getTriggerOptionsByPipeline(draft.pipelineId);
+  const actionOptions = getActionOptionsByPipeline(draft.pipelineId);
+  const sourceOptions = getSourceOptionsByPipeline(draft.pipelineId);
+  const templateVariables = getTemplateVariables(draft);
+  const validation = validateAutomationDraft(draft);
+  const summary = buildAutomationSummary(draft);
+  const canActivate = validation.isValid && testResult.status !== "failed";
+
+  function updateDraft<K extends keyof NoCodeAutomationWorkflow>(field: K, value: NoCodeAutomationWorkflow[K]) {
+    setDraft((current) => {
+      const nextDraft = { ...current, [field]: value };
+      if (field === "pipelineId") {
+        const nextPipeline = getPipelineById(pipelines, String(value));
+        nextDraft.pipelineType = nextPipeline.title;
+        nextDraft.tone = nextPipeline.tone;
+        if (!getSourceOptionsByPipeline(nextPipeline.id).includes(nextDraft.sourcePlatform)) {
+          nextDraft.sourcePlatform = getSourceOptionsByPipeline(nextPipeline.id)[0];
+          nextDraft.sourceChannel = nextDraft.sourcePlatform;
+        }
+        nextDraft.trigger = getTriggerOptionsByPipeline(nextPipeline.id)[0];
+        nextDraft.action = getActionOptionsByPipeline(nextPipeline.id)[0];
+      }
+      return nextDraft;
+    });
+  }
+
+  function runTest() {
+    setTestResult(runAutomationTest(draft));
+  }
+
+  function saveDraft(status: NoCodeAutomationStatus = "Needs Setup") {
+    const mappedDraft = mapAutomationToCard({
+      ...draft,
+      status,
+      pipelineType: selectedPipeline.title,
+      tone: selectedPipeline.tone,
+      sourceChannel: draft.sourceChannel || draft.sourcePlatform,
+      tags: Array.from(new Set([selectedPipeline.category, draft.sourcePlatform, draft.businessType, "No-code"].filter(Boolean))),
+      testResultStatus: status === "Live" ? "Ready to activate" : draft.testResultStatus,
+    });
+    onSave(mappedDraft);
+  }
+
+  function activateDraft() {
+    runTest();
+    const test = runAutomationTest(draft);
+    if (test.status === "failed") {
+      setTestResult(test);
+      return;
+    }
+
+    onActivate(mapAutomationToCard({
+      ...draft,
+      status: "Live",
+      pipelineType: selectedPipeline.title,
+      tone: selectedPipeline.tone,
+      sourceChannel: draft.sourceChannel || draft.sourcePlatform,
+      tags: Array.from(new Set([selectedPipeline.category, draft.sourcePlatform, draft.businessType, "Live", "No-code"].filter(Boolean))),
+      testResultStatus: test.status === "passed" ? "Ready to activate" : "Approval rule required",
+    }));
+  }
+
+  function duplicateDraft() {
+    onSave(mapAutomationToCard({
+      ...draft,
+      id: `NA-COPY-${Date.now()}`,
+      title: `${draft.title} Copy`,
+      status: "Needs Setup",
+      lastRun: "Not run yet",
+      totalRuns: 0,
+      runsToday: 0,
+      failedRuns: 0,
+    }));
+  }
+
+  return (
+    <div className="reports-automation-page automation-board-page automation-builder-page">
+      <section className="reports-hero-card automation-builder-hero">
+        <div>
+          <span>No-code automation builder</span>
+          <h2>{mode === "edit" ? "Edit Automation" : "Create Automation"}</h2>
+          <p>Build simple recovery workflows with business-friendly trigger and action wording. No complex nodes, mappings, or technical builder screens.</p>
+        </div>
+        <div className="automation-builder-hero-actions">
+          <button className="secondary-btn" type="button" onClick={onBack}>Back to Automation Board</button>
+          <Badge tone={getAutomationStatusTone(draft.status)}>{draft.status}</Badge>
+        </div>
+      </section>
+
+      <div className="automation-builder-top-actions">
+        <button className="secondary-btn" type="button" onClick={() => saveDraft("Needs Setup")}>Save Draft</button>
+        <button className="secondary-btn" type="button" onClick={runTest}>Test Automation</button>
+        <button className="primary-btn" type="button" disabled={!canActivate} onClick={activateDraft}>Activate Automation</button>
+      </div>
+
+      <section className="automation-builder-layout">
+        <div className="automation-builder-main">
+          <AutomationBuilderSection title="1. Basic Details" description="Name the automation and choose the business purpose.">
+            <div className="automation-builder-form-grid">
+              <label>
+                Automation name
+                <input value={draft.title} onChange={(event) => updateDraft("title", event.target.value)} />
+              </label>
+              <label>
+                Pipeline/category
+                <select value={draft.pipelineId} onChange={(event) => updateDraft("pipelineId", event.target.value)}>
+                  {pipelines.map((pipeline) => <option key={pipeline.id} value={pipeline.id}>{pipeline.title}</option>)}
+                </select>
+              </label>
+              <label>
+                Business type
+                <select value={draft.businessType} onChange={(event) => updateDraft("businessType", event.target.value as NoCodeAutomationWorkflow["businessType"])}>
+                  {automationBusinessTypeOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+              <label>
+                Status
+                <select value={draft.status} onChange={(event) => updateDraft("status", event.target.value as NoCodeAutomationStatus)}>
+                  {automationStatusOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+              <label>
+                Priority
+                <select value={draft.priority} onChange={(event) => updateDraft("priority", event.target.value as Priority)}>
+                  {automationPriorityOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+              <label>
+                Owner/team member
+                <input value={draft.owner} onChange={(event) => updateDraft("owner", event.target.value)} />
+              </label>
+            </div>
+            <label className="automation-builder-full-field">
+              Description / purpose
+              <textarea value={draft.description ?? draft.buyerIntentSignal} onChange={(event) => updateDraft("description", event.target.value)} />
+            </label>
+            <div className="reports-chip-row">
+              {draft.tags.map((tag) => <span key={`${draft.id}-${tag}`}>{tag}</span>)}
+            </div>
+          </AutomationBuilderSection>
+
+          <AutomationBuilderSection title="2. Source / Channel" description="Choose where the automation starts. Use connect/request wording, not technical setup.">
+            <div className="automation-builder-form-grid">
+              <label>
+                Source
+                <select value={draft.sourcePlatform} onChange={(event) => {
+                  updateDraft("sourcePlatform", event.target.value);
+                  updateDraft("sourceChannel", event.target.value);
+                }}>
+                  {sourceOptions.map((source) => <option key={source}>{source}</option>)}
+                </select>
+              </label>
+              <label>
+                Source/channel label
+                <input value={draft.sourceChannel} onChange={(event) => updateDraft("sourceChannel", event.target.value)} />
+              </label>
+              <label>
+                Connection status
+                <select value={summary.sourceStatus} onChange={(event) => updateDraft("sourceStatus", event.target.value as NoCodeAutomationWorkflow["sourceStatus"])}>
+                  {automationSourceStatusOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="automation-builder-option-grid">
+              {sourceOptions.slice(0, 8).map((source) => (
+                <button key={source} className={`automation-builder-option ${draft.sourcePlatform === source ? "selected" : ""}`} type="button" onClick={() => {
+                  updateDraft("sourcePlatform", source);
+                  updateDraft("sourceChannel", source);
+                }}>
+                  <strong>{source}</strong>
+                  <span>{source === "Custom API" ? "Request custom integration" : "Connect source"}</span>
+                </button>
+              ))}
+            </div>
+          </AutomationBuilderSection>
+
+          <AutomationBuilderSection title="3. When this happens…" description="Select a clear business trigger that starts the automation.">
+            <div className="automation-builder-form-grid">
+              <label>
+                Trigger type
+                <select value={draft.trigger} onChange={(event) => updateDraft("trigger", event.target.value)}>
+                  {triggerOptions.map((trigger) => <option key={trigger}>{trigger}</option>)}
+                </select>
+              </label>
+              <label>
+                Keywords/signals
+                <input value={draft.keywords.join(", ")} onChange={(event) => updateDraft("keywords", event.target.value.split(",").map((item) => item.trim()).filter(Boolean))} />
+              </label>
+              <label>
+                Intent level
+                <select value={draft.minimumIntentLevel} onChange={(event) => updateDraft("minimumIntentLevel", event.target.value)}>
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                </select>
+              </label>
+              <label>
+                Frequency rule
+                <input value={draft.frequencyRule ?? "Run when the trigger is detected"} onChange={(event) => updateDraft("frequencyRule", event.target.value)} />
+              </label>
+              <label>
+                Delay before action
+                <input value={draft.delayBeforeAction ?? "10 minutes"} onChange={(event) => updateDraft("delayBeforeAction", event.target.value)} />
+              </label>
+              <label>
+                Buyer/client segment
+                <input value={draft.buyerSegment} onChange={(event) => updateDraft("buyerSegment", event.target.value)} />
+              </label>
+            </div>
+            <label className="automation-builder-full-field">
+              Exclusion rules
+              <textarea value={draft.exclusionRules} onChange={(event) => updateDraft("exclusionRules", event.target.value)} />
+            </label>
+          </AutomationBuilderSection>
+
+          <AutomationBuilderSection title="4. Altynx should do this…" description="Choose the recovery action Altynx should prepare or create.">
+            <div className="automation-builder-form-grid">
+              <label>
+                Action
+                <select value={draft.action} onChange={(event) => updateDraft("action", event.target.value)}>
+                  {actionOptions.map((action) => <option key={action}>{action}</option>)}
+                </select>
+              </label>
+              <label>
+                Approval mode
+                <select value={draft.approvalMode} onChange={(event) => updateDraft("approvalMode", event.target.value)}>
+                  <option>Needs approval before sending</option>
+                  <option>Auto-create task only</option>
+                  <option>Auto-send after condition</option>
+                  <option>Needs owner approval</option>
+                </select>
+              </label>
+              <label>
+                Fallback owner
+                <input value={draft.fallbackOwner} onChange={(event) => updateDraft("fallbackOwner", event.target.value)} />
+              </label>
+            </div>
+            <label className="automation-builder-full-field">
+              Action settings
+              <textarea value={draft.actionSettings ?? draft.action} onChange={(event) => updateDraft("actionSettings", event.target.value)} />
+            </label>
+            <div className="automation-builder-option-grid compact">
+              {["Stop after buyer replies", "Stop if payment completed", "Stop if issue resolved", "Escalate if no response", "Max follow-up attempts"].map((option) => (
+                <button key={option} className="automation-builder-option selected" type="button">
+                  <strong>{option}</strong>
+                  <span>Safety setting</span>
+                </button>
+              ))}
+            </div>
+          </AutomationBuilderSection>
+
+          <AutomationBuilderSection title="5. Message / Template Builder" description="Keep messages simple and approval-safe.">
+            <div className="automation-builder-form-grid">
+              <label>
+                Message channel
+                <input value={draft.sourceChannel} onChange={(event) => updateDraft("sourceChannel", event.target.value)} />
+              </label>
+              <label>
+                Template name/status
+                <input value={draft.templateStatus} onChange={(event) => updateDraft("templateStatus", event.target.value)} />
+              </label>
+              <label>
+                Message tone
+                <select value={draft.messageTone ?? "Friendly"} onChange={(event) => updateDraft("messageTone", event.target.value as NoCodeAutomationWorkflow["messageTone"])}>
+                  {automationMessageToneOptions.map((option) => <option key={option}>{option}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="automation-builder-full-field">
+              Template body
+              <textarea value={draft.templatePreview} onChange={(event) => updateDraft("templatePreview", event.target.value)} />
+            </label>
+            <div className="reports-chip-row">
+              {templateVariables.map((variable) => <span key={`${draft.id}-${variable}`}>{variable}</span>)}
+            </div>
+          </AutomationBuilderSection>
+
+          <AutomationBuilderSection title="6. Conditions & Safety Rules" description="Prevent spammy, duplicate, or wrong automations.">
+            <label className="automation-builder-full-field">
+              Safety rules
+              <textarea value={summary.safetyText} onChange={(event) => updateDraft("safetyRules", event.target.value)} />
+            </label>
+            <div className="automation-builder-option-grid compact">
+              {["Do not send if buyer already replied", "Do not send if payment completed", "Require approval for high-value buyers", "Require approval for support complaints", "Only run during business hours", "Exclude already recovered buyers"].map((option) => (
+                <button key={option} className="automation-builder-option selected" type="button">
+                  <strong>{option}</strong>
+                  <span>Enabled</span>
+                </button>
+              ))}
+            </div>
+          </AutomationBuilderSection>
+
+          <AutomationBuilderSection title="7. Automation Test Center" description="Test the workflow before activation.">
+            <div className={`automation-test-result ${testResult.status}`}>
+              <strong>{testResult.headline}</strong>
+              <p>{testResult.status === "passed" ? "Ready to activate" : testResult.status === "warning" ? "Needs review before activation" : "Fix required fields before activation"}</p>
+            </div>
+            <div className="automation-test-check-list">
+              {testResult.checks.map((check) => (
+                <div key={check.label} className={check.status.toLowerCase()}>
+                  <strong>{check.label}</strong>
+                  <span>{check.status}</span>
+                  <p>{check.detail}</p>
+                </div>
+              ))}
+            </div>
+            <div className="automation-builder-preview-actions">
+              <button className="primary-btn" type="button" onClick={runTest}>Test workflow</button>
+              <button className="secondary-btn" type="button" onClick={runTest}>Preview output</button>
+              <button className="secondary-btn" type="button" onClick={runTest}>Simulate trigger</button>
+            </div>
+          </AutomationBuilderSection>
+        </div>
+
+        <aside className="automation-builder-preview">
+          <div className="automation-builder-preview-card">
+            <span>Live Summary / Preview</span>
+            <h3>{draft.title}</h3>
+            <div className="automation-summary-block">
+              <strong>When this happens</strong>
+              <p>{summary.whenText}</p>
+            </div>
+            <div className="automation-summary-block">
+              <strong>Altynx will do this</strong>
+              <p>{summary.actionText}</p>
+            </div>
+            <div className="automation-summary-block">
+              <strong>Who gets notified</strong>
+              <p>{summary.notifyText}</p>
+            </div>
+            <div className="automation-summary-block">
+              <strong>Message/template preview</strong>
+              <p>{summary.templateText}</p>
+            </div>
+            <div className="automation-summary-block">
+              <strong>Approval mode</strong>
+              <p>{summary.approvalText}</p>
+            </div>
+            <div className="automation-summary-block">
+              <strong>Test result status</strong>
+              <p>{testResult.headline}</p>
+            </div>
+            <div className="reports-chip-row">
+              <span>{selectedPipeline.category}</span>
+              <span>{draft.businessType}</span>
+              <span>{summary.sourceStatus}</span>
+              <span>{calculateAutomationHealth(draft)}% health</span>
+            </div>
+          </div>
+
+          <div className="automation-builder-preview-card">
+            <span>8. Live Preview / Summary</span>
+            <p>When this happens: {summary.whenText}</p>
+            <p>Altynx will: {summary.actionText}</p>
+            <p>Safety: {summary.safetyText}</p>
+          </div>
+
+          <div className="automation-builder-preview-card">
+            <span>9. Save / Activate Controls</span>
+            <div className="automation-builder-footer-actions">
+              <button className="secondary-btn" type="button" onClick={() => saveDraft("Needs Setup")}>Save Draft</button>
+              <button className="secondary-btn" type="button" onClick={runTest}>Test Automation</button>
+              <button className="primary-btn" type="button" disabled={!canActivate} onClick={activateDraft}>Activate Automation</button>
+              <button className="secondary-btn" type="button" onClick={() => saveDraft("Paused")}>Pause Automation</button>
+              <button className="secondary-btn" type="button" onClick={duplicateDraft}>Duplicate Automation</button>
+              <button className="secondary-btn danger" type="button" onClick={() => onDelete(draft.id)}>Delete Automation</button>
+              <button className="secondary-btn" type="button" onClick={onBack}>Back to Board</button>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+
+function CreateAutomationWizard({
+  isOpen,
+  pipelines,
+  onClose,
+  onCreate,
+}: {
+  isOpen: boolean;
+  pipelines: NoCodeAutomationPipeline[];
+  onClose: () => void;
+  onCreate: (draft: CreateAutomationDraft) => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [draft, setDraft] = useState<CreateAutomationDraft>({
+    pipelineId: pipelines[0]?.id ?? "social-media",
+    source: "Instagram",
+    trigger: "New DM received",
+    action: "Create recovery card",
+    template: "Use saved template",
+    owner: "Recovery Lead",
+    approvalMode: "Manual approval before sending",
+  });
+
+  function updateDraft(field: keyof CreateAutomationDraft, value: string) {
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function closeWizard() {
+    setStep(1);
+    onClose();
+  }
+
+  function submitWizard(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onCreate(draft);
+    setStep(1);
+  }
+
+  if (!isOpen) return null;
+
+  const selectedPipeline = pipelines.find((pipeline) => pipeline.id === draft.pipelineId) ?? pipelines[0];
+  const stepLabels = [
+    "Choose pipeline",
+    "Choose source/channel",
+    "Choose trigger",
+    "Choose action",
+    "Message/template",
+    "Review and activate",
+  ];
+
+  return (
+    <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+      <form className="automation-detail-modal automation-create-wizard" onSubmit={submitWizard}>
+        <header className="reports-modal-header">
+          <div>
+            <span>Create Automation</span>
+            <h2>No-code automation wizard</h2>
+            <p>Use simple business wording. No nodes, no complex mapping, no technical builder.</p>
+          </div>
+          <strong>Step {step}/6</strong>
+        </header>
+
+        <div className="automation-wizard-steps">
+          {stepLabels.map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              className={step === index + 1 ? "active" : ""}
+              onClick={() => setStep(index + 1)}
+            >
+              {index + 1}. {label}
+            </button>
+          ))}
+        </div>
+
+        <section className="automation-wizard-body">
+          {step === 1 ? (
+            <div className="automation-wizard-grid">
+              {pipelines.map((pipeline) => (
+                <button
+                  key={pipeline.id}
+                  type="button"
+                  className={draft.pipelineId === pipeline.id ? "selected" : ""}
+                  onClick={() => updateDraft("pipelineId", pipeline.id)}
+                >
+                  <strong>{pipeline.title}</strong>
+                  <span>{pipeline.helperText}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {step === 2 ? (
+            <label>
+              Source / channel
+              <select value={draft.source} onChange={(event) => updateDraft("source", event.target.value)}>
+                {createAutomationSources.map((source) => <option key={source} value={source}>{source}</option>)}
+              </select>
+            </label>
+          ) : null}
+
+          {step === 3 ? (
+            <label>
+              When this happens...
+              <select value={draft.trigger} onChange={(event) => updateDraft("trigger", event.target.value)}>
+                {createAutomationTriggers.map((trigger) => <option key={trigger} value={trigger}>{trigger}</option>)}
+              </select>
+            </label>
+          ) : null}
+
+          {step === 4 ? (
+            <label>
+              Altynx should do this...
+              <select value={draft.action} onChange={(event) => updateDraft("action", event.target.value)}>
+                {createAutomationActions.map((action) => <option key={action} value={action}>{action}</option>)}
+              </select>
+            </label>
+          ) : null}
+
+          {step === 5 ? (
+            <div className="automation-wizard-form-grid">
+              <label>
+                Message / template
+                <select value={draft.template} onChange={(event) => updateDraft("template", event.target.value)}>
+                  <option>Use saved template</option>
+                  <option>Create new template</option>
+                  <option>Manual approval before sending</option>
+                  <option>Auto-send after condition</option>
+                </select>
+              </label>
+              <label>
+                Who should be notified?
+                <input value={draft.owner} onChange={(event) => updateDraft("owner", event.target.value)} placeholder="Recovery Lead" />
+              </label>
+              <label>
+                Approval mode
+                <select value={draft.approvalMode} onChange={(event) => updateDraft("approvalMode", event.target.value)}>
+                  <option>Manual approval before sending</option>
+                  <option>Auto-create task only</option>
+                  <option>Auto-send after condition</option>
+                  <option>Needs owner approval</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {step === 6 ? (
+            <div className="automation-wizard-review">
+              <DetailField label="Pipeline" value={selectedPipeline?.title} />
+              <DetailField label="Source" value={draft.source} />
+              <DetailField label="When this happens" value={draft.trigger} />
+              <DetailField label="Altynx should do this" value={draft.action} />
+              <DetailField label="Template" value={draft.template} />
+              <DetailField label="Owner" value={draft.owner} />
+              <DetailField label="Approval" value={draft.approvalMode} />
+            </div>
+          ) : null}
+        </section>
+
+        <footer className="reports-modal-footer automation-wizard-footer">
+          <button className="secondary-btn" type="button" disabled={step === 1} onClick={() => setStep((current) => Math.max(1, current - 1))}>Back</button>
+          {step < 6 ? (
+            <button className="primary-btn" type="button" onClick={() => setStep((current) => Math.min(6, current + 1))}>Next</button>
+          ) : (
+            <>
+              <button className="secondary-btn" type="submit" name="save" value="draft">Save as draft</button>
+              <button className="primary-btn" type="submit">Activate</button>
+            </>
+          )}
+          <button className="secondary-btn" type="button" onClick={closeWizard}>Close</button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function CreatePipelineModal({
+  isOpen,
+  onClose,
+  onCreate,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (draft: CreatePipelineDraft) => void;
+}) {
+  const [draft, setDraft] = useState<CreatePipelineDraft>({
+    pipelineName: "VIP Buyer Recovery",
+    businessPurpose: "Recover repeat buyers before they go inactive.",
+    industryType: "Hybrid",
+    channelsIncluded: "Instagram, WhatsApp, Email",
+    tone: "indigo",
+    defaultTemplates: "VIP check-in, repeat buyer message",
+    ownerAssignment: "Recovery Lead",
+    automationGoal: "Create owner alerts and repeat buyer follow-ups.",
+  });
+
+  function updateDraft(field: keyof CreatePipelineDraft, value: string) {
+    setDraft((current) => ({ ...current, [field]: field === "tone" ? value as Tone : value }));
+  }
+
+  function submitPipeline(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onCreate(draft);
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+      <form className="automation-detail-modal automation-create-wizard" onSubmit={submitPipeline}>
+        <header className="reports-modal-header">
+          <div>
+            <span>Create Pipeline</span>
+            <h2>Custom automation category</h2>
+            <p>Add a custom pipeline for a specific revenue recovery workflow.</p>
+          </div>
+        </header>
+
+        <div className="automation-wizard-form-grid two">
+          <label>
+            Pipeline name
+            <input value={draft.pipelineName} onChange={(event) => updateDraft("pipelineName", event.target.value)} />
+          </label>
+          <label>
+            Business purpose
+            <input value={draft.businessPurpose} onChange={(event) => updateDraft("businessPurpose", event.target.value)} />
+          </label>
+          <label>
+            Industry type
+            <select value={draft.industryType} onChange={(event) => updateDraft("industryType", event.target.value)}>
+              <option>Fashion/Apparel</option>
+              <option>Beauty/Cosmetics</option>
+              <option>Hybrid</option>
+            </select>
+          </label>
+          <label>
+            Channels included
+            <input value={draft.channelsIncluded} onChange={(event) => updateDraft("channelsIncluded", event.target.value)} />
+          </label>
+          <label>
+            Card color/icon
+            <select value={draft.tone} onChange={(event) => updateDraft("tone", event.target.value)}>
+              <option value="amber">Amber</option>
+              <option value="cyan">Cyan</option>
+              <option value="emerald">Emerald</option>
+              <option value="indigo">Indigo</option>
+              <option value="rose">Rose</option>
+              <option value="gray">Gray</option>
+            </select>
+          </label>
+          <label>
+            Default templates
+            <input value={draft.defaultTemplates} onChange={(event) => updateDraft("defaultTemplates", event.target.value)} />
+          </label>
+          <label>
+            Owner/team assignment
+            <input value={draft.ownerAssignment} onChange={(event) => updateDraft("ownerAssignment", event.target.value)} />
+          </label>
+          <label>
+            Automation goal
+            <input value={draft.automationGoal} onChange={(event) => updateDraft("automationGoal", event.target.value)} />
+          </label>
+        </div>
+
+        <footer className="reports-modal-footer automation-wizard-footer">
+          <button className="primary-btn" type="submit">Create Pipeline</button>
+          <button className="secondary-btn" type="button" onClick={onClose}>Close</button>
+        </footer>
+      </form>
+    </div>
+  );
+}
+
+function ConnectSourceModal({
+  isOpen,
+  onClose,
+  onCreateAutomation,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreateAutomation: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+      <article aria-modal="true" className="automation-detail-modal automation-source-modal" role="dialog">
+        <header className="reports-modal-header">
+          <div>
+            <span>Connect Source</span>
+            <h2>Connect a source to start</h2>
+            <p>Pick the channel where Altynx should watch for buyer signals, payment gaps, support issues, or website events.</p>
+          </div>
+        </header>
+
+        <div className="automation-source-grid">
+          {["Instagram", "TikTok", "WhatsApp", "Facebook", "LinkedIn", "Twitter/X", "Website", "Shopify", "WooCommerce", "Stripe", "Calendly", "Email", "Custom API"].map((source) => (
+            <button key={source} type="button">
+              <strong>{source}</strong>
+              <span>{source === "Custom API" ? "Request custom integration" : "Connect source"}</span>
+            </button>
+          ))}
+        </div>
+
+        <footer className="reports-modal-footer">
+          <button className="primary-btn" type="button" onClick={onCreateAutomation}>Create automation from source</button>
+          <button className="secondary-btn" type="button" onClick={onClose}>Close</button>
+        </footer>
+      </article>
+    </div>
+  );
+}
+
+function AutomationBoard({ onNavigate }: { onNavigate?: (page: string) => void }) {
+  const [pipelines, setPipelines] = useState<NoCodeAutomationPipeline[]>(noCodeAutomationPipelines);
+  const [workflows, setWorkflows] = useState<NoCodeAutomationWorkflow[]>(noCodeAutomationWorkflows);
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedWorkflow, setSelectedWorkflow] = useState<NoCodeAutomationWorkflow | null>(null);
+  const [builderState, setBuilderState] = useState<{ mode: AutomationBuilderMode; workflow: NoCodeAutomationWorkflow } | null>(null);
+  const [createPipelineOpen, setCreatePipelineOpen] = useState(false);
+  const [connectSourceOpen, setConnectSourceOpen] = useState(false);
+
+  const visibleWorkflows = workflows.filter((workflow) => {
+    const pipeline = pipelines.find((item) => item.id === workflow.pipelineId);
+    const searchableText = `${workflow.title} ${workflow.pipelineType} ${workflow.status} ${workflow.sourcePlatform} ${workflow.sourceChannel} ${workflow.trigger} ${workflow.action} ${workflow.tags.join(" ")}`.toLowerCase();
+    const matchesSearch = searchQuery.trim().length === 0 || searchableText.includes(searchQuery.trim().toLowerCase());
+
+    if (!matchesSearch) return false;
+    if (activeFilter === "All") return true;
+    if (["Live", "Paused", "Needs Setup", "Needs Review", "Failed"].includes(activeFilter)) return workflow.status === activeFilter;
+    return pipeline?.category === activeFilter;
+  });
+
+  const metrics = {
+    activeAutomations: workflows.filter((workflow) => workflow.status === "Live").length,
+    runningToday: workflows.reduce((total, workflow) => total + workflow.runsToday, 0),
+    actionsCreated: workflows.reduce((total, workflow) => total + workflow.actionsCreated, 0),
+    needsReview: workflows.reduce((total, workflow) => total + workflow.needsReview, 0),
+    failedBlocked: workflows.filter((workflow) => workflow.status === "Failed" || workflow.failedRuns > 0).length,
+    moneyStillOpen: workflows.reduce((total, workflow) => total + workflow.moneyStillOpen, 0),
+    insightsGenerated: workflows.reduce((total, workflow) => total + workflow.insightsFound, 0),
+  };
+
+  function toggleWorkflowStatus(workflow: NoCodeAutomationWorkflow) {
+    const nextStatus: NoCodeAutomationStatus = workflow.status === "Live" ? "Paused" : "Live";
+
+    setWorkflows((current) => current.map((item) => {
+      if (item.id !== workflow.id) return item;
+      return { ...item, status: nextStatus };
+    }));
+
+    setSelectedWorkflow((current) => current && current.id === workflow.id ? { ...current, status: nextStatus } : current);
+    setBuilderState((current) => current && current.workflow.id === workflow.id ? { ...current, workflow: { ...current.workflow, status: nextStatus } } : current);
+  }
+
+  function openCreateAutomationPage() {
+    setSelectedWorkflow(null);
+    setBuilderState({ mode: "create", workflow: createDefaultAutomationDraft(pipelines) });
+  }
+
+  function openEditAutomationPage(workflow: NoCodeAutomationWorkflow) {
+    setSelectedWorkflow(null);
+    setBuilderState({ mode: "edit", workflow: { ...workflow } });
+  }
+
+  function upsertAutomation(workflow: NoCodeAutomationWorkflow) {
+    const selectedPipeline = getPipelineById(pipelines, workflow.pipelineId);
+    const mappedWorkflow = mapAutomationToCard({
+      ...workflow,
+      pipelineType: selectedPipeline.title,
+      tone: selectedPipeline.tone,
+      sourceChannel: workflow.sourceChannel || workflow.sourcePlatform,
+    });
+
+    setWorkflows((current) => {
+      const exists = current.some((item) => item.id === mappedWorkflow.id);
+      if (exists) return current.map((item) => item.id === mappedWorkflow.id ? mappedWorkflow : item);
+      return [mappedWorkflow, ...current];
+    });
+
+    setBuilderState({ mode: "edit", workflow: mappedWorkflow });
+  }
+
+  function activateAutomation(workflow: NoCodeAutomationWorkflow) {
+    upsertAutomation({ ...workflow, status: "Live", lastRun: workflow.lastRun === "Not run yet" ? "Ready after activation" : workflow.lastRun });
+  }
+
+  function deleteAutomation(workflowId: string) {
+    setWorkflows((current) => current.filter((workflow) => workflow.id !== workflowId));
+    setBuilderState(null);
+  }
+
+  function createPipeline(draft: CreatePipelineDraft) {
+    const cleanName = draft.pipelineName.trim() || "Custom Pipeline";
+    const newPipeline: NoCodeAutomationPipeline = {
+      id: `custom-${Date.now()}`,
+      title: cleanName,
+      category: "Custom",
+      purpose: draft.businessPurpose,
+      helperText: `${draft.industryType} · ${draft.channelsIncluded}`,
+      tone: draft.tone,
+    };
+
+    setPipelines((current) => [...current, newPipeline]);
+    setCreatePipelineOpen(false);
+  }
+
+  if (builderState) {
+    return (
+      <AutomationBuilderPage
+        mode={builderState.mode}
+        automation={builderState.workflow}
+        pipelines={pipelines}
+        onBack={() => setBuilderState(null)}
+        onSave={upsertAutomation}
+        onActivate={activateAutomation}
+        onDelete={deleteAutomation}
+      />
+    );
   }
 
   return (
     <div className="reports-automation-page automation-board-page">
-      <section className="reports-hero-card">
+      <section className="reports-hero-card no-code-automation-hero">
         <div>
-          <span>Automation Control Center</span>
+          <span>No-code recovery automations</span>
           <h2>Automation Board</h2>
-          <p>Kanban workspace for automation events, ad signals, leak reports, monthly recommendations, and support messages. Frontend-only movement for now.</p>
+          <p>Create and manage simple automations for social media, website events, payment workflows, customer messages, support issues, and external system integrations.</p>
         </div>
-        <button className="primary-btn" type="button" onClick={() => onNavigate?.("Workflow Rules")}>Open Workflow Rules</button>
       </section>
 
-      <section className="reports-kpi-grid">
-        <ReportsValueCard label="Captured" value={`${cards.length}`} caption="Total workflow cards" tone="cyan" />
-        <ReportsValueCard label="Needs owner" value={`${cards.filter((card) => card.stage === "needs-owner").length}`} caption="Routing gaps" tone="amber" />
-        <ReportsValueCard label="Failed / blocked" value={`${cards.filter((card) => card.stage === "failed").length}`} caption="Needs review" tone="rose" />
-        <ReportsValueCard label="Money still open" value="$3.7K" caption="Across board cards" tone="emerald" />
+      <section className="automation-board-toolbar">
+        <div className="automation-board-toolbar-actions">
+          <button className="primary-btn" type="button" onClick={openCreateAutomationPage}>Create Automation</button>
+          <button className="secondary-btn" type="button" onClick={() => setCreatePipelineOpen(true)}>Create Pipeline</button>
+          <button className="secondary-btn" type="button" onClick={() => setConnectSourceOpen(true)}>Connect Source</button>
+          <button className="secondary-btn" type="button" onClick={() => onNavigate?.("Workflow Rules")}>Open Workflow Rules</button>
+        </div>
+        <label className="automation-board-search">
+          <span className="sr-only">Search automations</span>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search automations, channels, triggers, tags..."
+          />
+        </label>
       </section>
 
-      <ReportsFilterRow filters={filters} active={activeFilter} onChange={setActiveFilter} countLabel={`${visibleCards.length} cards · 25 per page`} />
-      <ReportsStatusBanner eyebrow="Board status" title="Workflow-ready board">Move cards manually, assign owners, request sync, and create recovery actions. No real backend automation is executed here.</ReportsStatusBanner>
-      <AutomationKanbanBoard stages={automationBoardStages} cards={visibleCards} onOpen={openCard} onMove={moveCard} />
-      <ReportsPagination total={visibleCards.length} label="cards" />
-      <AutomationDetailModal modal={modal} onClose={() => setModal(null)} />
+      <section className="reports-kpi-grid no-code-automation-metrics">
+        <ReportsValueCard label="Active automations" value={`${metrics.activeAutomations}`} caption="Live workflows" tone="emerald" />
+        <ReportsValueCard label="Running today" value={`${metrics.runningToday}`} caption="Runs across channels" tone="cyan" />
+        <ReportsValueCard label="Actions created" value={`${metrics.actionsCreated}`} caption="Recovery tasks/messages" tone="amber" />
+        <ReportsValueCard label="Needs review" value={`${metrics.needsReview}`} caption="Owner approval needed" tone="amber" />
+        <ReportsValueCard label="Failed / blocked" value={`${metrics.failedBlocked}`} caption="Needs source check" tone="rose" />
+        <ReportsValueCard label="Money still open" value={formatAutomationMoney(metrics.moneyStillOpen)} caption="Across automation signals" tone="rose" />
+        <ReportsValueCard label="Insights generated" value={`${metrics.insightsGenerated}`} caption="Buyer signals found" tone="emerald" />
+      </section>
+
+      <ReportsFilterRow filters={noCodeAutomationFilters} active={activeFilter} onChange={setActiveFilter} countLabel={`${visibleWorkflows.length} automations · ${pipelines.length} pipelines`} />
+
+      <ReportsStatusBanner eyebrow="Board status" title="Columns are automation pipelines">
+        Each column is an automation category. Each card is a workflow. Status stays inside the card so this does not behave like a deal pipeline.
+      </ReportsStatusBanner>
+
+      <AutomationPipelineBoard
+        pipelines={pipelines}
+        workflows={visibleWorkflows}
+        onShowMore={setSelectedWorkflow}
+        onEdit={openEditAutomationPage}
+        onToggleStatus={toggleWorkflowStatus}
+        onCreateAutomation={openCreateAutomationPage}
+      />
+
+      <section className="automation-board-summary">
+        <span>Showing {visibleWorkflows.length} automations</span>
+        <strong>{pipelines.length} pipelines</strong>
+        <em>25 cards per page</em>
+      </section>
+
+      <AutomationWorkflowDetailModal
+        workflow={selectedWorkflow}
+        onClose={() => setSelectedWorkflow(null)}
+        onToggleStatus={toggleWorkflowStatus}
+        onEdit={openEditAutomationPage}
+      />
+      <CreatePipelineModal isOpen={createPipelineOpen} onClose={() => setCreatePipelineOpen(false)} onCreate={createPipeline} />
+      <ConnectSourceModal
+        isOpen={connectSourceOpen}
+        onClose={() => setConnectSourceOpen(false)}
+        onCreateAutomation={() => {
+          setConnectSourceOpen(false);
+          openCreateAutomationPage();
+        }}
+      />
     </div>
   );
 }
+
 
 function WorkflowRules({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [rules, setRules] = useState(workflowRuleSeedCards);
