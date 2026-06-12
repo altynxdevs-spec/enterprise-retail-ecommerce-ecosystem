@@ -43741,6 +43741,8 @@ function AutomationBuilderPage({
   const [customPipelineValidation, setCustomPipelineValidation] = useState<CustomPipelineValidationResult>(() => validateCustomPipelineDraft(createDefaultCustomPipelineDraft(automation)));
   const [configureSourceModalOpen, setConfigureSourceModalOpen] = useState(false);
   const [actionSettingsModalOpen, setActionSettingsModalOpen] = useState(false);
+  const [templateLibraryModalOpen, setTemplateLibraryModalOpen] = useState(false);
+  const templateTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     setDraft(automation);
@@ -43869,6 +43871,42 @@ function AutomationBuilderPage({
         : [...currentRules, rule];
       return { ...current, exclusionRules: nextRules.join(", ") };
     });
+  }
+
+  function insertTemplateVariable(variable: string) {
+    const textarea = templateTextareaRef.current;
+
+    setDraft((current) => {
+      const currentTemplate = current.templatePreview ?? "";
+
+      if (!textarea) {
+        const spacer = currentTemplate && !currentTemplate.endsWith(" ") ? " " : "";
+        return { ...current, templatePreview: `${currentTemplate}${spacer}${variable}` };
+      }
+
+      const selectionStart = textarea.selectionStart ?? currentTemplate.length;
+      const selectionEnd = textarea.selectionEnd ?? currentTemplate.length;
+      const nextTemplate = `${currentTemplate.slice(0, selectionStart)}${variable}${currentTemplate.slice(selectionEnd)}`;
+
+      window.requestAnimationFrame(() => {
+        textarea.focus();
+        const nextCursorPosition = selectionStart + variable.length;
+        textarea.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      });
+
+      return { ...current, templatePreview: nextTemplate };
+    });
+  }
+
+  function applyTemplateFromLibrary(template: MessageTemplate) {
+    setDraft((current) => ({
+      ...current,
+      sourceChannel: template.channel,
+      templateStatus: `${template.templateName} · ${template.approvalStatus}`,
+      templatePreview: template.previewText,
+      tags: Array.from(new Set([...(current.tags ?? []), template.recoveryType, template.linkedStageTag].filter(Boolean))),
+    }));
+    setTemplateLibraryModalOpen(false);
   }
 
   function openSourceConfigurationPage() {
@@ -44419,6 +44457,16 @@ function AutomationBuilderPage({
           </AutomationBuilderSection>
 
           <AutomationBuilderSection title="5. Message / Template Builder" description="Keep messages simple and approval-safe.">
+            <div className="automation-template-builder-toolbar">
+              <div>
+                <strong>Automation template</strong>
+                <p>Use a saved template or write one here. Any change stays synced with this automation.</p>
+              </div>
+              <button data-workflow-ignore="true" className="automation-template-library-button" type="button" onClick={() => setTemplateLibraryModalOpen(true)}>
+                Template Library
+              </button>
+            </div>
+
             <div className="automation-builder-form-grid">
               <label>
                 Message channel
@@ -44435,12 +44483,20 @@ function AutomationBuilderPage({
                 </select>
               </label>
             </div>
-            <label className="automation-builder-full-field">
+            <label className="automation-builder-full-field automation-template-body-field">
               Template body
-              <textarea value={draft.templatePreview} onChange={(event) => updateDraft("templatePreview", event.target.value)} />
+              <textarea ref={templateTextareaRef} value={draft.templatePreview} onChange={(event) => updateDraft("templatePreview", event.target.value)} />
             </label>
-            <div className="reports-chip-row">
-              {templateVariables.map((variable) => <span key={`${draft.id}-${variable}`}>{variable}</span>)}
+            <div className="automation-template-variable-helper">
+              <strong>Click an attribute to insert it into the message box</strong>
+              <span>Auto-synced with this automation</span>
+            </div>
+            <div className="reports-chip-row automation-template-variable-row">
+              {templateVariables.map((variable) => (
+                <button data-workflow-ignore="true" key={`${draft.id}-${variable}`} type="button" onClick={() => insertTemplateVariable(variable)}>
+                  {variable}
+                </button>
+              ))}
             </div>
           </AutomationBuilderSection>
 
@@ -44555,6 +44611,42 @@ function AutomationBuilderPage({
           </div>
         </aside>
       </section>
+
+      {templateLibraryModalOpen ? (
+        <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+          <article aria-modal="true" className="automation-detail-modal automation-template-library-modal" role="dialog">
+            <header className="reports-modal-header automation-template-library-modal-header">
+              <div>
+                <span>Template Library</span>
+                <h2>Choose a saved message template</h2>
+                <p>Select any existing template from the system. It will be shown in this builder and synced with this automation.</p>
+              </div>
+              <button data-workflow-ignore="true" type="button" onClick={() => setTemplateLibraryModalOpen(false)} aria-label="Close template library">×</button>
+            </header>
+
+            <div className="automation-template-library-modal-body">
+              {messageTemplates.map((template) => (
+                <button data-workflow-ignore="true" key={template.id} className="automation-template-library-card" type="button" onClick={() => applyTemplateFromLibrary(template)}>
+                  <div className="automation-template-library-card-top">
+                    <strong>{template.templateName}</strong>
+                    <span>{template.approvalStatus}</span>
+                  </div>
+                  <p>{template.previewText}</p>
+                  <div className="reports-chip-row automation-template-library-card-meta">
+                    <span>{template.channel}</span>
+                    <span>{template.recoveryType}</span>
+                    <span>{template.linkedStageTag}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <footer className="automation-action-settings-modal-footer">
+              <button data-workflow-ignore="true" className="secondary-btn" type="button" onClick={() => setTemplateLibraryModalOpen(false)}>Close</button>
+            </footer>
+          </article>
+        </div>
+      ) : null}
 
       {actionSettingsModalOpen ? (
         <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
