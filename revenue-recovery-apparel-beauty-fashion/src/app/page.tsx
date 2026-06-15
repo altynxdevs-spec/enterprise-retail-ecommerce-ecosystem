@@ -46270,60 +46270,240 @@ function WorkflowRuleCreateModal({ isOpen, onClose }: { isOpen: boolean; onClose
 }
 
 function EmailStudio({ onNavigate }: { onNavigate?: (page: string) => void }) {
+  const [activeScreen, setActiveScreen] = useState<"listing" | "blank" | "emailTemplates" | "pageTemplates" | "folders">("listing");
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const [builderTab, setBuilderTab] = useState<"Content" | "Rows" | "Settings">("Content");
+
   const orderOptions = ["Last updated", "Newest first", "Oldest first"];
-  const typeOptions = ["All", "Email", "Approved", "Draft"];
+  const typeOptions = ["All", "Email", "Page", "Folder"];
+  const createOptions = [
+    { label: "Blank Email", icon: "✎", target: "blank" as const },
+    { label: "Email Template", icon: "✉", target: "emailTemplates" as const },
+    { label: "Page Template", icon: "▣", target: "pageTemplates" as const },
+    { label: "Folder", icon: "□", target: "folders" as const },
+  ];
+  const editorBlocks = ["Heading", "Paragraph", "Button", "Image", "Divider", "Spacer", "Social", "HTML"];
+  const rowBlocks = ["1 column", "2 columns", "Hero row", "Footer row"];
+  const emailTemplateCards = [
+    { title: "Payment reminder", category: "Payment Recovery", tone: "orange" },
+    { title: "Abandoned checkout follow-up", category: "Abandoned Checkout", tone: "light" },
+    { title: "Unanswered inquiry reply", category: "Unanswered Inquiry", tone: "dark" },
+    { title: "Restock notice", category: "Restock Notice", tone: "orange" },
+    { title: "Review request", category: "Review Request", tone: "light" },
+    { title: "VIP buyer follow-up", category: "VIP Buyer", tone: "dark" },
+  ];
+  const pageTemplateCards = [
+    { title: "Recovery landing page", category: "Payment / Recovery", tone: "orange" },
+    { title: "Product interest page", category: "Product Demand", tone: "light" },
+    { title: "Booking confirmation page", category: "Booking", tone: "dark" },
+    { title: "Review collection page", category: "Reviews", tone: "orange" },
+  ];
+
+  const openCreateTarget = (target: typeof createOptions[number]["target"]) => {
+    setCreateMenuOpen(false);
+    setActiveScreen(target);
+  };
+
+  const renderCreateMenu = () => (
+    <div className="email-create-menu" role="menu">
+      {createOptions.map((option) => (
+        <button key={option.label} type="button" role="menuitem" onClick={() => openCreateTarget(option.target)}>
+          <span aria-hidden="true">{option.icon}</span>
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (activeScreen === "blank") {
+    return (
+      <div className="email-studio-flow-page email-blank-editor-screen">
+        <header className="email-editor-topbar">
+          <div className="email-editor-left-actions">
+            <button className="email-icon-button" type="button" onClick={() => setActiveScreen("listing")} aria-label="Back to emails">‹</button>
+            <div className="email-editor-title-wrap">
+              <strong>New email</strong>
+              <button type="button" aria-label="Rename email">✎</button>
+            </div>
+            <span className="email-type-pill">✉ Email</span>
+          </div>
+          <div className="email-editor-quick-actions" aria-label="Email editor actions">
+            <button type="button">◉</button>
+            <button type="button">▷</button>
+            <button type="button">✎</button>
+            <button type="button">☰</button>
+            <button type="button">◌</button>
+          </div>
+          <button className="email-export-btn" type="button">↥ Export</button>
+        </header>
+
+        <section className="email-editor-layout">
+          <main className="email-editor-canvas-area">
+            <div className="email-device-toggle-row">
+              <button className="active" type="button">▣</button>
+              <button type="button">▯</button>
+            </div>
+            <div className="email-blank-canvas">
+              <div className="email-drop-zone">
+                <span>＋</span>
+                <strong>Drop content blocks here</strong>
+                <p>Start building your email with simple content blocks.</p>
+              </div>
+              <div className="email-designed-with"><span>◆</span> Designed with Altynx Email Studio</div>
+            </div>
+          </main>
+
+          <aside className="email-editor-sidebar">
+            <div className="email-editor-tabs">
+              {(["Content", "Rows", "Settings"] as const).map((tab) => (
+                <button key={tab} className={builderTab === tab ? "active" : ""} type="button" onClick={() => setBuilderTab(tab)}>{tab}</button>
+              ))}
+            </div>
+            {builderTab === "Content" ? (
+              <div className="email-editor-block-grid">
+                {editorBlocks.map((block) => <button key={block} type="button"><span>{block === "Heading" ? "T" : block === "Paragraph" ? "¶" : block === "Button" ? "▬" : block === "Image" ? "▧" : block === "Divider" ? "═" : block === "Spacer" ? "↕" : block === "Social" ? "+" : "</>"}</span><strong>{block}</strong></button>)}
+              </div>
+            ) : builderTab === "Rows" ? (
+              <div className="email-editor-block-grid rows">
+                {rowBlocks.map((block) => <button key={block} type="button"><span>▤</span><strong>{block}</strong></button>)}
+              </div>
+            ) : (
+              <div className="email-editor-settings-panel">
+                <strong>Email settings</strong>
+                <p>Basic style and layout settings will appear here in the next iteration.</p>
+                <div><span>Canvas width</span><b>600px</b></div>
+                <div><span>Background</span><b>White</b></div>
+                <div><span>Status</span><b>Draft</b></div>
+              </div>
+            )}
+          </aside>
+        </section>
+      </div>
+    );
+  }
+
+  if (activeScreen === "emailTemplates" || activeScreen === "pageTemplates") {
+    const isEmailCatalog = activeScreen === "emailTemplates";
+    const cards = isEmailCatalog ? emailTemplateCards : pageTemplateCards;
+    return (
+      <div className="email-studio-flow-page email-template-catalog-screen">
+        <header className="email-catalog-header">
+          <button className="email-icon-button" type="button" onClick={() => setActiveScreen("listing")} aria-label="Back to emails">‹</button>
+          <div>
+            <span>{isEmailCatalog ? "Email templates" : "Page templates"}</span>
+            <h2>{isEmailCatalog ? "Email Template Catalog" : "Page Template Catalog"}</h2>
+            <p>{isEmailCatalog ? "Choose a ready-made recovery email template or start blank." : "Browse page-style templates prepared for future email studio flows."}</p>
+          </div>
+        </header>
+
+        <div className="email-catalog-tabs">
+          <button className="active" type="button">Template catalog</button>
+          {!isEmailCatalog ? <button type="button">Convert an email template</button> : null}
+          <button type="button">Templates</button>
+        </div>
+
+        <section className="email-catalog-layout">
+          <aside className="email-catalog-sidebar">
+            <div className="email-catalog-search"><input placeholder="Search..." type="search" /><button type="button">⌕</button></div>
+            <p>{isEmailCatalog ? "24" : "12"} results</p>
+            <h3>Categories</h3>
+            {['Usage', 'Industry', 'Automated', 'Seasonal'].map((category) => <button key={category} type="button"><span>{category}</span><b>⌄</b></button>)}
+          </aside>
+
+          <main className="email-catalog-main">
+            <div className="email-catalog-hero-options">
+              <button type="button" onClick={() => setActiveScreen("blank")}><span>✎</span><strong>Start with a blank template</strong></button>
+              <button type="button"><span>↥</span><strong>{isEmailCatalog ? "Import an existing HTML" : "Convert an email template"}</strong></button>
+            </div>
+            <div className="email-template-grid">
+              {cards.map((template, index) => (
+                <button key={template.title} className={`email-template-tile ${template.tone}`} type="button" onClick={() => setActiveScreen("blank")}>
+                  <div className="email-template-thumb">
+                    <span>{template.category}</span>
+                    <h4>{template.title}</h4>
+                    <p>{isEmailCatalog ? "Ready email layout" : "Ready page layout"}</p>
+                    <div className="email-template-thumb-art"><i /><i /><i /></div>
+                  </div>
+                  <strong>{template.title}</strong>
+                  <small>{template.category} · {index % 2 === 0 ? "Draft-ready" : "Approved style"}</small>
+                </button>
+              ))}
+            </div>
+          </main>
+        </section>
+      </div>
+    );
+  }
+
+  if (activeScreen === "folders") {
+    return (
+      <div className="email-studio-flow-page email-folder-screen">
+        <header className="email-folder-header">
+          <button className="email-icon-button" type="button" onClick={() => setActiveScreen("listing")} aria-label="Back to emails">‹</button>
+          <div>
+            <span>Folders</span>
+            <h2>Stay organized inside Email Studio</h2>
+            <p>Use folders to organize emails, page templates, and reusable recovery designs before the full builder flow is connected.</p>
+          </div>
+        </header>
+
+        <section className="email-folder-panel">
+          <div className="email-folder-copy">
+            <span>No payment required</span>
+            <h3>Organize recovery emails, templates, and pages</h3>
+            <p>Keep every Email Studio asset easy to find as your workflow library grows. This view is ready for future folder management.</p>
+            <ul>
+              <li>Group templates by recovery use case</li>
+              <li>Separate emails, pages, and campaign assets</li>
+              <li>Keep approved designs easy for teams to find</li>
+              <li>Prepare folders for future automation handoff</li>
+            </ul>
+            <div className="email-folder-actions"><button className="email-create-btn" type="button">Create folder</button><button className="email-import-btn" type="button">Learn more</button></div>
+          </div>
+          <div className="email-folder-visual" aria-hidden="true">
+            <article><strong>Payment Recovery</strong><div><span /><span /><span /></div></article>
+            <article><strong>Promo Emails</strong><div><span /><span /><span /></div></article>
+            <article><strong>Support Follow-ups</strong><div><span /><span /><span /></div></article>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
-    <div className="email-studio-projects-page">
+    <div className="email-studio-projects-page email-studio-listing-flow">
       <section className="email-projects-hero">
         <div>
           <span>Email Studio</span>
-          <h2>Emails</h2>
-          <p>View existing recovery emails and start a new email before opening the builder screen later.</p>
+          <h2>Email Studio</h2>
+          <p>Create, organize, and prepare reusable recovery emails before opening the detailed builder in the next step.</p>
         </div>
         <div className="email-projects-actions">
-          <button className="email-import-btn" type="button" aria-label="Import email">
-            <span aria-hidden="true">↥</span>
-            Import
-          </button>
-          <button className="email-create-btn" type="button" onClick={() => onNavigate?.("Email Studio")}>
-            <span aria-hidden="true">＋</span>
-            Create new email
-          </button>
+          <button className="email-import-btn" type="button" aria-label="Import email"><span aria-hidden="true">↥</span>Import</button>
+          <div className="email-create-menu-wrap">
+            <button className="email-create-btn" type="button" onClick={() => setCreateMenuOpen((open) => !open)} aria-expanded={createMenuOpen}>
+              <span aria-hidden="true">＋</span>
+              Create new
+            </button>
+            {createMenuOpen ? renderCreateMenu() : null}
+          </div>
         </div>
       </section>
 
       <section className="email-projects-filter-bar" aria-label="Email Studio filters">
         <div className="email-filter-left">
-          <label>
-            <strong>Order by:</strong>
-            <select defaultValue={orderOptions[0]} aria-label="Order emails by">
-              {orderOptions.map((option) => <option key={option}>{option}</option>)}
-            </select>
-          </label>
+          <label><strong>Order by:</strong><select defaultValue={orderOptions[0]} aria-label="Order emails by">{orderOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
         </div>
         <div className="email-filter-right">
-          <label>
-            <strong>Type:</strong>
-            <select defaultValue={typeOptions[0]} aria-label="Filter emails by type">
-              {typeOptions.map((option) => <option key={option}>{option}</option>)}
-            </select>
-          </label>
-          <div className="email-search-box">
-            <input aria-label="Search emails" placeholder="Search in your workspace" type="search" />
-            <button type="button" aria-label="Search emails">⌕</button>
-          </div>
+          <label><strong>Type:</strong><select defaultValue={typeOptions[0]} aria-label="Filter emails by type">{typeOptions.map((option) => <option key={option}>{option}</option>)}</select></label>
+          <div className="email-search-box"><input aria-label="Search emails" placeholder="Search in your workspace" type="search" /><button type="button" aria-label="Search emails">⌕</button></div>
         </div>
       </section>
 
       <section className="email-designs-listing">
-        <div className="email-designs-title-row">
-          <h3>Emails</h3>
-          <span>1/10</span>
-        </div>
-
+        <div className="email-designs-title-row"><h3>Emails</h3><span>1/10</span></div>
         <div className="email-project-card-grid">
-          <button className="email-project-card" type="button" onClick={() => onNavigate?.("Email Studio")}>
+          <button className="email-project-card" type="button" onClick={() => setActiveScreen("blank")}>
             <div className="email-project-preview">
               <span className="email-project-badge">✉ Email</span>
               <div className="email-preview-paper">
@@ -46332,25 +46512,13 @@ function EmailStudio({ onNavigate }: { onNavigate?: (page: string) => void }) {
                 <h4>Quick reminder about your order</h4>
                 <p>Hi Sarah, your order is still reserved. You can complete payment here.</p>
                 <div className="email-preview-cta">Complete next step</div>
-                <div className="email-preview-banner">
-                  <div />
-                  <span>Recovery detail</span>
-                </div>
-                <div className="email-preview-columns">
-                  <span />
-                  <span />
-                </div>
+                <div className="email-preview-banner"><div /><span>Recovery detail</span></div>
+                <div className="email-preview-columns"><span /><span /></div>
               </div>
             </div>
             <div className="email-project-card-body">
-              <div>
-                <h4>New email</h4>
-                <p>Altynx Studio</p>
-              </div>
-              <div className="email-project-card-meta">
-                <span>37 minutes ago</span>
-                <span className="email-comment-icon" aria-hidden="true">◔</span>
-              </div>
+              <div><h4>New email</h4><p>Altynx Studio</p></div>
+              <div className="email-project-card-meta"><span>37 minutes ago</span><span className="email-comment-icon" aria-hidden="true">◔</span></div>
             </div>
           </button>
         </div>
