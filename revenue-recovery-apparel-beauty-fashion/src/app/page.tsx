@@ -42526,6 +42526,11 @@ function formatAutomationMoney(value: number) {
   return `$${value.toLocaleString("en-US")}`;
 }
 
+const automationOpenRecoveryValueNote =
+  "Based on unresolved buyer interest, unpaid deposits, abandoned checkout, and pending follow-ups.";
+const automationOpenRecoveryValueShortNote =
+  "Unresolved interest, unpaid deposits, abandoned checkout, and pending follow-ups.";
+
 function getAutomationStatusTone(status: NoCodeAutomationStatus): Tone {
   if (status === "Live") return "emerald";
   if (status === "Failed") return "rose";
@@ -43471,53 +43476,63 @@ function getAutomationRecentActivity(workflow: NoCodeAutomationWorkflow) {
     `${workflow.insightsFound || workflow.runsToday} buyer signals detected from ${workflow.sourcePlatform}`,
     `${workflow.actionsCreated} recovery actions created`,
     `${workflow.repliesCaptured} replies captured after follow-up`,
-    `${formatAutomationMoney(workflow.moneyStillOpen)} still open from this automation`,
+    `${formatAutomationMoney(workflow.moneyStillOpen)} open recovery value from this automation`,
   ];
 }
 
 function getAutomationReviewItems(workflow: NoCodeAutomationWorkflow) {
   const items: { title: string; reason: string; severity: "High" | "Medium" | "Low"; action: string }[] = [];
   const sourceStatus = getSourceStatusForAutomation(workflow);
+  const ownerMissing = !workflow.owner.trim() || workflow.owner.toLowerCase().includes("unassigned") || workflow.owner.toLowerCase().includes("missing");
+  const templateNeedsReview = workflow.templateStatus.toLowerCase().includes("needs") || workflow.templateStatus.toLowerCase().includes("missing");
 
   if (workflow.failedRuns > 0) {
     items.push({
-      title: `${workflow.failedRuns} failed runs`,
-      reason: workflow.failedReason || "Recent runs did not complete successfully.",
+      title: `${workflow.failedRuns} failed ${workflow.failedRuns === 1 ? "run" : "runs"}`,
+      reason: workflow.failedReason || "Recent automation runs did not complete successfully.",
       severity: "High",
-      action: "Retry",
+      action: "Retry action",
     });
   }
 
   if (sourceStatus !== "Connected") {
     items.push({
-      title: "Source needs attention",
-      reason: `${workflow.sourcePlatform} is marked as ${sourceStatus}.`,
+      title: "1 source disconnected",
+      reason: `${workflow.sourcePlatform} is marked as ${sourceStatus}. Reconnect it before this automation can run safely.`,
       severity: "High",
       action: "Connect source",
     });
   }
 
-  if (workflow.needsReview > 0) {
+  if (ownerMissing) {
     items.push({
-      title: `${workflow.needsReview} items need approval`,
-      reason: "Review the prepared actions before messages are sent.",
+      title: "1 buyer has no owner assigned",
+      reason: "Assign an owner before Altynx prepares or routes the next recovery action.",
       severity: "Medium",
       action: "Assign owner",
     });
   }
 
-  if (workflow.templateStatus.toLowerCase().includes("needs")) {
+  if (templateNeedsReview) {
     items.push({
-      title: "Template needs review",
-      reason: "Message not sent until the template is approved.",
+      title: workflow.templateStatus.toLowerCase().includes("missing") ? "1 template missing" : "1 template needs review",
+      reason: "The message template must be ready before any customer-facing message is prepared.",
       severity: "Medium",
-      action: "Mark reviewed",
+      action: "Review template",
+    });
+  }
+
+  if (workflow.needsReview > 0) {
+    items.push({
+      title: `${workflow.needsReview} ${workflow.needsReview === 1 ? "message needs" : "messages need"} approval`,
+      reason: "Prepared messages or recovery actions are waiting for owner review before sending.",
+      severity: "Medium",
+      action: "Review messages",
     });
   }
 
   return items;
 }
-
 function AutomationWorkflowCard({
   workflow,
   onShowMore,
@@ -43532,7 +43547,7 @@ function AutomationWorkflowCard({
   const statusTone = getAutomationStatusTone(workflow.status);
 
   return (
-    <article className={`automation-workflow-card ${workflow.tone}`}>
+    <article className={`automation-workflow-card compact ${workflow.tone}`}>
       <div className="automation-workflow-card-head">
         <span className={`reports-line-icon ${workflow.tone}`} />
         <div>
@@ -43542,50 +43557,21 @@ function AutomationWorkflowCard({
         <Badge tone={statusTone}>{workflow.status}</Badge>
       </div>
 
-      <div className="automation-workflow-source-row">
-        <span>{workflow.sourcePlatform}</span>
-        <span>{workflow.sourceChannel}</span>
-      </div>
-
-      <div className="automation-workflow-rule-block">
-        <span>When this happens</span>
-        <p>{workflow.trigger}</p>
-      </div>
-
-      <div className="automation-workflow-rule-block">
-        <span>Altynx should do this</span>
-        <p>{workflow.action}</p>
+      <div className="automation-workflow-money" title={automationOpenRecoveryValueNote}>
+        <span>Open Recovery Value</span>
+        <strong>{formatAutomationMoney(workflow.moneyStillOpen)}</strong>
+        <small>{automationOpenRecoveryValueShortNote}</small>
       </div>
 
       <div className="automation-workflow-stats">
         <div>
-          <span>Runs today</span>
-          <strong>{workflow.runsToday}</strong>
-        </div>
-        <div>
-          <span>Actions</span>
+          <span>Actions created</span>
           <strong>{workflow.actionsCreated}</strong>
         </div>
         <div>
-          <span>Insights</span>
-          <strong>{workflow.insightsFound}</strong>
-        </div>
-        <div>
-          <span>Review</span>
+          <span>Needs review</span>
           <strong>{workflow.needsReview}</strong>
         </div>
-      </div>
-
-      <div className="automation-workflow-money">
-        <span>Money still open</span>
-        <strong>{formatAutomationMoney(workflow.moneyStillOpen)}</strong>
-        <small>{workflow.failedRuns > 0 ? `${workflow.failedRuns} failed runs` : `Last run: ${workflow.lastRun}`}</small>
-      </div>
-
-      <div className="reports-chip-row">
-        {workflow.tags.slice(0, 5).map((tag) => (
-          <span key={`${workflow.id}-${tag}`}>{tag}</span>
-        ))}
       </div>
 
       <div className="reports-card-actions automation-workflow-actions">
@@ -43598,7 +43584,6 @@ function AutomationWorkflowCard({
     </article>
   );
 }
-
 function AutomationPipelineBoard({
   pipelines,
   workflows,
@@ -43711,7 +43696,10 @@ function AutomationWorkflowDetailModal({
             </div>
           </div>
           <div className="automation-modal-header-actions">
-            <strong>{formatAutomationMoney(workflow.moneyStillOpen)}</strong>
+            <div className="automation-modal-money" title={automationOpenRecoveryValueNote}>
+              <span>Open Recovery Value</span>
+              <strong>{formatAutomationMoney(workflow.moneyStillOpen)}</strong>
+            </div>
             <button type="button" onClick={onClose} aria-label="Close automation details">×</button>
           </div>
         </header>
@@ -43758,11 +43746,12 @@ function AutomationWorkflowDetailModal({
               <DetailField label="Runs today" value={workflow.runsToday} />
               <DetailField label="Total runs" value={workflow.totalRuns} />
               <DetailField label="Successful runs" value={Math.max(workflow.totalRuns - workflow.failedRuns, 0)} />
+              <DetailField label="Failed runs" value={workflow.failedRuns} />
               <DetailField label="Actions created" value={workflow.actionsCreated} />
               <DetailField label="Buyer signals detected" value={workflow.insightsFound} />
               <DetailField label="Replies captured" value={workflow.repliesCaptured} />
               <DetailField label="Open opportunities" value={workflow.openOpportunities} />
-              <DetailField label="Money still open" value={formatAutomationMoney(workflow.moneyStillOpen)} />
+              <DetailField label="Open Recovery Value" value={formatAutomationMoney(workflow.moneyStillOpen)} />
               <DetailField label="Revenue recovered" value={formatAutomationMoney(workflow.revenueRecovered)} />
               <DetailField label="Average response time" value={workflow.runsToday > 20 ? "11 minutes" : "18 minutes"} />
               <DetailField label="Best performing channel" value={workflow.sourcePlatform} />
@@ -43801,9 +43790,9 @@ function AutomationWorkflowDetailModal({
                       <p>{item.reason}</p>
                     </div>
                     <div>
-                      <button className="secondary-btn" type="button">{item.action === "Retry" ? "Retry action" : item.action}</button>
-                      <button className="secondary-btn" type="button">Mark reviewed</button>
-                      <button className="secondary-btn" type="button">Assign owner</button>
+                      {Array.from(new Set([item.action, "Mark reviewed"])).map((actionLabel) => (
+                        <button className="secondary-btn" type="button" key={`${workflow.id}-${item.title}-${actionLabel}`}>{actionLabel}</button>
+                      ))}
                     </div>
                   </article>
                 ))}
@@ -45551,7 +45540,7 @@ function AutomationBoard({ onNavigate }: { onNavigate?: (page: string) => void }
         <ReportsValueCard label="Actions created" value={`${metrics.actionsCreated}`} caption="Recovery tasks/messages" tone="amber" />
         <ReportsValueCard label="Needs review" value={`${metrics.needsReview}`} caption="Owner approval needed" tone="amber" />
         <ReportsValueCard label="Failed / blocked" value={`${metrics.failedBlocked}`} caption="Needs source check" tone="rose" />
-        <ReportsValueCard label="Money still open" value={formatAutomationMoney(metrics.moneyStillOpen)} caption="Across automation signals" tone="rose" />
+        <ReportsValueCard label="Open Recovery Value" value={formatAutomationMoney(metrics.moneyStillOpen)} caption={automationOpenRecoveryValueNote} tone="rose" />
         <ReportsValueCard label="Insights generated" value={`${metrics.insightsGenerated}`} caption="Buyer signals found" tone="emerald" />
       </section>
 

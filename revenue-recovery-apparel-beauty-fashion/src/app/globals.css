@@ -66083,3 +66083,40 @@ button.buyer-product-preview {
 .automation-board-page .automation-action-settings-modal-section {
   min-height: min-content;
 }
+
+/* Automation Board scoped cleanup: keep workflow cards lighter and review modals cleaner */
+.automation-board-page .automation-workflow-card.compact {
+  gap: 11px;
+}
+
+.automation-board-page .automation-workflow-card.compact .automation-workflow-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.automation-board-page .automation-workflow-card.compact .automation-workflow-money small {
+  line-height: 1.35;
+}
+
+.automation-board-page .automation-modal-money {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: 170px;
+}
+
+.automation-board-page .automation-modal-money span {
+  color: #c2410c;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.automation-board-page .automation-modal-money strong {
+  color: #111111;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: -0.055em;
+}
