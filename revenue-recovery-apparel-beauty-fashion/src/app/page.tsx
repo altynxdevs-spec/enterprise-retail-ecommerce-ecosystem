@@ -43791,7 +43791,14 @@ function AutomationWorkflowDetailModal({
                     </div>
                     <div>
                       {Array.from(new Set([item.action, "Mark reviewed"])).map((actionLabel) => (
-                        <button className="secondary-btn" type="button" key={`${workflow.id}-${item.title}-${actionLabel}`}>{actionLabel}</button>
+                        <button
+                          className="secondary-btn"
+                          data-workflow-ignore={actionLabel === "Review messages" ? "true" : undefined}
+                          type="button"
+                          key={`${workflow.id}-${item.title}-${actionLabel}`}
+                        >
+                          {actionLabel}
+                        </button>
                       ))}
                     </div>
                   </article>
