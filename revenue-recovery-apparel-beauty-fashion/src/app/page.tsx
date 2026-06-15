@@ -46271,85 +46271,301 @@ function WorkflowRuleCreateModal({ isOpen, onClose }: { isOpen: boolean; onClose
 
 function EmailStudio({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [selectedId, setSelectedId] = useState(emailTemplatesSeed[0].id);
-  const [previewMode, setPreviewMode] = useState<"Desktop" | "Mobile">("Desktop");
+  const [previewMode, setPreviewMode] = useState<"Desktop" | "Mobile" | "Inbox" | "Plain text">("Desktop");
+  const [activeBuilderTab, setActiveBuilderTab] = useState("Design");
+  const [selectedBlock, setSelectedBlock] = useState("Payment link button");
   const selectedTemplate = emailTemplatesSeed.find((template) => template.id === selectedId) ?? emailTemplatesSeed[0];
+
+  const templateCategories = [
+    "Payment Recovery",
+    "Abandoned Checkout",
+    "Unanswered Inquiry",
+    "Restock Notice",
+    "Booking / Deposit Follow-up",
+    "Review Request",
+    "VIP Buyer Follow-up",
+    "Support / Refund Issue",
+    "Repeat Buyer Recovery",
+    "Custom Templates",
+  ];
+
+  const contentBlocks = ["Heading", "Paragraph", "Text block", "Button", "Image", "Divider", "Spacer", "Quote / testimonial", "Callout box"];
+  const recoveryBlocks = ["Product card", "Order summary", "Payment reminder box", "Abandoned cart items", "Deposit amount", "Remaining balance", "Booking detail", "Review request block"];
+  const brandingBlocks = ["Logo", "Brand header", "Brand footer", "Social links", "Contact info", "Signature"];
+  const complianceBlocks = ["Unsubscribe", "Business address", "Legal footer", "Privacy note"];
+  const advancedBlocks = ["Custom HTML", "Coupon code", "Urgency block", "Two-column layout", "Image + text layout"];
+  const variableChips = [
+    "{{buyer_name}}",
+    "{{owner_name}}",
+    "{{product_name}}",
+    "{{product_image}}",
+    "{{payment_link}}",
+    "{{order_id}}",
+    "{{deposit_amount}}",
+    "{{remaining_balance}}",
+    "{{appointment_date}}",
+    "{{last_message}}",
+    "{{inquiry_source}}",
+    "{{store_name}}",
+    "{{support_link}}",
+  ];
+
+  const subjectLine = selectedTemplate.subject;
+  const preheader = selectedTemplate.folder === "Payment Recovery" ? "Your order is still reserved — complete the next step here." : "A quick follow-up from the recovery team.";
+  const emailType = selectedTemplate.folder.includes("Payment") ? "Payment reminder" : selectedTemplate.folder.includes("Repeat") ? "Repeat buyer recovery" : "Booking / service follow-up";
+  const approvalOwner = selectedTemplate.status === "Approved" ? "Recovery Lead" : "Owner review required";
+  const inboxPreview = `${selectedTemplate.name} · ${subjectLine} · ${preheader}`;
+  const renderedText = selectedTemplate.plainText
+    .replaceAll("{{buyer_name}}", "Sarah")
+    .replaceAll("{{product_name}}", "Black Hoodie")
+    .replaceAll("{{brand_name}}", "Altynx Demo Store")
+    .replaceAll("{{payment_link}}", "payment link")
+    .replaceAll("{{owner_name}}", "Mina")
+    .replaceAll("{{service_name}}", "Skin Consultation")
+    .replaceAll("{{appointment_date}}", "Friday, 4 PM");
+  const customHtml = `<table role="presentation" width="100%">\n  <tr><td>\n    <h1>${subjectLine}</h1>\n    <p>${selectedTemplate.plainText}</p>\n    <a href="{{payment_link}}">Complete next step</a>\n  </td></tr>\n</table>`;
 
   return (
     <div className="reports-automation-page email-studio-page">
-      <section className="reports-hero-card">
+      <section className="reports-hero-card email-studio-hero">
         <div>
-          <span>Manual copy / reusable templates</span>
+          <span>Reusable recovery email builder</span>
           <h2>Email Studio</h2>
-          <p>Create reusable HTML and plain-text email templates for recovery workflows. Sending is not automatic.</p>
+          <p>Build reusable recovery email templates for payment reminders, abandoned carts, inquiries, bookings, reviews, and support follow-ups.</p>
         </div>
-        <button className="primary-btn" type="button" onClick={() => onNavigate?.("Assets Library")}>Open Assets Library</button>
+        <div className="email-hero-actions">
+          <button className="secondary-btn" type="button">Create template</button>
+          <button className="secondary-btn" type="button" onClick={() => onNavigate?.("Assets Library")}>Open assets library</button>
+          <button className="primary-btn" type="button">Save template</button>
+        </div>
       </section>
 
-      <section className="reports-kpi-grid">
-        <ReportsValueCard label="Templates" value={`${emailTemplatesSeed.length}`} caption="Reusable recovery messages" tone="cyan" />
-        <ReportsValueCard label="Variables" value="9" caption="Buyer, product, order, payment" tone="emerald" />
-        <ReportsValueCard label="Approved" value={`${emailTemplatesSeed.filter((template) => template.status === "Approved").length}`} caption="Ready for manual copy" tone="emerald" />
-        <ReportsValueCard label="Needs review" value={`${emailTemplatesSeed.filter((template) => template.status !== "Approved").length}`} caption="Before client use" tone="amber" />
+      <section className="reports-kpi-grid email-studio-metrics">
+        <ReportsValueCard label="Templates" value={`${emailTemplatesSeed.length}`} caption="Reusable recovery templates" tone="cyan" />
+        <ReportsValueCard label="Approved" value={`${emailTemplatesSeed.filter((template) => template.status === "Approved").length}`} caption="Ready for automation use" tone="emerald" />
+        <ReportsValueCard label="Needs Review" value={`${emailTemplatesSeed.filter((template) => template.status !== "Approved").length}`} caption="Approval before client use" tone="amber" />
+        <ReportsValueCard label="Used in Automations" value="7" caption="Linked board/workflow rules" tone="rose" />
       </section>
 
-      <ReportsStatusBanner eyebrow="Email safety" title="Manual copy only">Templates can be saved, previewed, copied as HTML/plain text, or used to create follow-up tasks. No email is sent automatically.</ReportsStatusBanner>
+      <ReportsStatusBanner eyebrow="Email safety" title="Reusable templates only">Email Studio prepares approved templates for Automation Board and Workflow Rules. Sending stays manual or approval-based until connected backend sending is enabled.</ReportsStatusBanner>
 
-      <section className="email-editor-shell">
-        <aside className="email-block-library">
-          <h3>Templates</h3>
-          {emailTemplatesSeed.map((template) => (
-            <button key={template.id} className={selectedId === template.id ? "active" : ""} type="button" onClick={() => setSelectedId(template.id)}>
-              <strong>{template.name}</strong>
-              <span>{template.folder} · {template.status}</span>
-            </button>
-          ))}
-          <div className="email-blocks-list">
-            <span>Header</span><span>Text</span><span>Button</span><span>Image</span><span>Product/service block</span><span>Divider</span><span>Footer</span><span>Social links</span><span>Signature</span><span>Legal/footer text</span>
+      <section className="email-builder-shell">
+        <aside className="email-builder-left">
+          <div className="email-panel-head">
+            <span>Blocks</span>
+            <strong>Drag blocks into the email</strong>
           </div>
-        </aside>
+          <div className="email-block-group">
+            <h4>Content blocks</h4>
+            <div>{contentBlocks.map((block) => <button key={block} type="button" onClick={() => setSelectedBlock(block)}>{block}</button>)}</div>
+          </div>
+          <div className="email-block-group">
+            <h4>Commerce / recovery</h4>
+            <div>{recoveryBlocks.map((block) => <button key={block} type="button" onClick={() => setSelectedBlock(block)}>{block}</button>)}</div>
+          </div>
+          <div className="email-block-group">
+            <h4>Branding</h4>
+            <div>{brandingBlocks.map((block) => <button key={block} type="button" onClick={() => setSelectedBlock(block)}>{block}</button>)}</div>
+          </div>
+          <div className="email-block-group compact">
+            <h4>Compliance</h4>
+            <div>{complianceBlocks.map((block) => <button key={block} type="button" onClick={() => setSelectedBlock(block)}>{block}</button>)}</div>
+          </div>
+          <div className="email-block-group compact">
+            <h4>Advanced</h4>
+            <div>{advancedBlocks.map((block) => <button key={block} type="button" onClick={() => { setSelectedBlock(block); if (block === "Custom HTML") setActiveBuilderTab("Custom HTML"); }}>{block}</button>)}</div>
+          </div>
 
-        <div className="email-editor-main">
-          <label>
-            Subject line
-            <input value={selectedTemplate.subject} readOnly />
-          </label>
-          <label>
-            HTML email structure
-            <textarea value={`<header>{{brand_name}}</header>\n<p>${selectedTemplate.plainText}</p>\n<a href="{{payment_link}}">Complete next step</a>\n<footer>{{owner_name}}</footer>`} readOnly />
-          </label>
-          <label>
-            Plain text fallback
-            <textarea value={selectedTemplate.plainText} readOnly />
-          </label>
-          <div className="reports-chip-row">
-            {selectedTemplate.variables.map((variable) => <span key={variable}>{variable}</span>)}
-          </div>
-          <div className="reports-card-actions">
-            <button className="primary-btn" type="button">Save template</button>
-            <button className="secondary-btn" type="button">Copy HTML</button>
-            <button className="secondary-btn" type="button">Copy plain text</button>
-            <button className="secondary-btn" type="button">Create follow-up task</button>
-          </div>
-        </div>
-
-        <aside className={`email-preview-panel ${previewMode.toLowerCase()}`}>
-          <div className="email-preview-toolbar">
-            <strong>{previewMode} preview</strong>
-            <div>
-              <button className={previewMode === "Desktop" ? "active" : ""} type="button" onClick={() => setPreviewMode("Desktop")}>Desktop</button>
-              <button className={previewMode === "Mobile" ? "active" : ""} type="button" onClick={() => setPreviewMode("Mobile")}>Mobile</button>
+          <div className="email-template-library">
+            <div className="email-panel-head">
+              <span>Template Library</span>
+              <strong>Categories</strong>
+            </div>
+            <div className="email-template-categories">
+              {templateCategories.map((category) => <button key={category} type="button">{category}</button>)}
+            </div>
+            <div className="email-template-card-list">
+              {emailTemplatesSeed.map((template) => (
+                <article key={template.id} className={selectedId === template.id ? "active" : ""}>
+                  <button type="button" onClick={() => setSelectedId(template.id)}>
+                    <strong>{template.name}</strong>
+                    <span>{template.folder} · {template.status}</span>
+                    <small>Last edited today · Used in 2 automations</small>
+                  </button>
+                  <div>
+                    <button type="button">Open</button>
+                    <button type="button">Duplicate</button>
+                    <button type="button">Archive</button>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
-          <article>
-            <span>{selectedTemplate.folder}</span>
-            <h3>{selectedTemplate.subject}</h3>
-            <p>{selectedTemplate.plainText}</p>
-            <button type="button">Complete next step</button>
-            <small>Manual copy/log only · no auto-send</small>
-          </article>
+        </aside>
+
+        <main className="email-builder-center">
+          <div className="email-template-fields">
+            <label>Template name<input value={selectedTemplate.name} readOnly /></label>
+            <label>Category<input value={selectedTemplate.folder} readOnly /></label>
+            <label>Subject line<input value={subjectLine} readOnly /></label>
+            <label>Preheader text<input value={preheader} readOnly /></label>
+            <label>Email type<input value={emailType} readOnly /></label>
+            <label>Status / approval<input value={`${selectedTemplate.status} · ${approvalOwner}`} readOnly /></label>
+          </div>
+
+          <div className="email-builder-tabs">
+            {["Design", "Content", "Variables", "Assets", "Custom HTML", "Preview", "Safety Check"].map((tab) => (
+              <button key={tab} className={activeBuilderTab === tab ? "active" : ""} type="button" onClick={() => setActiveBuilderTab(tab)}>{tab}</button>
+            ))}
+          </div>
+
+          {activeBuilderTab === "Custom HTML" ? (
+            <section className="email-code-workspace">
+              <div className="email-code-panel">
+                <div><span>HTML code editor</span><strong>Custom HTML block</strong></div>
+                <pre>{customHtml}</pre>
+              </div>
+              <div className="email-code-panel css">
+                <div><span>CSS style panel</span><strong>Email-safe styles</strong></div>
+                <pre>{`.button { border-radius: 999px; }\n.card { padding: 24px; }`}</pre>
+              </div>
+              <div className="email-safety-row warning">
+                <strong>HTML validation</strong>
+                <p>No broken variables detected. Plain-text fallback is ready. Mobile warning checks are frontend-only.</p>
+              </div>
+            </section>
+          ) : activeBuilderTab === "Assets" ? (
+            <section className="email-assets-workspace">
+              <div className="email-panel-head"><span>Assets panel</span><strong>Insert image into email</strong></div>
+              <div className="email-assets-grid">
+                {assetsLibrarySeed.map((asset) => (
+                  <article key={asset.id}>
+                    <div className={`assets-library-thumb ${asset.tone}`}><span /></div>
+                    <strong>{asset.name}</strong>
+                    <p>{asset.type} · {asset.status}</p>
+                    <div className="email-mini-actions"><button type="button">Insert</button><button type="button">Replace</button><button type="button">Alt text</button></div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : activeBuilderTab === "Variables" ? (
+            <section className="email-variables-workspace">
+              <div className="email-panel-head"><span>Variables</span><strong>Click to insert personalization</strong></div>
+              <div className="email-variable-search">Search variables · set fallback values like buyer name → “there”</div>
+              <div className="email-variable-grid">{variableChips.map((variable) => <button key={variable} type="button">{variable}<small>Fallback: there</small></button>)}</div>
+            </section>
+          ) : activeBuilderTab === "Safety Check" ? (
+            <section className="email-safety-workspace">
+              {["Missing unsubscribe warning", "Payment link check", "Broken variable check", "Broken image check", "Spam-word warning", "Mobile layout warning", "Approval owner required", "Manual copy only"].map((check, index) => (
+                <div key={check} className={index < 2 ? "email-safety-row warning" : "email-safety-row passed"}>
+                  <strong>{check}</strong>
+                  <p>{index < 2 ? "Needs review before approval." : "Passed for the current template preview."}</p>
+                </div>
+              ))}
+            </section>
+          ) : activeBuilderTab === "Preview" ? (
+            <section className="email-preview-workspace">
+              <div className="email-inbox-preview"><span>Inbox preview</span><strong>{inboxPreview}</strong><p>Sender: Altynx Demo Store · First line: {renderedText}</p></div>
+              <div className="email-preview-mode-row">
+                {["Desktop", "Mobile", "Inbox", "Plain text"].map((mode) => <button key={mode} className={previewMode === mode ? "active" : ""} type="button" onClick={() => setPreviewMode(mode as "Desktop" | "Mobile" | "Inbox" | "Plain text")}>{mode}</button>)}
+              </div>
+              <EmailCanvasPreview selectedTemplate={selectedTemplate} renderedText={renderedText} previewMode={previewMode} />
+            </section>
+          ) : (
+            <section className="email-canvas-stage">
+              <div className="email-canvas-toolbar">
+                <strong>Email canvas</strong>
+                <div><button type="button">Move up</button><button type="button">Move down</button><button type="button">Duplicate</button><button type="button">Delete</button></div>
+              </div>
+              <div className="email-canvas-frame">
+                <article className="email-canvas-document">
+                  <button className={selectedBlock === "Logo" ? "selected" : ""} type="button" onClick={() => setSelectedBlock("Logo")}><span className="email-logo-dot">A</span><strong>{"{{store_name}}"}</strong></button>
+                  <button className={selectedBlock === "Heading" ? "selected" : ""} type="button" onClick={() => setSelectedBlock("Heading")}><h3>{subjectLine}</h3></button>
+                  <button className={selectedBlock === "Paragraph" ? "selected" : ""} type="button" onClick={() => setSelectedBlock("Paragraph")}><p>{renderedText}</p></button>
+                  <button className={selectedBlock === "Payment reminder box" ? "selected" : ""} type="button" onClick={() => setSelectedBlock("Payment reminder box")}><div className="email-recovery-box"><span>Payment / recovery detail</span><strong>Order #{{order_id}} · {{remaining_balance}}</strong><small>Use this area for order summary, deposit amount, or abandoned checkout items.</small></div></button>
+                  <button className={selectedBlock === "Payment link button" ? "selected" : ""} type="button" onClick={() => setSelectedBlock("Payment link button")}><em>Complete next step</em></button>
+                  <button className={selectedBlock === "Footer" ? "selected" : ""} type="button" onClick={() => setSelectedBlock("Footer")}><small>Footer · unsubscribe · business address · privacy note</small></button>
+                </article>
+              </div>
+            </section>
+          )}
+        </main>
+
+        <aside className="email-builder-right">
+          <section className="email-settings-card">
+            <div className="email-panel-head"><span>Selected block settings</span><strong>{selectedBlock}</strong></div>
+            <label>Text / label<input value={selectedBlock === "Payment link button" ? "Complete next step" : selectedBlock} readOnly /></label>
+            <label>Button / image link<input value="{{payment_link}}" readOnly /></label>
+            <div className="email-setting-grid"><span>Font size: 16px</span><span>Padding: 24px</span><span>Radius: 16px</span><span>Align: left</span></div>
+            <div className="email-visibility-row"><button type="button">Desktop visible</button><button type="button">Mobile visible</button></div>
+          </section>
+
+          <section className="email-settings-card">
+            <div className="email-preview-toolbar builder-preview-toolbar">
+              <strong>{previewMode} preview</strong>
+              <div>{["Desktop", "Mobile", "Inbox", "Plain text"].map((mode) => <button key={mode} className={previewMode === mode ? "active" : ""} type="button" onClick={() => setPreviewMode(mode as "Desktop" | "Mobile" | "Inbox" | "Plain text")}>{mode}</button>)}</div>
+            </div>
+            <EmailCanvasPreview selectedTemplate={selectedTemplate} renderedText={renderedText} previewMode={previewMode} />
+          </section>
+
+          <section className="email-settings-card">
+            <div className="email-panel-head"><span>Assets quick insert</span><strong>Images & brand assets</strong></div>
+            {assetsLibrarySeed.slice(0, 3).map((asset) => <button className="email-asset-row" key={asset.id} type="button"><span>{asset.type}</span><strong>{asset.name}</strong><small>Insert · replace · alt text</small></button>)}
+            <button className="secondary-btn" type="button" onClick={() => onNavigate?.("Assets Library")}>Open full Assets Library</button>
+          </section>
+
+          <section className="email-settings-card">
+            <div className="email-panel-head"><span>Automation link</span><strong>Used in recovery workflows</strong></div>
+            <div className="email-link-card"><strong>Used in: WhatsApp unanswered inquiry reminder</strong><p>Workflow rule: No reply after 20 minutes · Approval: Owner approval required</p><small>Actions created: 58 · Open recovery value: $5,210 · Reply rate: 18%</small></div>
+          </section>
         </aside>
       </section>
+
+      <section className="email-performance-panel">
+        <div><span>Template performance</span><strong>Separated from builder canvas</strong><p>Manual copies created, replies captured, payment clicks, recovery actions, recovered revenue, open revenue, and average response time.</p></div>
+        <div className="email-performance-grid">
+          <ReportsValueCard label="Manual copies" value="86" caption="Created from templates" tone="cyan" />
+          <ReportsValueCard label="Replies captured" value="33" caption="After follow-up" tone="emerald" />
+          <ReportsValueCard label="Payment clicks" value="21" caption="Tracked links" tone="amber" />
+          <ReportsValueCard label="Revenue recovered" value="$6,020" caption="Template-assisted" tone="rose" />
+        </div>
+      </section>
+
+      <div className="reports-card-actions email-builder-footer-actions">
+        <button className="secondary-btn" type="button">Preview</button>
+        <button className="secondary-btn" type="button">Send test / Create test task</button>
+        <button className="secondary-btn" type="button">Copy plain text</button>
+        <button className="secondary-btn" type="button">Copy HTML</button>
+        <button className="primary-btn" type="button">Save template</button>
+      </div>
     </div>
+  );
+}
+
+function EmailCanvasPreview({ selectedTemplate, renderedText, previewMode }: { selectedTemplate: typeof emailTemplatesSeed[number]; renderedText: string; previewMode: "Desktop" | "Mobile" | "Inbox" | "Plain text" }) {
+  if (previewMode === "Inbox") {
+    return (
+      <article className="email-inbox-card">
+        <span>Altynx Demo Store</span>
+        <strong>{selectedTemplate.subject}</strong>
+        <p>{renderedText}</p>
+      </article>
+    );
+  }
+
+  if (previewMode === "Plain text") {
+    return <pre className="email-plain-preview">{renderedText}</pre>;
+  }
+
+  return (
+    <article className={`email-render-preview ${previewMode.toLowerCase()}`}>
+      <span>{selectedTemplate.folder}</span>
+      <h3>{selectedTemplate.subject}</h3>
+      <p>{renderedText}</p>
+      <div className="email-render-product"><strong>Recovery detail</strong><small>Buyer, product, payment, order, and appointment variables are filled with test data.</small></div>
+      <button type="button">Complete next step</button>
+      <small>Manual copy / approval-based template · no automatic sending</small>
+    </article>
   );
 }
 

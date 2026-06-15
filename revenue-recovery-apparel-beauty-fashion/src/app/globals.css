@@ -66322,3 +66322,678 @@ button.buyer-product-preview {
     width: 100%;
   }
 }
+
+/* =========================================================
+   EMAIL STUDIO — VISUAL BUILDER UPGRADE
+   Scope: Email Studio page only
+   ========================================================= */
+.email-studio-page .email-studio-hero {
+  align-items: flex-start;
+}
+
+.email-studio-page .email-hero-actions,
+.email-studio-page .email-builder-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.email-studio-page .email-studio-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.email-studio-page .email-builder-shell {
+  display: grid;
+  grid-template-columns: 300px minmax(480px, 1fr) 360px;
+  gap: 18px;
+  align-items: start;
+  padding: 18px;
+  border: 1px solid #eadfd4;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow: 0 16px 38px rgba(17, 24, 39, 0.045);
+}
+
+.email-studio-page .email-builder-left,
+.email-studio-page .email-builder-center,
+.email-studio-page .email-builder-right,
+.email-studio-page .email-settings-card,
+.email-studio-page .email-performance-panel {
+  min-width: 0;
+}
+
+.email-studio-page .email-builder-left,
+.email-studio-page .email-builder-right {
+  display: grid;
+  gap: 14px;
+}
+
+.email-studio-page .email-builder-left {
+  max-height: 980px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.email-studio-page .email-builder-center {
+  display: grid;
+  gap: 16px;
+}
+
+.email-studio-page .email-panel-head {
+  display: grid;
+  gap: 5px;
+}
+
+.email-studio-page .email-panel-head span,
+.email-studio-page .email-performance-panel span,
+.email-studio-page .email-inbox-preview span,
+.email-studio-page .email-code-panel span,
+.email-studio-page .email-render-preview span,
+.email-studio-page .email-inbox-card span {
+  color: #ff4500;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.email-studio-page .email-panel-head strong,
+.email-studio-page .email-performance-panel strong,
+.email-studio-page .email-inbox-preview strong,
+.email-studio-page .email-code-panel strong,
+.email-studio-page .email-inbox-card strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.email-studio-page .email-block-group,
+.email-studio-page .email-template-library,
+.email-studio-page .email-settings-card,
+.email-studio-page .email-template-fields,
+.email-studio-page .email-canvas-stage,
+.email-studio-page .email-code-workspace,
+.email-studio-page .email-assets-workspace,
+.email-studio-page .email-variables-workspace,
+.email-studio-page .email-safety-workspace,
+.email-studio-page .email-preview-workspace,
+.email-studio-page .email-performance-panel {
+  border: 1px solid #eadfd4;
+  background: #fffaf7;
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.email-studio-page .email-block-group h4 {
+  margin: 0 0 10px;
+  color: #7c5638;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.email-studio-page .email-block-group div,
+.email-studio-page .email-template-categories,
+.email-studio-page .email-mini-actions,
+.email-studio-page .email-visibility-row,
+.email-studio-page .email-preview-mode-row,
+.email-studio-page .email-builder-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.email-studio-page .email-block-group button,
+.email-studio-page .email-template-categories button,
+.email-studio-page .email-mini-actions button,
+.email-studio-page .email-visibility-row button,
+.email-studio-page .email-preview-mode-row button,
+.email-studio-page .email-builder-tabs button,
+.email-studio-page .email-canvas-toolbar button,
+.email-studio-page .email-template-card-list article > div button,
+.email-studio-page .email-variable-grid button,
+.email-studio-page .email-asset-row {
+  border: 1px solid #eadfd4;
+  background: #ffffff;
+  color: #374151;
+  border-radius: 999px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.email-studio-page .email-block-group button:hover,
+.email-studio-page .email-builder-tabs button.active,
+.email-studio-page .email-preview-mode-row button.active,
+.email-studio-page .email-visibility-row button:hover {
+  border-color: #ff8a63;
+  background: #fff1ea;
+  color: #ff4500;
+}
+
+.email-studio-page .email-template-library {
+  display: grid;
+  gap: 12px;
+}
+
+.email-studio-page .email-template-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.email-studio-page .email-template-card-list article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #eadfd4;
+  background: #ffffff;
+  border-radius: 16px;
+}
+
+.email-studio-page .email-template-card-list article.active {
+  border-color: #ff8a63;
+  background: #fff7f1;
+}
+
+.email-studio-page .email-template-card-list article > button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.email-studio-page .email-template-card-list strong,
+.email-studio-page .email-template-card-list span,
+.email-studio-page .email-template-card-list small {
+  display: block;
+}
+
+.email-studio-page .email-template-card-list strong {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.email-studio-page .email-template-card-list span,
+.email-studio-page .email-template-card-list small {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.email-studio-page .email-template-card-list article > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.email-studio-page .email-template-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.email-studio-page .email-template-fields label,
+.email-studio-page .email-settings-card label {
+  display: grid;
+  gap: 7px;
+  color: #7c5638;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.email-studio-page .email-template-fields input,
+.email-studio-page .email-settings-card input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #eadfd4;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #111827;
+  padding: 0 12px;
+  outline: none;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.email-studio-page .email-builder-tabs {
+  padding: 8px;
+  border: 1px solid #eadfd4;
+  background: #ffffff;
+  border-radius: 999px;
+}
+
+.email-studio-page .email-canvas-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.email-studio-page .email-canvas-toolbar strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.email-studio-page .email-canvas-toolbar div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.email-studio-page .email-canvas-frame {
+  min-height: 620px;
+  border: 1px dashed #e6d7cb;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #f7f4f1 0%, #fffaf7 100%);
+  padding: 26px;
+  overflow: auto;
+}
+
+.email-studio-page .email-canvas-document {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 22px 42px rgba(17, 24, 39, 0.08);
+}
+
+.email-studio-page .email-canvas-document > button {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  color: #111827;
+  text-align: left;
+  cursor: pointer;
+}
+
+.email-studio-page .email-canvas-document > button:hover,
+.email-studio-page .email-canvas-document > button.selected {
+  border-color: #ff8a63;
+  background: #fff7f1;
+}
+
+.email-studio-page .email-canvas-document h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 28px;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+.email-studio-page .email-canvas-document p {
+  margin: 0;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.email-studio-page .email-canvas-document em,
+.email-studio-page .email-render-preview button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #ff4500;
+  color: #ffffff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.email-studio-page .email-logo-dot {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  margin-right: 10px;
+  border-radius: 12px;
+  background: #ff4500;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.email-studio-page .email-recovery-box {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid #eadfd4;
+  background: #fffaf7;
+}
+
+.email-studio-page .email-recovery-box span,
+.email-studio-page .email-recovery-box small {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.email-studio-page .email-recovery-box strong {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.email-studio-page .email-settings-card {
+  display: grid;
+  gap: 12px;
+}
+
+.email-studio-page .email-setting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.email-studio-page .email-setting-grid span {
+  min-height: 30px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid #eadfd4;
+  background: #ffffff;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.email-studio-page .builder-preview-toolbar {
+  justify-content: space-between;
+}
+
+.email-studio-page .builder-preview-toolbar div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.email-studio-page .builder-preview-toolbar button {
+  width: auto;
+  padding: 8px 10px;
+}
+
+.email-studio-page .email-render-preview,
+.email-studio-page .email-inbox-card,
+.email-studio-page .email-plain-preview,
+.email-studio-page .email-inbox-preview {
+  border: 1px solid #eadfd4;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.email-studio-page .email-render-preview {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+}
+
+.email-studio-page .email-render-preview.mobile {
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+.email-studio-page .email-render-preview h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.email-studio-page .email-render-preview p,
+.email-studio-page .email-render-preview small,
+.email-studio-page .email-inbox-card p,
+.email-studio-page .email-inbox-preview p,
+.email-studio-page .email-link-card p,
+.email-studio-page .email-performance-panel p,
+.email-studio-page .email-safety-row p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.email-studio-page .email-render-product,
+.email-studio-page .email-link-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #eadfd4;
+  background: #fffaf7;
+}
+
+.email-studio-page .email-render-product strong,
+.email-studio-page .email-link-card strong {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.email-studio-page .email-asset-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  height: auto;
+  padding: 12px;
+  text-align: left;
+  border-radius: 14px;
+}
+
+.email-studio-page .email-asset-row span,
+.email-studio-page .email-asset-row small {
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.email-studio-page .email-asset-row strong {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.email-studio-page .email-code-workspace,
+.email-studio-page .email-assets-workspace,
+.email-studio-page .email-variables-workspace,
+.email-studio-page .email-safety-workspace,
+.email-studio-page .email-preview-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.email-studio-page .email-code-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #eadfd4;
+  background: #111827;
+  border-radius: 18px;
+}
+
+.email-studio-page .email-code-panel.css {
+  background: #1f2937;
+}
+
+.email-studio-page .email-code-panel strong,
+.email-studio-page .email-code-panel span {
+  color: #ffffff;
+}
+
+.email-studio-page .email-code-panel pre,
+.email-studio-page .email-plain-preview {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #e5e7eb;
+  font-size: 12px;
+  line-height: 1.65;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.email-studio-page .email-plain-preview {
+  padding: 18px;
+  background: #111827;
+}
+
+.email-studio-page .email-assets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.email-studio-page .email-assets-grid article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid #eadfd4;
+  background: #ffffff;
+}
+
+.email-studio-page .email-assets-grid strong {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.email-studio-page .email-assets-grid p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.email-studio-page .email-variable-search {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 13px;
+  border: 1px solid #eadfd4;
+  background: #ffffff;
+  border-radius: 14px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.email-studio-page .email-variable-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.email-studio-page .email-variable-grid button {
+  display: grid;
+  gap: 5px;
+  height: auto;
+  padding: 12px;
+  text-align: left;
+  border-radius: 14px;
+}
+
+.email-studio-page .email-variable-grid small {
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.email-studio-page .email-safety-row {
+  display: grid;
+  gap: 6px;
+  padding: 13px;
+  border-radius: 15px;
+  border: 1px solid #d9f4e4;
+  background: #f0fdf4;
+}
+
+.email-studio-page .email-safety-row.warning {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.email-studio-page .email-safety-row strong {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.email-studio-page .email-inbox-preview,
+.email-studio-page .email-inbox-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.email-studio-page .email-performance-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.email-studio-page .email-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1500px) {
+  .email-studio-page .email-builder-shell {
+    grid-template-columns: 280px minmax(420px, 1fr) 320px;
+  }
+}
+
+@media (max-width: 1240px) {
+  .email-studio-page .email-builder-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .email-studio-page .email-builder-left {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .email-studio-page .email-template-fields,
+  .email-studio-page .email-performance-grid,
+  .email-studio-page .email-studio-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .email-studio-page .email-template-fields,
+  .email-studio-page .email-assets-grid,
+  .email-studio-page .email-variable-grid,
+  .email-studio-page .email-performance-grid,
+  .email-studio-page .email-studio-metrics {
+    grid-template-columns: 1fr;
+  }
+}
