@@ -41277,84 +41277,485 @@ const automationBoardSeedCards: ReportsAutomationCard[] = [
 const workflowRuleSeedCards = [
   {
     id: "WR-001",
-    ruleName: "Instagram size / fit question",
+    ruleName: "Instagram price question",
+    sourceChannel: "Instagram",
     triggerSource: "New Instagram DM",
-    condition: "Message contains size, fit, exchange, or styling intent",
-    action: "Create Follow-up Recovery action",
+    trigger: "New Instagram DM or story reply",
+    condition: "Message contains price, cost, availability, or delivery question",
+    action: "Create follow-up recovery task",
+    destinationQueue: "Today's Recovery Queue",
     ownerRole: "Sales Owner",
     priority: "High" as Priority,
-    destinationQueue: "Follow-up Recovery",
     status: "Enabled",
-    lastRun: "Frontend rule config only",
+    linkedAutomationCard: "Instagram DM with price question",
+    boardPipeline: "Social Media Automations",
+    usedIn: "2 automation cards",
+    lastRun: "8 minutes ago",
+    actionsCreated: 41,
+    openRecoveryValue: "$4,180",
+    buyerSignalType: "Price intent",
+    keywords: ["price", "how much", "available", "delivery"],
+    timeDelay: "10 minutes after no owner reply",
+    exclusionRules: ["Do not run if buyer already replied", "Do not repeat same action today"],
+    approvalRequirement: "Owner approval before customer contact",
+    actionOutputs: ["Create recovery card", "Assign owner", "Add buyer tag", "Add to Today's Recovery Queue"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Prepared webhook mapping",
+    lastSync: "Connected source checked 8 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Hi, what is the price and delivery time for this dress?",
+    expectedAction: "Create a high-priority recovery task in Today's Recovery Queue and link it to the buyer profile.",
     tone: "amber" as Tone,
   },
   {
     id: "WR-002",
-    ruleName: "Shopify payment pending",
-    triggerSource: "Shopify order",
-    condition: "Payment status is pending or failed",
-    action: "Create Payment Recovery action",
-    ownerRole: "Payment Recovery",
-    priority: "Critical" as Priority,
-    destinationQueue: "Payment Recovery",
+    ruleName: "Instagram size / fit question",
+    sourceChannel: "Instagram",
+    triggerSource: "New Instagram DM",
+    trigger: "New Instagram DM",
+    condition: "Message contains size, fit, exchange, or styling intent",
+    action: "Create follow-up recovery task",
+    destinationQueue: "Follow-up Recovery",
+    ownerRole: "Sales Owner",
+    priority: "High" as Priority,
     status: "Enabled",
-    lastRun: "n8n-ready config",
-    tone: "rose" as Tone,
+    linkedAutomationCard: "Instagram DM with size / fit question",
+    boardPipeline: "Social Media Automations",
+    usedIn: "3 automation cards",
+    lastRun: "12 minutes ago",
+    actionsCreated: 58,
+    openRecoveryValue: "$5,210",
+    buyerSignalType: "Size / fit intent",
+    keywords: ["size", "fit", "exchange", "styling"],
+    timeDelay: "15 minutes after no reply",
+    exclusionRules: ["Do not run if buyer already replied", "Do not run if issue is resolved"],
+    approvalRequirement: "Required for first customer contact",
+    actionOutputs: ["Create recovery card", "Notify owner", "Add buyer tag", "Add to Follow-up Recovery"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Prepared webhook mapping",
+    lastSync: "Source checked 12 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Does this abaya run small? I may need exchange option.",
+    expectedAction: "Create a follow-up recovery action and route it to the Sales Owner.",
+    tone: "amber" as Tone,
   },
   {
     id: "WR-003",
-    ruleName: "TikTok product view signal",
-    triggerSource: "TikTok ad click",
-    condition: "Product view + no purchase within 24 hours",
-    action: "Create Ad Revenue Signal",
-    ownerRole: "Marketing",
-    priority: "Medium" as Priority,
-    destinationQueue: "Ad Revenue Signals",
-    status: "Draft",
-    lastRun: "Not connected",
-    tone: "cyan" as Tone,
+    ruleName: "WhatsApp unanswered inquiry",
+    sourceChannel: "WhatsApp",
+    triggerSource: "New WhatsApp message",
+    trigger: "New WhatsApp inquiry not replied",
+    condition: "Buyer has no reply after the reply window",
+    action: "Create first-reply recovery action",
+    destinationQueue: "Today's Recovery Queue",
+    ownerRole: "Recovery owner",
+    priority: "High" as Priority,
+    status: "Enabled",
+    linkedAutomationCard: "WhatsApp unanswered inquiry reminder",
+    boardPipeline: "Social Media Automations",
+    usedIn: "3 automation cards",
+    lastRun: "20 minutes ago",
+    actionsCreated: 58,
+    openRecoveryValue: "$5,210",
+    buyerSignalType: "Unanswered buyer inquiry",
+    keywords: ["no reply", "inquiry", "WhatsApp", "first reply"],
+    timeDelay: "20 minutes after capture",
+    exclusionRules: ["Do not run if buyer already replied", "Do not run if an open recovery card exists"],
+    approvalRequirement: "Owner review when confidence is low",
+    actionOutputs: ["Create recovery card", "Assign owner", "Notify team member", "Add to Today's Recovery Queue"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "WhatsApp source prepared",
+    lastSync: "Last run 20 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Customer asks for product details on WhatsApp and no team reply is sent for 20 minutes.",
+    expectedAction: "Create an unanswered inquiry reminder and assign it to the recovery owner.",
+    tone: "emerald" as Tone,
   },
   {
     id: "WR-004",
     ruleName: "Website form missing owner",
-    triggerSource: "Website form",
+    sourceChannel: "Website",
+    triggerSource: "Website form captured",
+    trigger: "Website form captured",
     condition: "Owner field is empty after capture",
-    action: "Create Team Workspace assigned action",
+    action: "Create owner assignment action",
+    destinationQueue: "Team Workspace",
     ownerRole: "Recovery Lead",
     priority: "High" as Priority,
-    destinationQueue: "Assigned Team Actions",
     status: "Enabled",
-    lastRun: "Frontend rule config only",
+    linkedAutomationCard: "Website form missing owner",
+    boardPipeline: "Website Event Automations",
+    usedIn: "1 automation card",
+    lastRun: "34 minutes ago",
+    actionsCreated: 12,
+    openRecoveryValue: "$1,680",
+    buyerSignalType: "Owner routing gap",
+    keywords: ["missing owner", "form", "routing", "unassigned"],
+    timeDelay: "Immediately after capture",
+    exclusionRules: ["Do not run if owner exists", "Pause if fallback owner is missing"],
+    approvalRequirement: "No customer contact until owner is assigned",
+    actionOutputs: ["Create team action", "Assign fallback owner", "Add to Team Workspace", "Log in Recovery Activity"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Website form mapping prepared",
+    lastSync: "Source checked 34 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Website form arrives with buyer name and interest but no owner field.",
+    expectedAction: "Create an owner assignment task before any customer follow-up happens.",
     tone: "amber" as Tone,
   },
   {
     id: "WR-005",
-    ruleName: "Failed sync missing SKU",
-    triggerSource: "Failed sync",
-    condition: "Required SKU or product field is missing",
-    action: "Create Automation Health review issue",
-    ownerRole: "Automation Owner",
+    ruleName: "Shopify abandoned checkout",
+    sourceChannel: "Shopify",
+    triggerSource: "Shopify checkout event",
+    trigger: "Checkout started but order not placed",
+    condition: "Checkout is abandoned and no purchase is completed within the recovery window",
+    action: "Create abandoned checkout recovery action",
+    destinationQueue: "Payment Recovery",
+    ownerRole: "Payment Recovery",
     priority: "High" as Priority,
-    destinationQueue: "Automation Health",
     status: "Enabled",
-    lastRun: "n8n-ready config",
+    linkedAutomationCard: "Shopify abandoned checkout sync",
+    boardPipeline: "External API / Third-Party Integrations",
+    usedIn: "2 automation cards",
+    lastRun: "Last run 18 minutes ago",
+    actionsCreated: 52,
+    openRecoveryValue: "$8,420",
+    buyerSignalType: "Abandoned checkout",
+    keywords: ["checkout", "cart", "abandoned", "payment"],
+    timeDelay: "45 minutes after checkout starts",
+    exclusionRules: ["Do not run if payment is completed", "Do not run if buyer already purchased"],
+    approvalRequirement: "Prepare draft before customer contact",
+    actionOutputs: ["Create payment recovery case", "Attach checkout context", "Add to Payment Recovery", "Add to Revenue Leak Reports"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Shopify event mapping prepared",
+    lastSync: "Last run 18 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Buyer starts checkout and leaves without placing order after 45 minutes.",
+    expectedAction: "Create a payment recovery case with the abandoned checkout context.",
     tone: "rose" as Tone,
   },
   {
     id: "WR-006",
-    ruleName: "Support refund/order issue",
+    ruleName: "Shopify payment pending",
+    sourceChannel: "Shopify",
+    triggerSource: "Shopify order",
+    trigger: "Shopify order payment pending",
+    condition: "Payment status is pending or failed",
+    action: "Create payment recovery action",
+    destinationQueue: "Payment Recovery",
+    ownerRole: "Payment Recovery",
+    priority: "Critical" as Priority,
+    status: "Enabled",
+    linkedAutomationCard: "Shopify payment pending recovery",
+    boardPipeline: "Payment & Deposit Workflows",
+    usedIn: "2 automation cards",
+    lastRun: "16 minutes ago",
+    actionsCreated: 28,
+    openRecoveryValue: "$3,740",
+    buyerSignalType: "Pending payment",
+    keywords: ["pending", "failed", "payment", "deposit"],
+    timeDelay: "30 minutes after pending status",
+    exclusionRules: ["Do not run if payment is completed", "Do not run if order is cancelled"],
+    approvalRequirement: "Owner approval for high-value payment reminders",
+    actionOutputs: ["Create payment task", "Notify payment owner", "Add to Payment Recovery", "Add to Monthly Summary"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Shopify payment event prepared",
+    lastSync: "Last run 16 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Order is created but payment remains pending for 30 minutes.",
+    expectedAction: "Create a payment recovery task and route it to Payment Recovery.",
+    tone: "rose" as Tone,
+  },
+  {
+    id: "WR-007",
+    ruleName: "Failed payment sync",
+    sourceChannel: "Stripe / Payment provider",
+    triggerSource: "Failed payment sync",
+    trigger: "Payment source fails to sync status",
+    condition: "Payment status cannot be confirmed after another sync attempt",
+    action: "Create automation health review issue",
+    destinationQueue: "Automation Health",
+    ownerRole: "Automation Owner",
+    priority: "Critical" as Priority,
+    status: "Failed Sync",
+    linkedAutomationCard: "Stripe failed payment recovery",
+    boardPipeline: "External API / Third-Party Integrations",
+    usedIn: "1 automation card",
+    lastRun: "4 failed runs",
+    actionsCreated: 18,
+    openRecoveryValue: "$6,840",
+    buyerSignalType: "Failed payment data",
+    keywords: ["failed", "payment", "sync", "status missing"],
+    timeDelay: "After one retry attempt",
+    exclusionRules: ["Do not create customer message automatically", "Keep action manual when source is not connected"],
+    approvalRequirement: "Automation owner must review before customer contact",
+    actionOutputs: ["Create Automation Health issue", "Create payment review case", "Log failed sync", "Notify automation owner"],
+    backendStatus: "Needs backend/source review",
+    webhookStatus: "Webhook received incomplete status",
+    lastSync: "Last failed sync 42 minutes ago",
+    failedSyncReason: "Payment status field missing from provider event",
+    testSample: "Stripe sends payment event but payment status field is missing.",
+    expectedAction: "Create an Automation Health review issue and keep customer contact manual.",
+    tone: "rose" as Tone,
+  },
+  {
+    id: "WR-008",
+    ruleName: "TikTok product comment signal",
+    sourceChannel: "TikTok",
+    triggerSource: "TikTok product comment",
+    trigger: "New TikTok product comment",
+    condition: "Comment asks about shade, size, restock, price, or delivery",
+    action: "Create product demand signal",
+    destinationQueue: "Product Demand",
+    ownerRole: "Marketing",
+    priority: "Medium" as Priority,
+    status: "Draft",
+    linkedAutomationCard: "TikTok product comment recovery queue",
+    boardPipeline: "Social Media Automations",
+    usedIn: "1 automation card",
+    lastRun: "Not connected",
+    actionsCreated: 22,
+    openRecoveryValue: "$3,640",
+    buyerSignalType: "Product comment intent",
+    keywords: ["shade", "size", "restock", "price", "delivery"],
+    timeDelay: "After comment is detected",
+    exclusionRules: ["Exclude spam or giveaway comments", "Do not run if comment is already reviewed"],
+    approvalRequirement: "Marketing review before task is created",
+    actionOutputs: ["Create Product Demand signal", "Add buyer/client tag", "Add to report", "Notify marketing owner"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "TikTok comment source pending",
+    lastSync: "Not connected",
+    failedSyncReason: "No failed sync; source not connected yet",
+    testSample: "Comment: Is this shade available and what is the price?",
+    expectedAction: "Create a product demand signal and prepare it for owner review.",
+    tone: "cyan" as Tone,
+  },
+  {
+    id: "WR-009",
+    ruleName: "Meta ad comment asking price",
+    sourceChannel: "Meta Ads",
+    triggerSource: "Meta ad comment",
+    trigger: "New Meta/Facebook ad comment",
+    condition: "Comment asks price, availability, delivery, or product details",
+    action: "Create ad revenue signal",
+    destinationQueue: "Ad Revenue Signals",
+    ownerRole: "Marketing",
+    priority: "Medium" as Priority,
+    status: "Enabled",
+    linkedAutomationCard: "Meta price comment recovery",
+    boardPipeline: "Social Media Automations",
+    usedIn: "2 automation cards",
+    lastRun: "28 minutes ago",
+    actionsCreated: 19,
+    openRecoveryValue: "$2,950",
+    buyerSignalType: "Ad comment buyer intent",
+    keywords: ["price", "available", "delivery", "details"],
+    timeDelay: "10 minutes after comment capture",
+    exclusionRules: ["Exclude spam comments", "Do not repeat same action today"],
+    approvalRequirement: "Owner review if value is high",
+    actionOutputs: ["Create Ad Revenue Signal", "Add to Recovery Activity", "Assign owner", "Add to Monthly Summary"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Meta comment mapping prepared",
+    lastSync: "Last run 28 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Comment under ad: price please and is delivery available?",
+    expectedAction: "Create an ad revenue signal and assign it to Marketing.",
+    tone: "cyan" as Tone,
+  },
+  {
+    id: "WR-010",
+    ruleName: "Support refund / exchange issue",
+    sourceChannel: "Support",
     triggerSource: "Support message",
+    trigger: "Support message received",
     condition: "Message contains refund, order issue, complaint, or exchange request",
-    action: "Create Order Risk case",
+    action: "Create order risk case",
+    destinationQueue: "Order Issues",
     ownerRole: "Operations",
     priority: "High" as Priority,
-    destinationQueue: "Order Issues",
     status: "Enabled",
-    lastRun: "Frontend rule config only",
+    linkedAutomationCard: "Support refund/order issue",
+    boardPipeline: "Customer Care / Support Automations",
+    usedIn: "2 automation cards",
+    lastRun: "1 hour ago",
+    actionsCreated: 15,
+    openRecoveryValue: "$2,120",
+    buyerSignalType: "Support risk",
+    keywords: ["refund", "exchange", "complaint", "wrong item", "issue"],
+    timeDelay: "Immediately after support capture",
+    exclusionRules: ["Do not run if issue is resolved", "Require specialist review for complaint"],
+    approvalRequirement: "Operations review before external reply",
+    actionOutputs: ["Create Order Risk case", "Notify operations", "Add to Order Issues", "Log in Recovery Activity"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Support source prepared",
+    lastSync: "Last run 1 hour ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Buyer says the order was wrong and asks for exchange/refund.",
+    expectedAction: "Create an order risk case and route it to Operations.",
     tone: "amber" as Tone,
   },
+  {
+    id: "WR-011",
+    ruleName: "High-value unpaid order",
+    sourceChannel: "Shopify",
+    triggerSource: "High-value unpaid order",
+    trigger: "Order value is above threshold and unpaid",
+    condition: "Order value is above $500 and payment is not completed",
+    action: "Notify payment owner and create priority recovery task",
+    destinationQueue: "Payment Recovery",
+    ownerRole: "Payment Recovery",
+    priority: "Critical" as Priority,
+    status: "Needs Review",
+    linkedAutomationCard: "High-value unpaid order owner alert",
+    boardPipeline: "Payment & Deposit Workflows",
+    usedIn: "1 automation card",
+    lastRun: "Last run 42 minutes ago",
+    actionsCreated: 22,
+    openRecoveryValue: "$5,980",
+    buyerSignalType: "High-value unpaid order",
+    keywords: ["high value", "unpaid", "payment", "owner alert"],
+    timeDelay: "Immediately when value threshold is met",
+    exclusionRules: ["Require approval for high-value buyers", "Do not run if payment is completed"],
+    approvalRequirement: "Owner approval required before customer contact",
+    actionOutputs: ["Create priority payment task", "Notify payment owner", "Add to Payment Recovery", "Add to Revenue Leak Reports"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Order value threshold prepared",
+    lastSync: "Last run 42 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "Order total is $650 and payment is still unpaid.",
+    expectedAction: "Create a critical payment recovery task and request owner approval.",
+    tone: "rose" as Tone,
+  },
+  {
+    id: "WR-012",
+    ruleName: "Booking request not confirmed",
+    sourceChannel: "Website",
+    triggerSource: "Booking request",
+    trigger: "Booking request received",
+    condition: "Booking status is requested but appointment is not confirmed",
+    action: "Create booking follow-up action",
+    destinationQueue: "Today's Recovery Queue",
+    ownerRole: "Service owner",
+    priority: "High" as Priority,
+    status: "Needs Review",
+    linkedAutomationCard: "Calendly booking not confirmed",
+    boardPipeline: "External API / Third-Party Integrations",
+    usedIn: "1 automation card",
+    lastRun: "Not connected",
+    actionsCreated: 0,
+    openRecoveryValue: "$1,900",
+    buyerSignalType: "Appointment confirmation gap",
+    keywords: ["booking", "appointment", "not confirmed", "calendar"],
+    timeDelay: "1 hour after booking request",
+    exclusionRules: ["Stop if booking is confirmed", "Run only when buyer/client contact details exist"],
+    approvalRequirement: "Service owner review before confirmation message",
+    actionOutputs: ["Create booking follow-up", "Assign service owner", "Add to Today's Recovery Queue", "Add to Monthly Summary"],
+    backendStatus: "Needs source connection",
+    webhookStatus: "Calendar source not connected",
+    lastSync: "Not connected",
+    failedSyncReason: "Calendar source needs backend connection",
+    testSample: "Booking request arrives but no appointment confirmation is saved.",
+    expectedAction: "Create a booking follow-up action and alert the service owner.",
+    tone: "amber" as Tone,
+  },
+  {
+    id: "WR-013",
+    ruleName: "Quote sent but no deposit paid",
+    sourceChannel: "Manual Entry",
+    triggerSource: "Quote sent",
+    trigger: "Quote sent to buyer/client",
+    condition: "Deposit is not paid within the follow-up window",
+    action: "Create deposit recovery reminder",
+    destinationQueue: "Payment Recovery",
+    ownerRole: "Sales Owner",
+    priority: "High" as Priority,
+    status: "Paused",
+    linkedAutomationCard: "Quote sent but no deposit paid",
+    boardPipeline: "Payment & Deposit Workflows",
+    usedIn: "1 automation card",
+    lastRun: "Paused 2 days ago",
+    actionsCreated: 9,
+    openRecoveryValue: "$2,760",
+    buyerSignalType: "Deposit pending",
+    keywords: ["quote", "deposit", "pending", "payment"],
+    timeDelay: "24 hours after quote is sent",
+    exclusionRules: ["Do not run if payment is completed", "Do not run if appointment is cancelled"],
+    approvalRequirement: "Owner approval before deposit reminder",
+    actionOutputs: ["Create deposit reminder", "Add to Payment Recovery", "Notify Sales Owner", "Log in Recovery Activity"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Manual trigger prepared",
+    lastSync: "Paused 2 days ago",
+    failedSyncReason: "Paused by owner",
+    testSample: "Quote is sent, but no deposit is marked paid after 24 hours.",
+    expectedAction: "Create a deposit recovery task and keep it pending owner approval.",
+    tone: "amber" as Tone,
+  },
+  {
+    id: "WR-014",
+    ruleName: "Repeat buyer inactive",
+    sourceChannel: "Buyer Profile",
+    triggerSource: "Buyer activity check",
+    trigger: "Buyer becomes inactive after repeat window",
+    condition: "Repeat buyer has no purchase or reply after the expected return window",
+    action: "Create inactive buyer recovery task",
+    destinationQueue: "Inactive Buyer Recovery",
+    ownerRole: "Recovery Lead",
+    priority: "Medium" as Priority,
+    status: "Enabled",
+    linkedAutomationCard: "Repeat buyer inactivity check",
+    boardPipeline: "Messaging & Customer Touchpoints",
+    usedIn: "2 automation cards",
+    lastRun: "3 hours ago",
+    actionsCreated: 13,
+    openRecoveryValue: "$3,100",
+    buyerSignalType: "Repeat buyer inactivity",
+    keywords: ["inactive", "repeat buyer", "return window", "winback"],
+    timeDelay: "After repeat purchase window ends",
+    exclusionRules: ["Exclude already recovered buyers", "Do not run if buyer has active order"],
+    approvalRequirement: "Review before winback message",
+    actionOutputs: ["Create inactive buyer task", "Add buyer tag", "Add to Inactive Buyer Recovery", "Add to Monthly Summary"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Buyer profile check prepared",
+    lastSync: "Last run 3 hours ago",
+    failedSyncReason: "No failed sync",
+    testSample: "VIP buyer has not purchased again after the expected refill/repeat window.",
+    expectedAction: "Create an inactive buyer recovery task and add a winback tag.",
+    tone: "cyan" as Tone,
+  },
+  {
+    id: "WR-015",
+    ruleName: "VIP buyer follow-up",
+    sourceChannel: "Buyer Profile",
+    triggerSource: "VIP buyer signal",
+    trigger: "VIP buyer has open opportunity",
+    condition: "VIP buyer has high intent or overdue follow-up",
+    action: "Create priority follow-up action",
+    destinationQueue: "Buyer Priority",
+    ownerRole: "Owner / Admin",
+    priority: "Critical" as Priority,
+    status: "Enabled",
+    linkedAutomationCard: "VIP buyer check",
+    boardPipeline: "Messaging & Customer Touchpoints",
+    usedIn: "2 automation cards",
+    lastRun: "45 minutes ago",
+    actionsCreated: 13,
+    openRecoveryValue: "$2,760",
+    buyerSignalType: "VIP opportunity",
+    keywords: ["VIP", "high intent", "overdue", "priority"],
+    timeDelay: "Same day as signal",
+    exclusionRules: ["Require approval for high-value buyers", "Do not repeat same action today"],
+    approvalRequirement: "Owner approval required",
+    actionOutputs: ["Create priority buyer task", "Notify owner", "Add to Buyer Priority", "Add to Monthly Summary"],
+    backendStatus: "Ready for automation connection",
+    webhookStatus: "Buyer priority mapping prepared",
+    lastSync: "Last run 45 minutes ago",
+    failedSyncReason: "No failed sync",
+    testSample: "VIP buyer asks about a premium product and has no follow-up today.",
+    expectedAction: "Create a critical owner-reviewed follow-up action in Buyer Priority.",
+    tone: "emerald" as Tone,
+  },
 ];
-
 const emailTemplatesSeed = [
   {
     id: "ES-001",
@@ -45595,91 +45996,275 @@ function AutomationBoard({ onNavigate }: { onNavigate?: (page: string) => void }
 function WorkflowRules({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [rules, setRules] = useState(workflowRuleSeedCards);
   const [activeFilter, setActiveFilter] = useState("All");
-  const [modal, setModal] = useState<ReportsModalState>(null);
-  const filters = ["All", "Enabled", "Draft", "Payment", "Instagram", "TikTok", "Support", "Failed Sync"];
+  const [selectedRule, setSelectedRule] = useState<typeof workflowRuleSeedCards[number] | null>(null);
+  const [detailTab, setDetailTab] = useState("Rule Overview");
+  const [createRuleOpen, setCreateRuleOpen] = useState(false);
+  const filters = ["All", "Enabled", "Draft", "Paused", "Needs Review", "Failed Sync", "Payment", "Instagram", "TikTok", "Support"];
   const visibleRules = rules.filter((rule) => {
     if (activeFilter === "All") return true;
-    if (activeFilter === "Enabled") return rule.status === "Enabled";
-    if (activeFilter === "Draft") return rule.status === "Draft";
-    if (activeFilter === "Payment") return rule.ruleName.toLowerCase().includes("payment") || rule.action.toLowerCase().includes("payment");
-    if (activeFilter === "Instagram") return rule.triggerSource.includes("Instagram");
-    if (activeFilter === "TikTok") return rule.triggerSource.includes("TikTok");
-    if (activeFilter === "Support") return rule.triggerSource.includes("Support");
-    return rule.triggerSource.includes("Failed sync");
+    if (["Enabled", "Draft", "Paused", "Needs Review", "Failed Sync"].includes(activeFilter)) return rule.status === activeFilter;
+    if (activeFilter === "Payment") return [rule.ruleName, rule.action, rule.destinationQueue, rule.sourceChannel].join(" ").toLowerCase().includes("payment");
+    if (activeFilter === "Instagram") return rule.sourceChannel.includes("Instagram") || rule.triggerSource.includes("Instagram");
+    if (activeFilter === "TikTok") return rule.sourceChannel.includes("TikTok") || rule.triggerSource.includes("TikTok");
+    if (activeFilter === "Support") return rule.sourceChannel.includes("Support") || rule.triggerSource.includes("Support");
+    return true;
   });
 
   function toggleRule(ruleId: string) {
-    setRules((current) => current.map((rule) => rule.id === ruleId ? { ...rule, status: rule.status === "Enabled" ? "Disabled" : "Enabled" } : rule));
+    setRules((current) => current.map((rule) => rule.id === ruleId ? { ...rule, status: rule.status === "Enabled" ? "Paused" : "Enabled" } : rule));
   }
 
   function openRule(rule: typeof workflowRuleSeedCards[number]) {
-    setModal({
-      title: rule.ruleName,
-      subtitle: `${rule.triggerSource} → ${rule.destinationQueue}`,
-      items: [
-        { label: "Trigger source", value: rule.triggerSource },
-        { label: "Condition", value: rule.condition },
-        { label: "Action", value: rule.action },
-        { label: "Assign to role", value: rule.ownerRole },
-        { label: "Priority", value: rule.priority },
-        { label: "Status", value: rule.status },
-      ],
-      note: "Frontend rule config only. n8n/backend can later read this trigger, condition, owner, priority, and destination queue.",
-      actions: ["Test rule", "Duplicate rule", "Export n8n config", rule.status === "Enabled" ? "Disable rule" : "Enable rule"],
-    });
+    setSelectedRule(rule);
+    setDetailTab("Rule Overview");
   }
 
   return (
     <div className="reports-automation-page workflow-rules-page">
       <section className="reports-hero-card">
         <div>
-          <span>Frontend-only automation config</span>
+          <span>Automation rule control layer</span>
           <h2>Workflow Rules</h2>
-          <p>Create simple rules that describe what n8n/backend should do later. These controls do not execute real automation yet.</p>
+          <p>Workflow Rules define the logic behind each automation card. These rules decide when Altynx should create recovery tasks, alerts, reviews, or revenue signals.</p>
         </div>
-        <button className="primary-btn" type="button" onClick={() => onNavigate?.("Automation Board")}>View Automation Board</button>
+        <div className="workflow-rule-hero-actions">
+          <button className="secondary-btn" type="button" onClick={() => setCreateRuleOpen(true)}>Create Rule</button>
+          <button className="primary-btn" type="button" onClick={() => onNavigate?.("Automation Board")}>View Automation Board</button>
+        </div>
       </section>
 
       <section className="reports-kpi-grid">
-        <ReportsValueCard label="Active rules" value={`${rules.filter((rule) => rule.status === "Enabled").length}`} caption="Manual enable / disable" tone="emerald" />
+        <ReportsValueCard label="Active rules" value={`${rules.filter((rule) => rule.status === "Enabled").length}`} caption="Connected to board logic" tone="emerald" />
         <ReportsValueCard label="Draft rules" value={`${rules.filter((rule) => rule.status === "Draft").length}`} caption="Needs review" tone="amber" />
-        <ReportsValueCard label="Supported triggers" value="15" caption="DM, ads, orders, forms, support" tone="cyan" />
-        <ReportsValueCard label="Backend status" value="Config" caption="Frontend-ready only" tone="gray" />
+        <ReportsValueCard label="Supported triggers" value={`${rules.length}`} caption="DM, ads, orders, forms, support" tone="cyan" />
+        <ReportsValueCard label="Backend status" value="Ready" caption="Prepared for backend wiring" tone="gray" />
       </section>
 
       <ReportsFilterRow filters={filters} active={activeFilter} onChange={setActiveFilter} countLabel={`${visibleRules.length} rules · 25 per page`} />
-      <ReportsStatusBanner eyebrow="Rule status" title="n8n-ready structure">Rules are saved as frontend configuration examples only. Execution still requires backend/n8n wiring.</ReportsStatusBanner>
+      <ReportsStatusBanner eyebrow="Backend status" title="Ready for automation connection">Rules are prepared for n8n/backend wiring, but live execution depends on connected sources and backend setup.</ReportsStatusBanner>
 
       <section className="workflow-rules-grid">
         {visibleRules.map((rule) => (
-          <article className="workflow-rule-card" key={rule.id}>
+          <article className="workflow-rule-card workflow-rule-card-expanded" key={rule.id}>
             <div className="workflow-rule-card-head">
               <span className={`reports-line-icon ${rule.tone}`} />
               <div>
                 <h3>{rule.ruleName}</h3>
-                <p>{rule.triggerSource}</p>
+                <p>{rule.sourceChannel} · {rule.boardPipeline}</p>
               </div>
               <Badge tone={rule.tone}>{rule.status}</Badge>
             </div>
-            <div className="reports-modal-note workflow-rule-condition">
-              <span>Condition</span>
-              <p>{rule.condition}</p>
+
+            <div className="workflow-rule-flow-grid">
+              <DetailField label="Trigger" value={rule.trigger} />
+              <DetailField label="Condition" value={rule.condition} />
+              <DetailField label="Action" value={rule.action} />
+              <DetailField label="Output" value={rule.destinationQueue} />
             </div>
+
+            <div className="workflow-rule-link-panel">
+              <div>
+                <span>Linked Board Card</span>
+                <strong>{rule.linkedAutomationCard}</strong>
+                <p>{rule.usedIn} · Last run: {rule.lastRun}</p>
+              </div>
+              <div>
+                <span>Actions Created</span>
+                <strong>{rule.actionsCreated}</strong>
+                <p>{rule.openRecoveryValue} open recovery value</p>
+              </div>
+            </div>
+
             <div className="reports-chip-row">
-              <span>{rule.action}</span>
-              <span>{rule.ownerRole}</span>
               <span>{rule.priority}</span>
-              <span>{rule.destinationQueue}</span>
+              <span>{rule.ownerRole}</span>
+              <span>{rule.backendStatus}</span>
+              <span>{rule.buyerSignalType}</span>
             </div>
             <div className="reports-card-actions">
               <button className="primary-btn" type="button" onClick={() => openRule(rule)}>View rule</button>
-              <button className="secondary-btn" type="button" onClick={() => toggleRule(rule.id)}>{rule.status === "Enabled" ? "Disable rule" : "Enable rule"}</button>
+              <button className="secondary-btn" type="button" onClick={() => toggleRule(rule.id)}>{rule.status === "Enabled" ? "Pause rule" : "Enable rule"}</button>
             </div>
           </article>
         ))}
       </section>
       <ReportsPagination total={visibleRules.length} label="rules" />
-      <AutomationDetailModal modal={modal} onClose={() => setModal(null)} />
+      <WorkflowRuleDetailModal rule={selectedRule} activeTab={detailTab} onTabChange={setDetailTab} onClose={() => setSelectedRule(null)} />
+      <WorkflowRuleCreateModal isOpen={createRuleOpen} onClose={() => setCreateRuleOpen(false)} />
+    </div>
+  );
+}
+
+function WorkflowRuleDetailModal({
+  rule,
+  activeTab,
+  onTabChange,
+  onClose,
+}: {
+  rule: typeof workflowRuleSeedCards[number] | null;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  onClose: () => void;
+}) {
+  if (!rule) return null;
+
+  const tabs = ["Rule Overview", "Logic & Conditions", "Action Output", "Sync / Backend Status", "Test Rule"];
+
+  return (
+    <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+      <article aria-modal="true" className="automation-detail-modal workflow-rule-detail-modal" role="dialog">
+        <header className="reports-modal-header">
+          <div>
+            <span>Workflow rule</span>
+            <h2>{rule.ruleName}</h2>
+            <p>{rule.sourceChannel} · {rule.boardPipeline}</p>
+          </div>
+          <button className="secondary-btn" type="button" onClick={onClose}>Close</button>
+        </header>
+
+        <div className="workflow-rule-detail-tabs" role="tablist" aria-label="Workflow rule details">
+          {tabs.map((tab) => (
+            <button key={tab} className={activeTab === tab ? "active" : ""} type="button" onClick={() => onTabChange(tab)}>
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "Rule Overview" ? (
+          <section className="workflow-rule-tab-panel">
+            <div className="reports-modal-grid">
+              <DetailField label="Rule name" value={rule.ruleName} />
+              <DetailField label="Source / Channel" value={rule.sourceChannel} />
+              <DetailField label="Trigger" value={rule.trigger} />
+              <DetailField label="Condition" value={rule.condition} />
+              <DetailField label="Action" value={rule.action} />
+              <DetailField label="Output location" value={rule.destinationQueue} />
+              <DetailField label="Priority" value={rule.priority} />
+              <DetailField label="Status" value={rule.status} />
+              <DetailField label="Linked automation card" value={rule.linkedAutomationCard} />
+            </div>
+            <div className="workflow-rule-link-panel large">
+              <div>
+                <span>Board Pipeline</span>
+                <strong>{rule.boardPipeline}</strong>
+                <p>Used in: {rule.usedIn}</p>
+              </div>
+              <div>
+                <span>Performance context</span>
+                <strong>{rule.openRecoveryValue}</strong>
+                <p>{rule.actionsCreated} actions created · Last run: {rule.lastRun}</p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "Logic & Conditions" ? (
+          <section className="workflow-rule-tab-panel">
+            <div className="reports-modal-grid">
+              <DetailField label="Buyer signal type" value={rule.buyerSignalType} />
+              <DetailField label="Time delay" value={rule.timeDelay} />
+              <DetailField label="Approval requirement" value={rule.approvalRequirement} />
+            </div>
+            <div className="workflow-rule-modal-section">
+              <span>Message contains keywords</span>
+              <div className="reports-chip-row">{rule.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}</div>
+            </div>
+            <div className="workflow-rule-modal-section">
+              <span>Exclusion rules</span>
+              <div className="workflow-rule-check-list">{rule.exclusionRules.map((item) => <p key={item}>{item}</p>)}</div>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "Action Output" ? (
+          <section className="workflow-rule-tab-panel">
+            <div className="reports-modal-grid">
+              <DetailField label="Primary action" value={rule.action} />
+              <DetailField label="Output location" value={rule.destinationQueue} />
+              <DetailField label="Owner / role" value={rule.ownerRole} />
+            </div>
+            <div className="workflow-rule-modal-section">
+              <span>Action outputs</span>
+              <div className="workflow-rule-check-list">{rule.actionOutputs.map((item) => <p key={item}>{item}</p>)}</div>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "Sync / Backend Status" ? (
+          <section className="workflow-rule-tab-panel">
+            <div className="reports-modal-grid">
+              <DetailField label="Backend status" value={rule.backendStatus} />
+              <DetailField label="Webhook status" value={rule.webhookStatus} />
+              <DetailField label="Last sync" value={rule.lastSync} />
+              <DetailField label="Failed sync reason" value={rule.failedSyncReason} />
+            </div>
+            <div className="reports-modal-note">
+              <span>Backend note</span>
+              <p>Rules are prepared for n8n/backend wiring. Live execution depends on connected sources and backend setup.</p>
+            </div>
+            <div className="reports-card-actions">
+              <button className="secondary-btn" type="button">Retry sync</button>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "Test Rule" ? (
+          <section className="workflow-rule-tab-panel">
+            <div className="workflow-rule-test-box">
+              <span>Simulate sample message</span>
+              <p>{rule.testSample}</p>
+            </div>
+            <div className="workflow-rule-test-box success">
+              <span>Preview expected action</span>
+              <p>{rule.expectedAction}</p>
+            </div>
+            <div className="reports-modal-grid">
+              <DetailField label="Where action appears" value={rule.destinationQueue} />
+              <DetailField label="Linked board card" value={rule.linkedAutomationCard} />
+              <DetailField label="Owner / approval" value={`${rule.ownerRole} · ${rule.approvalRequirement}`} />
+            </div>
+            <div className="reports-card-actions">
+              <button className="primary-btn" type="button">Simulate test rule</button>
+            </div>
+          </section>
+        ) : null}
+      </article>
+    </div>
+  );
+}
+
+function WorkflowRuleCreateModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="reports-modal-overlay altynx-modal-overlay" role="presentation">
+      <article aria-modal="true" className="automation-detail-modal workflow-rule-create-modal" role="dialog">
+        <header className="reports-modal-header">
+          <div>
+            <span>Create rule</span>
+            <h2>New workflow rule</h2>
+            <p>Build the rule structure that controls when an automation card should create recovery work.</p>
+          </div>
+          <button className="secondary-btn" type="button" onClick={onClose}>Close</button>
+        </header>
+
+        <div className="workflow-rule-create-grid">
+          <section><span>1. Basic Details</span><p>Rule name, status, priority, and linked automation card.</p></section>
+          <section><span>2. Source / Channel</span><p>Instagram, WhatsApp, Shopify, Website, TikTok, Email, or Manual Entry.</p></section>
+          <section><span>3. Trigger</span><p>Choose the event that starts the rule, such as new DM, abandoned checkout, or booking request.</p></section>
+          <section><span>4. Conditions</span><p>Define keywords, buyer signal type, time delay, and exclusion rules.</p></section>
+          <section><span>5. Action</span><p>Create recovery card, assign owner, notify team member, add tag, or add to report.</p></section>
+          <section><span>6. Output Destination</span><p>Route the action to Today’s Recovery Queue, Buyer Profile, Payment Recovery, Order Risk, Automation Health, Revenue Leak Reports, or Monthly Summary.</p></section>
+          <section><span>7. Safety / Approval</span><p>Choose approval requirement, manual fallback, and duplicate/spam prevention rules.</p></section>
+          <section><span>8. Backend Sync</span><p>Prepare webhook, n8n connection, last sync, and failed sync reason.</p></section>
+          <section><span>9. Test Rule</span><p>Simulate sample message, preview expected action, and confirm where the action will appear.</p></section>
+        </div>
+
+        <footer className="reports-modal-footer">
+          <button className="primary-btn" type="button">Save draft rule</button>
+          <button className="secondary-btn" type="button" onClick={onClose}>Close</button>
+        </footer>
+      </article>
     </div>
   );
 }

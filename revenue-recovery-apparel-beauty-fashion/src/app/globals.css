@@ -66120,3 +66120,205 @@ button.buyer-product-preview {
   font-weight: 950;
   letter-spacing: -0.055em;
 }
+
+/* =========================================================
+   WORKFLOW RULES — BOARD LINKED RULE CONTROL LAYER
+   Scoped only to Workflow Rules page
+   ========================================================= */
+.workflow-rules-page .workflow-rule-hero-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.workflow-rules-page .workflow-rule-card-expanded {
+  gap: 16px;
+}
+
+.workflow-rules-page .workflow-rule-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workflow-rules-page .workflow-rule-flow-grid .detail-callout,
+.workflow-rules-page .workflow-rule-info-grid .detail-callout,
+.workflow-rules-page .workflow-rule-tab-panel .detail-callout {
+  min-height: 84px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid #eadfd4;
+  background: #fffaf7;
+}
+
+.workflow-rules-page .workflow-rule-flow-grid .detail-callout span,
+.workflow-rules-page .workflow-rule-tab-panel .detail-callout span {
+  display: block;
+  margin-bottom: 6px;
+  color: #ff4500;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workflow-rules-page .workflow-rule-flow-grid .detail-callout strong,
+.workflow-rules-page .workflow-rule-tab-panel .detail-callout strong {
+  color: #111111;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.workflow-rules-page .workflow-rule-link-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.55fr);
+  gap: 10px;
+  padding: 13px;
+  border-radius: 18px;
+  border: 1px solid #eadfd4;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7f1 100%);
+}
+
+.workflow-rules-page .workflow-rule-link-panel.large {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workflow-rules-page .workflow-rule-link-panel span,
+.workflow-rule-detail-modal .workflow-rule-modal-section > span,
+.workflow-rule-detail-modal .workflow-rule-test-box > span,
+.workflow-rule-create-modal .workflow-rule-create-grid section > span {
+  display: block;
+  margin-bottom: 7px;
+  color: #ff4500;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workflow-rules-page .workflow-rule-link-panel strong {
+  display: block;
+  color: #111111;
+  font-size: 16px;
+  line-height: 1.15;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+}
+
+.workflow-rules-page .workflow-rule-link-panel p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.workflow-rule-detail-modal .workflow-rule-detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid #eadfd4;
+  background: #fffaf7;
+}
+
+.workflow-rule-detail-modal .workflow-rule-detail-tabs button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #7c5638;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.workflow-rule-detail-modal .workflow-rule-detail-tabs button.active {
+  border-color: #ff4500;
+  background: #ff4500;
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(255, 69, 0, 0.2);
+}
+
+.workflow-rule-detail-modal .workflow-rule-tab-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.workflow-rule-detail-modal .workflow-rule-modal-section,
+.workflow-rule-detail-modal .workflow-rule-test-box,
+.workflow-rule-create-modal .workflow-rule-create-grid section {
+  padding: 15px;
+  border-radius: 18px;
+  border: 1px solid #eadfd4;
+  background: #fffaf7;
+}
+
+.workflow-rule-detail-modal .workflow-rule-test-box.success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.workflow-rule-detail-modal .workflow-rule-test-box p,
+.workflow-rule-create-modal .workflow-rule-create-grid section p {
+  margin: 0;
+  color: #374151;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+.workflow-rule-detail-modal .workflow-rule-check-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workflow-rule-detail-modal .workflow-rule-check-list p {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid #eadfd4;
+  background: #ffffff;
+  color: #111111;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 900;
+}
+
+.workflow-rule-create-modal .workflow-rule-create-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .workflow-rules-page .workflow-rule-flow-grid,
+  .workflow-rule-create-modal .workflow-rule-create-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .workflow-rules-page .workflow-rule-hero-actions,
+  .workflow-rules-page .workflow-rule-link-panel,
+  .workflow-rules-page .workflow-rule-link-panel.large,
+  .workflow-rules-page .workflow-rule-flow-grid,
+  .workflow-rule-create-modal .workflow-rule-create-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .workflow-rules-page .workflow-rule-hero-actions .primary-btn,
+  .workflow-rules-page .workflow-rule-hero-actions .secondary-btn {
+    width: 100%;
+  }
+}
